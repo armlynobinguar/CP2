@@ -77,4 +77,7 @@ Basic Salary     : PHP 35000.0
 ## Authors
 
 - Ryan Tavera
+- Armielyn Obinguar
+- Chantal Flor
+- Mitzi Arrogante
 - Group 3 - H1101 | MO-IT103 Computer Programming 2
