@@ -8,8 +8,29 @@ public class Main {
     public static void main(String[] args) {
         DisplayModule.printHeader();
 
+        String rawEmployeeId = "10001";
         String employeeName = "Maria Reyes";
-        int employeeId = 10001;
+        String payCoverage = "2024-11-01 to 2024-11-15";
+
+        OperationResult<Integer> employeeIdValidation = ValidationModule.validateEmployeeNumber(rawEmployeeId);
+        OperationResult<String> employeeNameValidation = ValidationModule.validateEmployeeName(employeeName);
+        OperationResult<String> coverageValidation = ValidationModule.validatePayCoverage(payCoverage);
+
+        if (!employeeIdValidation.isSuccess()) {
+            System.out.println("Validation error: " + employeeIdValidation.getMessage());
+            return;
+        }
+        if (!employeeNameValidation.isSuccess()) {
+            System.out.println("Validation error: " + employeeNameValidation.getMessage());
+            return;
+        }
+        if (!coverageValidation.isSuccess()) {
+            System.out.println("Validation error: " + coverageValidation.getMessage());
+            return;
+        }
+
+        int employeeId = employeeIdValidation.getData();
+        employeeName = employeeNameValidation.getData();
         String positionName = "Software Engineer";
         String departmentName = "IT Department";
         double basicSalary = 35000.00;

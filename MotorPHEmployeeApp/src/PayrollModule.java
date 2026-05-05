@@ -1,8 +1,19 @@
 public class PayrollModule {
     private PayrollModule() {}
 
-    static void printPayslip(int employeeId, String employeeName, String position, String department,
-                             double hoursWorked, double basicSalary, double rice, double phone, double clothing) {
+    static OperationResult<PayrollBreakdown> computePayroll(
+            double hoursWorked, double basicSalary, double rice, double phone, double clothing) {
+        OperationResult<Double> salaryValidation = ValidationModule.validatePositiveAmount(basicSalary, "Basic salary");
+        if (!salaryValidation.isSuccess()) {
+            return OperationResult.fail(salaryValidation.getMessage());
+        }
+        if (hoursWorked < 0) {
+            return OperationResult.fail("Hours worked must not be negative.");
+        }
+        if (rice < 0 || phone < 0 || clothing < 0) {
+            return OperationResult.fail("Allowance values must not be negative.");
+        }
+
         double rate = hourlyRate(basicSalary);
         double earnedPay = hoursWorked * rate;
         double benefits = rice + phone + clothing;
@@ -15,6 +26,22 @@ public class PayrollModule {
         double totalDeductions = sss + philhealth + pagibig + tax;
         double net = gross - totalDeductions;
 
+        PayrollBreakdown breakdown = new PayrollBreakdown(
+                hoursWorked, rate, earnedPay, benefits, gross,
+                sss, philhealth, pagibig, tax, totalDeductions, net);
+        return OperationResult.ok(breakdown);
+    }
+
+    static void printPayslip(int employeeId, String employeeName, String position, String department,
+                             double hoursWorked, double basicSalary, double rice, double phone, double clothing) {
+        OperationResult<PayrollBreakdown> payrollResult =
+                computePayroll(hoursWorked, basicSalary, rice, phone, clothing);
+        if (!payrollResult.isSuccess()) {
+            System.out.println("Payroll error: " + payrollResult.getMessage());
+            return;
+        }
+        PayrollBreakdown data = payrollResult.getData();
+
         System.out.println("============================================");
         System.out.println("            MOTORPH EMPLOYEE PAYSLIP        ");
         System.out.println("============================================");
@@ -22,23 +49,23 @@ public class PayrollModule {
         System.out.println("Employee ID      : " + employeeId);
         System.out.println("Position         : " + position);
         System.out.println("Department       : " + department);
-        System.out.println("Hours Worked     : " + hoursWorked);
+        System.out.println("Hours Worked     : " + data.getHoursWorked());
         System.out.println("--------------------------------------------");
         System.out.println("EARNINGS");
-        System.out.println("  Basic Pay      : PHP " + String.format("%.2f", earnedPay));
+        System.out.println("  Basic Pay      : PHP " + String.format("%.2f", data.getEarnedPay()));
         System.out.println("  Rice Subsidy   : PHP " + rice);
         System.out.println("  Phone Allow.   : PHP " + phone);
         System.out.println("  Clothing Allow.: PHP " + clothing);
-        System.out.println("  Gross Pay      : PHP " + String.format("%.2f", gross));
+        System.out.println("  Gross Pay      : PHP " + String.format("%.2f", data.getGrossPay()));
         System.out.println("--------------------------------------------");
         System.out.println("DEDUCTIONS");
-        System.out.println("  SSS            : PHP " + String.format("%.2f", sss));
-        System.out.println("  PhilHealth     : PHP " + String.format("%.2f", philhealth));
-        System.out.println("  Pag-IBIG       : PHP " + String.format("%.2f", pagibig));
-        System.out.println("  Withholding Tax: PHP " + String.format("%.2f", tax));
-        System.out.println("  Total Deductions: PHP " + String.format("%.2f", totalDeductions));
+        System.out.println("  SSS            : PHP " + String.format("%.2f", data.getSss()));
+        System.out.println("  PhilHealth     : PHP " + String.format("%.2f", data.getPhilhealth()));
+        System.out.println("  Pag-IBIG       : PHP " + String.format("%.2f", data.getPagibig()));
+        System.out.println("  Withholding Tax: PHP " + String.format("%.2f", data.getWithholdingTax()));
+        System.out.println("  Total Deductions: PHP " + String.format("%.2f", data.getTotalDeductions()));
         System.out.println("--------------------------------------------");
-        System.out.println("  NET PAY        : PHP " + String.format("%.2f", net));
+        System.out.println("  NET PAY        : PHP " + String.format("%.2f", data.getNetPay()));
         System.out.println("============================================");
         System.out.println();
     }

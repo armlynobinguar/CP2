@@ -3,9 +3,22 @@ public class AttendanceModule {
 
     private AttendanceModule() {}
 
-    static double computeHoursWorked(String timeIn, String timeOut) {
-        int inMinutes = toMinutes(timeIn);
-        int outMinutes = toMinutes(timeOut);
+    static OperationResult<AttendanceResult> evaluateAttendance(String timeIn, String timeOut) {
+        OperationResult<String> inValidation = ValidationModule.validateTime(timeIn, "Time-In");
+        if (!inValidation.isSuccess()) {
+            return OperationResult.fail(inValidation.getMessage());
+        }
+        OperationResult<String> outValidation = ValidationModule.validateTime(timeOut, "Time-Out");
+        if (!outValidation.isSuccess()) {
+            return OperationResult.fail(outValidation.getMessage());
+        }
+
+        int inMinutes = toMinutes(inValidation.getData());
+        int outMinutes = toMinutes(outValidation.getData());
+        if (outMinutes < inMinutes) {
+            return OperationResult.fail("Time-Out must not be earlier than Time-In.");
+        }
+
         boolean isLate = inMinutes > SHIFT_START_MINUTES;
         double hours = (outMinutes - inMinutes) / 60.0;
         if (hours > 5) {
@@ -14,10 +27,22 @@ public class AttendanceModule {
         if (hours < 0) {
             hours = 0;
         }
-        System.out.println("Attendance Time-IN -> " + timeIn + (isLate ? " (LATE)" : " (ON TIME)"));
-        System.out.println("Attendance Time-OUT -> " + timeOut);
-        System.out.println("Attendance Hours Worked -> " + String.format("%.2f", hours) + " hrs");
-        return hours;
+        AttendanceResult attendance = new AttendanceResult(
+                inValidation.getData(), outValidation.getData(), isLate, hours);
+        return OperationResult.ok(attendance);
+    }
+
+    static double computeHoursWorked(String timeIn, String timeOut) {
+        OperationResult<AttendanceResult> result = evaluateAttendance(timeIn, timeOut);
+        if (!result.isSuccess()) {
+            System.out.println("Attendance error: " + result.getMessage());
+            return 0;
+        }
+        AttendanceResult data = result.getData();
+        System.out.println("Attendance Time-IN -> " + data.getTimeIn() + (data.isLate() ? " (LATE)" : " (ON TIME)"));
+        System.out.println("Attendance Time-OUT -> " + data.getTimeOut());
+        System.out.println("Attendance Hours Worked -> " + String.format("%.2f", data.getHoursWorked()) + " hrs");
+        return data.getHoursWorked();
     }
 
     static int toMinutes(String hhmm) {
