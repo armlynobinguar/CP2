@@ -43,4 +43,22 @@ public class DisplayModule {
         System.out.println("Total Benefits   : PHP " + total);
         System.out.println("========================================");
     }
+
+    static void printAttendance(AttendanceResult data) {
+        System.out.println("Attendance Time-IN -> " + data.getTimeIn() + (data.isLate() ? " (LATE)" : " (ON TIME)"));
+        System.out.println("Attendance Time-OUT -> " + data.getTimeOut());
+        System.out.println("Attendance Hours Worked -> " + String.format("%.2f", data.getHoursWorked()) + " hrs");
+    }
+
+    static void printLeave(int leaveId, String employeeName, String leaveType, String startDate, String endDate, int days) {
+        System.out.println("Leave request #" + leaveId + " submitted by " + employeeName);
+        System.out.println("Type             : " + leaveType);
+        System.out.println("Dates            : " + startDate + " to " + endDate);
+        System.out.println("Status           : Pending");
+        System.out.println("Duration         : " + days + " day(s)");
+    }
+
+    static void printLoginResult(boolean loggedIn, String employeeName) {
+        System.out.println(loggedIn ? "Login success: " + employeeName : "Login failed");
+    }
 }
