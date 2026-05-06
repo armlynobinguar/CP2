@@ -10,9 +10,36 @@ public class Main {
         java.util.Scanner scanner = new java.util.Scanner(System.in);
         DisplayModule.printHeader();
 
+        int roleChoice = promptRoleChoice(scanner);
+        if (roleChoice == 1) {
+            runEmployeeView(service, scanner);
+        } else {
+            runHrView(service, scanner);
+        }
+
+        System.out.println("\n============================================");
+        System.out.println("          SESSION COMPLETE                   ");
+        System.out.println("============================================");
+        scanner.close();
+    }
+
+    private static int promptRoleChoice(java.util.Scanner scanner) {
+        while (true) {
+            System.out.println("--- Select Console View ---");
+            System.out.println("1) Employee View");
+            System.out.println("2) HR View");
+            String choice = promptText(scanner, "Enter choice (1 or 2): ");
+            if ("1".equals(choice) || "2".equals(choice)) {
+                return Integer.parseInt(choice);
+            }
+            System.out.println("Invalid selection. Please choose 1 or 2.\n");
+        }
+    }
+
+    private static void runEmployeeView(MotorPhService service, java.util.Scanner scanner) {
+        System.out.println("\n--- EMPLOYEE VIEW ---");
         EmployeeIdentity identity = promptIdentity(service, scanner);
         int employeeId = identity.getEmployeeId();
-        String payCoverage = identity.getPayCoverage();
         String employeeName = identity.getEmployeeName();
         String positionName = "Software Engineer";
         String departmentName = "IT Department";
@@ -34,7 +61,7 @@ public class Main {
         }
         AttendanceResult attendanceData = attendanceResult.getData();
         DisplayModule.printAttendance(attendanceData);
-        double dayHours = attendanceData.getHoursWorked();
+        double payrollHours = attendanceData.getHoursWorked() * 10;
         System.out.println();
 
         System.out.println("--- Filing a Leave Request ---");
@@ -52,7 +79,6 @@ public class Main {
         System.out.println();
 
         System.out.println("--- Processing Payroll ---");
-        double payrollHours = dayHours * 10;
         PayrollModule.printPayslip(
                 employeeId, employeeName, positionName, departmentName, payrollHours, basicSalary, rice, phone, clothing);
 
@@ -74,14 +100,19 @@ public class Main {
         DisplayModule.printLoginResult(loginAttempt2.isSuccess() && loginAttempt2.getData(), employeeName);
         System.out.println(loginAttempt2.isSuccess() && loginAttempt2.getData() ? "Logout success" : "No active session");
         System.out.println();
+    }
 
-        System.out.println("--- HR Manager Actions ---");
-        HrModule.runHrFlow("Ana Cruz", employeeName, employeeId, leaveId, payCoverage);
+    private static void runHrView(MotorPhService service, java.util.Scanner scanner) {
+        System.out.println("\n--- HR VIEW ---");
+        String hrName = promptText(scanner, "HR Manager Name: ");
+        EmployeeIdentity identity = promptIdentity(service, scanner);
+        int employeeId = identity.getEmployeeId();
+        String employeeName = identity.getEmployeeName();
+        String payCoverage = identity.getPayCoverage();
+        int leaveId = (int) promptDouble(scanner, "Leave Request ID to review: ");
 
-        System.out.println("\n============================================");
-        System.out.println("          DEMO RUN COMPLETE                  ");
-        System.out.println("============================================");
-        scanner.close();
+        System.out.println("\n--- HR Manager Actions ---");
+        HrModule.runHrFlow(hrName, employeeName, employeeId, leaveId, payCoverage);
     }
 
     private static EmployeeIdentity promptIdentity(MotorPhService service, java.util.Scanner scanner) {
