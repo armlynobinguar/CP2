@@ -7,33 +7,27 @@ public class Main {
 
     public static void main(String[] args) {
         MotorPhService service = new MotorPhServiceImpl();
+        java.util.Scanner scanner = new java.util.Scanner(System.in);
         DisplayModule.printHeader();
 
-        String rawEmployeeId = "10001";
-        String employeeName = "Maria Reyes";
-        String payCoverage = "2024-11-01 to 2024-11-15";
-
-        OperationResult<EmployeeIdentity> identityResult =
-                service.validateIdentity(rawEmployeeId, employeeName, payCoverage);
-        if (!identityResult.isSuccess()) {
-            System.out.println("Validation error: " + identityResult.getMessage());
-            return;
-        }
-        EmployeeIdentity identity = identityResult.getData();
+        EmployeeIdentity identity = promptIdentity(service, scanner);
         int employeeId = identity.getEmployeeId();
-        employeeName = identity.getEmployeeName();
+        String payCoverage = identity.getPayCoverage();
+        String employeeName = identity.getEmployeeName();
         String positionName = "Software Engineer";
         String departmentName = "IT Department";
-        double basicSalary = 35000.00;
-        double rice = 1500.00;
-        double phone = 1000.00;
-        double clothing = 1000.00;
+        double basicSalary = promptDouble(scanner, "Basic Salary (e.g. 35000): ");
+        double rice = promptDouble(scanner, "Rice Subsidy (e.g. 1500): ");
+        double phone = promptDouble(scanner, "Phone Allowance (e.g. 1000): ");
+        double clothing = promptDouble(scanner, "Clothing Allowance (e.g. 1000): ");
 
         DisplayModule.printEmployeeInfo(
                 employeeId, employeeName, positionName, departmentName, basicSalary, rice, phone, clothing);
 
         System.out.println("--- Recording Attendance ---");
-        OperationResult<AttendanceResult> attendanceResult = service.evaluateAttendance("08:05", "17:00");
+        String timeIn = promptText(scanner, "Time-In (HH:MM): ");
+        String timeOut = promptText(scanner, "Time-Out (HH:MM): ");
+        OperationResult<AttendanceResult> attendanceResult = service.evaluateAttendance(timeIn, timeOut);
         if (!attendanceResult.isSuccess()) {
             System.out.println("Attendance error: " + attendanceResult.getMessage());
             return;
@@ -44,10 +38,10 @@ public class Main {
         System.out.println();
 
         System.out.println("--- Filing a Leave Request ---");
-        int leaveId = 101;
-        String leaveType = "Sick Leave";
-        String leaveStart = "2024-11-10";
-        String leaveEnd = "2024-11-11";
+        int leaveId = (int) promptDouble(scanner, "Leave Request ID (e.g. 101): ");
+        String leaveType = promptText(scanner, "Leave Type (e.g. Sick Leave): ");
+        String leaveStart = promptText(scanner, "Leave Start Date (YYYY-MM-DD): ");
+        String leaveEnd = promptText(scanner, "Leave End Date (YYYY-MM-DD): ");
         OperationResult<Integer> leaveResult =
                 service.createLeaveRequest(leaveId, employeeName, leaveType, leaveStart, leaveEnd);
         if (!leaveResult.isSuccess()) {
@@ -67,21 +61,59 @@ public class Main {
         System.out.println();
 
         System.out.println("--- User Login Test ---");
-        String realUser = "mreyes";
-        String realPass = "secure123";
+        String realUser = promptText(scanner, "Create Username: ");
+        String realPass = promptText(scanner, "Create Password: ");
+        String attemptUser1 = promptText(scanner, "Login Attempt 1 - Username: ");
+        String attemptPass1 = promptText(scanner, "Login Attempt 1 - Password: ");
+        String attemptUser2 = promptText(scanner, "Login Attempt 2 - Username: ");
+        String attemptPass2 = promptText(scanner, "Login Attempt 2 - Password: ");
         System.out.println("User account created: " + realUser + " (Employee)");
-        OperationResult<Boolean> loginAttempt1 = service.authenticate(realUser, realPass, "mreyes", "wrongpass");
+        OperationResult<Boolean> loginAttempt1 = service.authenticate(realUser, realPass, attemptUser1, attemptPass1);
         DisplayModule.printLoginResult(loginAttempt1.isSuccess() && loginAttempt1.getData(), employeeName);
-        OperationResult<Boolean> loginAttempt2 = service.authenticate(realUser, realPass, "mreyes", "secure123");
+        OperationResult<Boolean> loginAttempt2 = service.authenticate(realUser, realPass, attemptUser2, attemptPass2);
         DisplayModule.printLoginResult(loginAttempt2.isSuccess() && loginAttempt2.getData(), employeeName);
         System.out.println(loginAttempt2.isSuccess() && loginAttempt2.getData() ? "Logout success" : "No active session");
         System.out.println();
 
         System.out.println("--- HR Manager Actions ---");
-        HrModule.runHrFlow("Ana Cruz", employeeName, employeeId);
+        HrModule.runHrFlow("Ana Cruz", employeeName, employeeId, leaveId, payCoverage);
 
         System.out.println("\n============================================");
         System.out.println("          DEMO RUN COMPLETE                  ");
         System.out.println("============================================");
+        scanner.close();
+    }
+
+    private static EmployeeIdentity promptIdentity(MotorPhService service, java.util.Scanner scanner) {
+        while (true) {
+            String rawEmployeeId = promptText(scanner, "Employee Number: ");
+            String employeeName = promptText(scanner, "Employee Name: ");
+            String payCoverage = promptText(scanner, "Pay Coverage (YYYY-MM-DD to YYYY-MM-DD): ");
+
+            OperationResult<EmployeeIdentity> result =
+                    service.validateIdentity(rawEmployeeId, employeeName, payCoverage);
+            if (result.isSuccess()) {
+                return result.getData();
+            }
+            System.out.println("Validation error: " + result.getMessage());
+            System.out.println("Please re-enter employee details.\n");
+        }
+    }
+
+    private static String promptText(java.util.Scanner scanner, String label) {
+        System.out.print(label);
+        return scanner.nextLine().trim();
+    }
+
+    private static double promptDouble(java.util.Scanner scanner, String label) {
+        while (true) {
+            System.out.print(label);
+            String raw = scanner.nextLine().trim();
+            try {
+                return Double.parseDouble(raw);
+            } catch (NumberFormatException ex) {
+                System.out.println("Invalid number. Please try again.");
+            }
+        }
     }
 }
