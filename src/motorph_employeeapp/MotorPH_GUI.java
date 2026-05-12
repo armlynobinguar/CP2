@@ -119,18 +119,29 @@ public class MotorPH_GUI {
     }
 
     static void processEmployeeLookup() {
-        String id = JOptionPane.showInputDialog(frame, "Enter ID:");
-        if (id == null) return;
+    String idInput = JOptionPane.showInputDialog(frame, "Enter Employee ID:");
+    if (idInput == null) return;
+    
+    String data = FileHandlerModule.findEmployeeData(idInput);
+    if (data != null) {
+        String[] emp = FileHandlerModule.smartSplit(data);
         
-        String data = FileHandlerModule.findEmployeeData(id);
-        if (data != null) {
-            String[] emp = FileHandlerModule.smartSplit(data);
-            String info = "ID: " + emp[0] + "\nName: " + EmployeeModule.fullName(emp);
-            JOptionPane.showMessageDialog(frame, info, "Employee Info", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(frame, "ID not found.");
-        }
+        // Use EmployeeModule constants for better readability
+        String id = emp[EmployeeModule.ID];
+        String name = EmployeeModule.fullName(emp);
+        String bday = emp[EmployeeModule.BIRTHDAY];
+        
+        // Construct the multi-line information string
+        String info = "--- Employee Record ---\n" +
+                      "Employee ID: " + id + "\n" +
+                      "Full Name:   " + name + "\n" +
+                      "Birthday:    " + bday;
+        
+        JOptionPane.showMessageDialog(frame, info, "Employee Details", JOptionPane.INFORMATION_MESSAGE);
+    } else {
+        JOptionPane.showMessageDialog(frame, "Employee ID not found.");
     }
+}
 
     static void updateDisplay() {
         frame.revalidate();
