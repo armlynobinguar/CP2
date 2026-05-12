@@ -5,12 +5,17 @@ import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
+/**
+ * MotorPH_EmployeeApp
+ * This is the main controller of the application. 
+ * It manages the initial execution flow: Login -> GUI Initialization.
+ */
 public class MotorPH_EmployeeApp {
 
     public static void main(String[] args) {
         if (showLoginDialog()) {
             java.awt.EventQueue.invokeLater(() -> {
-                // Call the static method instead of creating an object
+                
                 MotorPH_GUI.initialize();
             });
         } else {
@@ -19,6 +24,7 @@ public class MotorPH_EmployeeApp {
         }
     }
 
+    // Handles the user authentication process via a dialog box.
     private static boolean showLoginDialog() {
         JTextField usernameField = new JTextField();
         JPasswordField passwordField = new JPasswordField();
@@ -37,7 +43,7 @@ public class MotorPH_EmployeeApp {
             if (pass.equals("12345") || pass.equals("password123") && (user.equals("employee") || user.equals("payroll_staff"))) {
                 return true;
             } else {
-                // --- NEW POP-UP FOR WRONG LOGIN ---
+                // --- POP-UP FOR WRONG LOGIN ---
                 JOptionPane.showMessageDialog(null,
                         "Invalid Username or Password.",
                         "Login Failed",

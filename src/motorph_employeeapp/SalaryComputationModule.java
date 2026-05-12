@@ -5,13 +5,17 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * SalaryComputationModule
+ * This module centralizes all calculation logic.
+ */
 public class SalaryComputationModule {
 
     /**
      * Payroll output engine.
      * Handles mathematical logic for shift calculation and government deductions.
      */
-    public static void calculatePayroll(String[] emp, String month, String year) {
+    public static void calculatePayroll(String[] emp, String month, String year, javax.swing.JTextArea output) {
         // Validation: ensures the array has enough data
         if (emp == null || emp.length < 19 || emp[0].isEmpty()) return;
 
@@ -27,16 +31,14 @@ public class SalaryComputationModule {
 
         for (String line : records) {
             String[] row = FileHandlerModule.smartSplit(line);
-            String[] dateParts = row[3].split("/"); // Expected Format: MM/DD/YYYY
+            String[] dateParts = row[3].split("/"); 
             
             try {
-                // Parse strings to integers to handle leading zeros (e.g., "08" == 8)
                 int inputMonth = Integer.parseInt(month);
                 int inputYear = Integer.parseInt(year);
                 int csvMonth = Integer.parseInt(dateParts[0]);
                 int csvYear = Integer.parseInt(dateParts[2]);
 
-                // Comparison based on numeric value rather than string literal
                 if (csvMonth == inputMonth && csvYear == inputYear) {
                     int day = Integer.parseInt(dateParts[1]);
                     double shift = calculateShift(row[4], row[5]);
@@ -48,7 +50,6 @@ public class SalaryComputationModule {
                     }
                 }
             } catch (Exception e) {
-                // Skips any row with a malformed date or empty column
                 continue;
             }
         }
@@ -58,7 +59,7 @@ public class SalaryComputationModule {
         double grossSecondCutoff = hoursSecondCutoff * hourlyRate;
         double totalMonthlyGross = grossFirstCutoff + grossSecondCutoff;
         
-        // Deduction logic (Based on total monthly gross)
+        // Deduction logic
         double sss = computeSSS(totalMonthlyGross);
         double ph = computePhilHealth(totalMonthlyGross);
         double pi = computePagIBIG(totalMonthlyGross);
@@ -66,30 +67,30 @@ public class SalaryComputationModule {
         double tax = calculateWithholdingTax(taxableIncome);
         double totalDeduc = sss + ph + pi + tax;
         
-        // Split net salary distribution
         double netSalary1 = grossFirstCutoff;
         double netSalary2 = grossSecondCutoff - totalDeduc;
 
-        // Visual Output (Sent to GUI via TextAreaOutputStream redirect)
-        System.out.println("\n---------------------------------------------");
-        System.out.println(" Employee #: " + id);
-        System.out.println(" Employee Name: " + EmployeeModule.fullName(emp));
-        System.out.println(" Birthday: " + emp[EmployeeModule.BIRTHDAY]);
-        System.out.println(" Cutoff Date: " + mName + " 1 to " + mName + " 15");
-        System.out.println(" Total Hours Worked: " + hoursFirstCutoff);
-        System.out.println(" Gross Salary: " + grossFirstCutoff);
-        System.out.println(" Net Salary: " + netSalary1);
-        System.out.println(" \nCutoff Date: " + mName + " 16 to " + mName + " 31 (Deductions Applied)");
-        System.out.println(" Total Hours Worked: " + hoursSecondCutoff);
-        System.out.println(" Gross Salary: " + grossSecondCutoff);
-        System.out.println(" Each Deduction:");
-        System.out.println("    SSS: " + sss);
-        System.out.println("    PhilHealth: " + ph);
-        System.out.println("    Pag-IBIG: " + pi);
-        System.out.println("    Tax: " + tax);
-        System.out.println(" Total Deductions: " + totalDeduc);
-        System.out.println(" Net Salary: " + netSalary2);
-        System.out.println("---------------------------------------------");
+        // --- OUTPUT REDIRECTED TO GUI BOX ---
+        output.append("\n---------------------------------------------");
+        output.append("\n Employee #: " + id);
+        output.append("\n Employee Name: " + EmployeeModule.fullName(emp));
+        output.append("\n Birthday: " + emp[EmployeeModule.BIRTHDAY]);
+        output.append("\n Cutoff Date: " + mName + " 1 to " + mName + " 15");
+        output.append("\n Total Hours Worked: " + hoursFirstCutoff);
+        output.append("\n Gross Salary: " + String.format("%.2f", grossFirstCutoff));
+        output.append("\n Net Salary: " + String.format("%.2f", netSalary1));
+        output.append("\n ");
+        output.append("\n Cutoff Date: " + mName + " 16 to " + mName + " 31");
+        output.append("\n Total Hours Worked: " + hoursSecondCutoff);
+        output.append("\n Gross Salary: " + String.format("%.2f", grossSecondCutoff));
+        output.append("\n Each Deduction:");
+        output.append("\n    SSS: " + String.format("%.2f", sss));
+        output.append("\n    PhilHealth: " + String.format("%.2f", ph));
+        output.append("\n    Pag-IBIG: " + String.format("%.2f", pi));
+        output.append("\n    Withholding Tax: " + String.format("%.2f", tax));
+        output.append("\n Total Deductions: " + String.format("%.2f", totalDeduc));
+        output.append("\n Net Salary: " + String.format("%.2f", netSalary2));
+        output.append("\n---------------------------------------------");
     }
 
     public static double calculateShift(String logIn, String logOut) {
@@ -150,7 +151,14 @@ public class SalaryComputationModule {
         else if (taxableIncome < 666667) return 40833.33 + (taxableIncome - 166667) * 0.32;
         else return 200833.33 + (taxableIncome - 666667) * 0.35;
     }
-
+    
+    
+    /**
+     * Helper to map month number to name.
+     * switch expressions
+     * @param monthStr - numeric month string 
+     * @return the full name of the month 
+     */
     public static String monthName(String monthStr) {
         try {
             int month = Integer.parseInt(monthStr);
@@ -164,6 +172,12 @@ public class SalaryComputationModule {
         } catch (Exception e) { return "Invalid Month"; }
     }
     
+    
+    /**
+     * Helper to find MM/YYYY in attendance 
+     * Uses simple ArrayList logic to avoid duplicates.
+     * @param id Employee ID.
+     */
     public static List<String> findWorkingPeriods(String id) {
         List<String> workingPeriods = new java.util.ArrayList<>();
         List<String> records = FileHandlerModule.findAttendanceData(id);
@@ -174,7 +188,7 @@ public class SalaryComputationModule {
             
             if (dateParts.length >= 3) {
                 try {
-                    // Normalize month/year during discovery as well
+                    
                     int m = Integer.parseInt(dateParts[0]);
                     int y = Integer.parseInt(dateParts[2]);
                     String monthYear = m + "/" + y;

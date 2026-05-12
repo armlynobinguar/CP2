@@ -1,6 +1,11 @@
 
 package MotorPH_EmployeeApp;
 
+/**
+ * EmployeeModule
+ * It provides global constants and static procedures to handle 
+ * raw employee data arrays (String[]).
+ */
 public class EmployeeModule {
     // CSV Column Indices
     public static final int ID = 0;
