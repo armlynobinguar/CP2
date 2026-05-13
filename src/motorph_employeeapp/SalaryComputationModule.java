@@ -115,7 +115,12 @@ public class SalaryComputationModule {
             return 0.0;
         }
     }
-
+    
+    /**
+     * Simplified SSS Calculation using threshold loop for better readability.
+     * @param salary - total monthly gross income.
+     * @return the calculated SSS contribution amount.
+     */
     public static double computeSSS(double salary) {
         if (salary < 3250) return 135.00;
         if (salary >= 24750) return 1125.00;
@@ -129,6 +134,12 @@ public class SalaryComputationModule {
         return 1125.00;
     }
 
+    /**
+     * Computes PhilHealth contribution (Employee share).
+     * Returns the 50% employee share of the PhilHealth premium.
+     * @param salary - total monthly gross income.
+     * @return the PhilHealth contribution amount.
+     */
     public static double computePhilHealth(double salary) {
         double totalPremium;
         if (salary <= 10000) totalPremium = 300.0;
@@ -137,12 +148,24 @@ public class SalaryComputationModule {
         return totalPremium / 2;
     }
 
+    /**
+     * Computes PagIBIG contribution with a max cap.
+     * Applies PagIBIG rates with a contribution cap of 100.00
+     * @param salary - total monthly gross income.
+     * @return the PagIBIG contribution amount.
+     */
     public static double computePagIBIG(double salary) {
         double employeeRate = (salary > 1500) ? 0.02 : 0.01;
         double total = (salary * employeeRate) + (salary * 0.02);
         return Math.min(total, 100.0);
     }
 
+     /**
+     * Computes Withholding Tax based on taxable income brackets.
+     * Calculates tax after government deductions are subtracted from gross
+     * @param taxableIncome - Gross salary minus SSS, PhilHealth, and PagIBIG.
+     * @return the calculated withholding tax amount.
+     */
     public static double calculateWithholdingTax(double taxableIncome) {
         if (taxableIncome <= 20832) return 0;
         else if (taxableIncome < 33333) return (taxableIncome - 20833) * 0.20;
@@ -151,7 +174,6 @@ public class SalaryComputationModule {
         else if (taxableIncome < 666667) return 40833.33 + (taxableIncome - 166667) * 0.32;
         else return 200833.33 + (taxableIncome - 666667) * 0.35;
     }
-    
     
     /**
      * Helper to map month number to name.
@@ -171,7 +193,6 @@ public class SalaryComputationModule {
             };
         } catch (Exception e) { return "Invalid Month"; }
     }
-    
     
     /**
      * Helper to find MM/YYYY in attendance 
