@@ -6,20 +6,14 @@ import java.util.*;
 
 /**
  * FileHandlerModule
- * This module contains all the functions for 
- * interacting with the external CSV files. It handles file I/O and 
- * string parsing logic.
+ * This module handles file I/O operations including data reads, 
+ * searching records, and safe appending.
  */
 public class FileHandlerModule {
     
     public static final String ATTENDANCE_FILE = "resources/MotorPH_Employee Data - Attendance Record.csv";
     public static final String EMPLOYEE_FILE = "resources/MotorPH_Employee Data - Employee Details.csv";
 
-    /**
-     * Searches for a specific employee ID within the Employee Details file.
-     * Includes error handling for missing files or read errors.
-     * Baeldung. Exception Handling in Java. 4.4 try-with-resources and 4.5. multiple catch (file not found/ file corrupted)
-     */
     public static String findEmployeeData(String id) {
         try (BufferedReader br = new BufferedReader(new FileReader(EMPLOYEE_FILE))) {
             String line;
@@ -35,13 +29,7 @@ public class FileHandlerModule {
         return null;
     }
 
-     /**
-     * Retrieves all attendance records for a specific employee.
-     * Explains exactly what went wrong if the file cannot be accessed.
-     * Baeldung. Exception Handling in Java. 4.4 try-with-resources and 4.5 multiple catch
-     * GeeksforGeeks. ArrayList toArray() method in Java with Examples. Baeldung. Guide to the Java ArrayList.
-     */
-    public static List<String> findAttendanceData(String id) {
+public static List<String> findAttendanceData(String id) {
         List<String> records = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(ATTENDANCE_FILE))) {
             br.readLine(); // Skip header
@@ -49,6 +37,7 @@ public class FileHandlerModule {
             while ((line = br.readLine()) != null) {
                 String[] columns = smartSplit(line);
                 if (columns.length > 0 && columns[0].trim().equals(id.trim())) {
+                    // FIX: Add the line to the list instead of returning a single String
                     records.add(line);
                 }
             }
@@ -58,13 +47,42 @@ public class FileHandlerModule {
         return records;
     }
 
-     /**
-     * CSV Parser. Baeldung CSV File into Array 6.1
-     * Iterates character by character to handle commas inside quotes.
-     * Uses dynamic ArrayList. Baeldung. Guide to the Java ArrayList
-     * @param line - single raw line of text from the CSV file.
-     * @return the String array where each element represents a specific column.
+    /**
+     * Reads all raw employee lines from the CSV file (skipping the header).
+     * Useful for filling up tabular views.
      */
+    public static List<String[]> getAllEmployees() {
+        List<String[]> employees = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(EMPLOYEE_FILE))) {
+            br.readLine(); // Skip CSV Header
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    employees.add(smartSplit(line));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading entire Employee Database: " + e.getMessage());
+        }
+        return employees;
+    }
+
+    /**
+     * Appends a newly validated employee record line to the CSV file.
+     */
+    public static boolean appendEmployeeRecord(String rawCsvLine) {
+        try (FileWriter fw = new FileWriter(EMPLOYEE_FILE, true);
+             BufferedWriter bw = new BufferedWriter(fw);
+             PrintWriter out = new PrintWriter(bw)) {
+            out.println(); // Ensure it writes to a brand new line
+            out.print(rawCsvLine);
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving employee details to file: " + e.getMessage());
+            return false;
+        }
+    }
+
     public static String[] smartSplit(String line) {
         if (line == null || line.isEmpty()) return new String[0];
         List<String> results = new ArrayList<>();

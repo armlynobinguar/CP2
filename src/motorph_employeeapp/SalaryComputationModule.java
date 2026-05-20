@@ -71,7 +71,6 @@ public class SalaryComputationModule {
         double netSalary2 = grossSecondCutoff - totalDeduc;
 
         // --- OUTPUT REDIRECTED TO GUI BOX ---
-        output.append("\n---------------------------------------------");
         output.append("\n Employee #: " + id);
         output.append("\n Employee Name: " + EmployeeModule.fullName(emp));
         output.append("\n Birthday: " + emp[EmployeeModule.BIRTHDAY]);
@@ -90,7 +89,6 @@ public class SalaryComputationModule {
         output.append("\n    Withholding Tax: " + String.format("%.2f", tax));
         output.append("\n Total Deductions: " + String.format("%.2f", totalDeduc));
         output.append("\n Net Salary: " + String.format("%.2f", netSalary2));
-        output.append("\n---------------------------------------------");
     }
 
     public static double calculateShift(String logIn, String logOut) {
