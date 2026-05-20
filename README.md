@@ -1,8 +1,8 @@
 # MotorPH Employee App  
-***Username:** employee  
+**Username:** employee  
 **Password:** 12345  
 
-Members of Group 3
+**Members of Group 3**
 Arrogante, Flor, Obinguar, Tavera
 
 ## Component Architecture & Class Purposes
