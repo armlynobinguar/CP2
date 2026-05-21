@@ -12,6 +12,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -20,6 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JComboBox;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
@@ -30,6 +32,7 @@ import javax.swing.SwingConstants;
 public class MotorPH_GUI {
     // Shared structural layout window handles
     static JFrame frame;
+    static JComboBox<String> monthCombo;
     
     // Core User Input Fields (From Lesson: TextFields)
     static JTextField txtEmployeeNo;
@@ -71,7 +74,7 @@ public class MotorPH_GUI {
     public static void showCustomLoginDialog() {
         loginDialog = new JDialog();
         loginDialog.setTitle("MotorPH Payroll System - Login");
-        loginDialog.setSize(420, 480);
+        loginDialog.setSize(420, 540);
         loginDialog.setModal(true); // Replaces Frame parent wrapper injection cleanly
         loginDialog.setLayout(null); // Setting layout manager to null for explicit setBounds tracking
         loginDialog.setLocationRelativeTo(null);
@@ -206,6 +209,9 @@ public class MotorPH_GUI {
     private static void styleAccentButton(JButton button) {
         button.setFont(LOGIN_APP_FONT_BOLD);
         button.setFocusable(false);
+        button.setOpaque(true);       // ← tells macOS to actually paint the background
+        button.setContentAreaFilled(true); // forces the button area to be filled
+        button.setBorderPainted(false); // ← removes the native macOS button chrome
         button.setBackground(ACCENT_BLUE);
         button.setForeground(PALETTE_WHITE);
         button.setBorder(BorderFactory.createEmptyBorder());
@@ -257,26 +263,26 @@ public class MotorPH_GUI {
     static void showMainMenu() {
         frame.getContentPane().removeAll();
         frame.setLayout(null); // Setting layout to null to use setBounds explicitly
-        frame.setSize(480, 520);
+        frame.setSize(520, 600);
         frame.getContentPane().setBackground(new Color(212, 228, 252)); // Hex conversion color match
 
         // Title Header Label (Lesson: Labels)
         JLabel lblMenuTitle = new JLabel("MAIN MENU", SwingConstants.CENTER);
         lblMenuTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblMenuTitle.setForeground(new Color(11, 29, 58));
-        lblMenuTitle.setBounds(40, 30, 400, 30);
+        lblMenuTitle.setBounds(50, 30, 400, 30);
         frame.add(lblMenuTitle);
 
         // Container Panel (Lesson: Panels)
         JPanel menuPanel = new JPanel();
         menuPanel.setBackground(Color.white);
         menuPanel.setLayout(null); // Using null layout within the panel container
-        menuPanel.setBounds(40, 80, 400, 340);
+        menuPanel.setBounds(50, 80, 400, 380);
         menuPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         // Navigation Menu Interactive Buttons (Lesson: Buttons)
         JButton btnPayroll = new JButton("1. MPHCRO1: Pay Coverage");
-        btnPayroll.setBounds(40, 40, 320, 60);
+        btnPayroll.setBounds(40, 50, 320, 60);
         guiStyleAccentButton(btnPayroll);
         btnPayroll.addActionListener(new ActionListener() {
             @Override
@@ -286,7 +292,7 @@ public class MotorPH_GUI {
         });
 
         JButton btnInfo = new JButton("2. Employee Information");
-        btnInfo.setBounds(40, 140, 320, 60);
+        btnInfo.setBounds(40, 160, 320, 60);
         guiStyleAccentButton(btnInfo);
         btnInfo.addActionListener(new ActionListener() {
             @Override
@@ -296,7 +302,7 @@ public class MotorPH_GUI {
         });
 
         JButton btnLogout = new JButton("3. Logout");
-        btnLogout.setBounds(40, 240, 320, 60);
+        btnLogout.setBounds(40, 270, 320, 60);
         styleStandardButton(btnLogout);
         btnLogout.addActionListener(new ActionListener() {
             @Override
@@ -373,12 +379,19 @@ public class MotorPH_GUI {
         txtEmployeeName = createStyledTextField(false); // Locked representation state
         txtEmployeeName.setBounds(260, 65, 240, 30);
 
-        JLabel lblMonth = createStyledLabel("Pay Coverage Month (ex. 6):");
+        JLabel lblMonth = createStyledLabel("Pay Coverage Month:");
         lblMonth.setBounds(30, 110, 230, 30);
-        txtMonth = createStyledTextField(true);
-        txtMonth.setBounds(260, 110, 240, 30);
+        String[] months = {"January", "February", "March",
+                        "April", "May", "June",
+                        "July", "August", "September",
+                        "October", "November", "December"};
+        monthCombo = new JComboBox<>(months);
+        monthCombo.setBounds(260, 110, 240, 30);
+        monthCombo.setFont(APP_FONT_PLAIN);
+        monthCombo.setBackground(Color.white);
+        monthCombo.setForeground(new Color(11, 29, 58));
 
-        JLabel lblYear = createStyledLabel("Pay Coverage Year (ex. 2024):");
+        JLabel lblYear = createStyledLabel("Pay Coverage Year (2024 only):");
         lblYear.setBounds(30, 155, 230, 30);
         txtYear = createStyledTextField(true);
         txtYear.setBounds(260, 155, 240, 30);
@@ -409,7 +422,7 @@ public class MotorPH_GUI {
         formPanel.add(lblEmpName);
         formPanel.add(txtEmployeeName);
         formPanel.add(lblMonth);
-        formPanel.add(txtMonth);
+        formPanel.add(monthCombo);
         formPanel.add(lblYear);
         formPanel.add(txtYear);
         formPanel.add(btnProcess);
@@ -455,19 +468,6 @@ public class MotorPH_GUI {
         txtLookupInput = createStyledTextField(true);
         txtLookupInput.setBounds(30, 55, 340, 35);
         
-        txtLookupInput.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {}
-
-            @Override
-            public void keyPressed(KeyEvent e) {}
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                // Instantly re-runs lookup method on key release
-                runEmployeeLookupAction();
-            }
-        });
 
         JButton btnSearch = new JButton("Search Record");
         btnSearch.setBounds(30, 105, 160, 40);
@@ -547,11 +547,11 @@ public class MotorPH_GUI {
         txtResultArea.setText("");
 
         String id = txtEmployeeNo.getText().trim();
-        String month = txtMonth.getText().trim();
+        String month = String.valueOf(monthCombo.getSelectedIndex() + 1);
         String year = txtYear.getText().trim();
 
         // 1. Empty field layout check
-        if (id.isEmpty() || month.isEmpty() || year.isEmpty()) {
+        if (id.isEmpty() || year.isEmpty()) {
             JOptionPane.showMessageDialog(
                     frame, 
                     createStyledAlertText("Please fill in all fields to proceed."), 
@@ -569,8 +569,19 @@ public class MotorPH_GUI {
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(
                     frame, 
-                    createStyledAlertText("Please type only numerical values for Employee Number, Month, and Year."), 
+                    createStyledAlertText("Please type only numerical values for Employee Number, Pay Coverage Month, and Pay Coverage Year."), 
                     "Input Error", 
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // 2b. Year range validation — only 2024 data is available
+        if (!year.equals("2024")) {
+            JOptionPane.showMessageDialog(
+                    frame,
+                    createStyledAlertText("Only year 2024 is currently supported. Please enter 2024."),
+                    "Invalid Year",
                     JOptionPane.WARNING_MESSAGE
             );
             return;
@@ -643,7 +654,10 @@ public class MotorPH_GUI {
     private static void guiStyleAccentButton(JButton button) {
         button.setFont(APP_FONT_BOLD);
         button.setFocusable(false);
-        button.setBackground(new Color(37, 119, 241)); // Clear royal accent blue
+        button.setOpaque(true);                         // macOS fix: force background paint
+        button.setContentAreaFilled(true);              // macOS fix: fill the button area
+        button.setBorderPainted(false);                 // macOS fix: remove native chrome
+        button.setBackground(new Color(37, 119, 241));  // Clear royal accent blue
         button.setForeground(Color.white);
         button.setBorder(BorderFactory.createEmptyBorder());
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
