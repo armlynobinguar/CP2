@@ -21,7 +21,8 @@ Acts as the dedicated data-layer connection engine responsible for executing lin
 SalaryComputationModule  
 Centralizes the application’s mathematical processing rules to evaluate shift logs, statutory government withholdings (SSS, PhilHealth, Pag-IBIG), and multi-bracket income tax balances.
 
-Links  
+## Links  
 [Project Plan](https://docs.google.com/spreadsheets/d/1ZfEM7OL4OEOAmj9opmkJDVqFON5w2NJV129yVMBLhbI/edit?usp=sharing)  
 [Figma](https://www.figma.com/make/yrUok9BbHVPctk43Czg4Bo/MotorPH-Payroll-System-CP2?t=RpZwUqjSXZqqEahE-0)  
 [Class Diagram](https://docs.google.com/spreadsheets/d/18u4H9f2NgLQ9XYUVs5bcBgl3MJHv__k_ww2FdErt1C0/edit?usp=sharing)   
+[Computer Programming 1](https://github.com/MitziReese04/MO-IT101-Group5.git) 
