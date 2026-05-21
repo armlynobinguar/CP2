@@ -359,18 +359,18 @@ public class MotorPH_GUI {
         String month = txtMonth.getText().trim();
         String year = txtYear.getText().trim();
 
-        // 1. Check if fields are empty (Styled with INFORMATION_MESSAGE instead of default)
+        // 1. Empty field layout check
         if (id.isEmpty() || month.isEmpty() || year.isEmpty()) {
             JOptionPane.showMessageDialog(
                     frame, 
-                    "Please fill in all fields to proceed.", 
+                    createStyledAlertText("Please fill in all fields to proceed."), 
                     "Missing Information", 
                     JOptionPane.INFORMATION_MESSAGE
             );
             return;
         }
 
-        // 2. Validate numerical format inputs
+        // 2. Numerical validation parsing parameters
         try {
             Integer.parseInt(id);
             Integer.parseInt(month);
@@ -378,26 +378,26 @@ public class MotorPH_GUI {
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(
                     frame, 
-                    "Please type only numerical values for Employee Number, Month, and Year.", 
+                    createStyledAlertText("Please type only numerical values for Employee Number, Month, and Year."), 
                     "Input Error", 
                     JOptionPane.WARNING_MESSAGE
             );
             return;
         }
 
-        // 3. Validate if the employee exists in database records
+        // 3. Database entry verification check
         String data = FileHandlerModule.findEmployeeData(id);
         if (data == null) {
             JOptionPane.showMessageDialog(
                     frame, 
-                    "The requested Employee ID was not found in our database records.", 
+                    createStyledAlertText("The requested Employee ID was not found in our database records."), 
                     "Record Not Found", 
                     JOptionPane.ERROR_MESSAGE
             );
             return;
         }
 
-        // 4. Success state: Process calculations if all checks pass successfully
+        // 4. Success state computation pass
         String[] emp = FileHandlerModule.smartSplit(data);
         txtEmployeeName.setText(EmployeeModule.fullName(emp));
          
@@ -427,6 +427,17 @@ public class MotorPH_GUI {
          
         field.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
         return field;
+    }
+    
+    /**
+     * Helper to wrap alert message strings inside beautifully styled JLabels.
+     * Ensures popups strictly match the application font and theme palette.
+     */
+    private static JLabel createStyledAlertText(String text) {
+        JLabel alertLabel = new JLabel(text);
+        alertLabel.setFont(APP_FONT_PLAIN); // Matches standard UI font body selection
+        alertLabel.setForeground(new Color(11, 29, 58)); // Dark Navy color match
+        return alertLabel;
     }
     
     private static void styleStandardButton(JButton button) {
