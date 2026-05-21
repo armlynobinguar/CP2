@@ -3,8 +3,6 @@ package MotorPH_EmployeeApp;
 
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -353,10 +351,6 @@ public class MotorPH_GUI {
     /**
      * Validation checks and execution routine for calculations.
      * Lesson: JOptionPane Dialog Mechanics
-     */
-/**
-     * Validation checks and execution routine for calculations.
-     * Lesson: JOptionPane Dialog Mechanics (Styled for UI consistency)
      */
     static void runPayrollCalculation() {
         txtResultArea.setText("");
