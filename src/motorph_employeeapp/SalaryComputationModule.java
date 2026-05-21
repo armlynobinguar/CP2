@@ -74,21 +74,21 @@ public class SalaryComputationModule {
         output.append("\n Employee #: " + id);
         output.append("\n Employee Name: " + EmployeeModule.fullName(emp));
         output.append("\n Birthday: " + emp[EmployeeModule.BIRTHDAY]);
-        output.append("\n Cutoff Date: " + mName + " 1 to " + mName + " 15");
-        output.append("\n Total Hours Worked: " + hoursFirstCutoff);
-        output.append("\n Gross Salary: " + String.format("%.2f", grossFirstCutoff));
-        output.append("\n Net Salary: " + String.format("%.2f", netSalary1));
+        output.append("\n Cutoff Date: " + mName + " 1 to " + mName + " 15, " + year);
+        output.append("\n Total Hours Worked: " + String.format("%.2f", hoursFirstCutoff));
+        output.append("\n Gross Salary: " + "PHP " + String.format("%,.2f", grossFirstCutoff));
+        output.append("\n Net Salary: " + "PHP " + String.format("%,.2f", netSalary1));
         output.append("\n ");
-        output.append("\n Cutoff Date: " + mName + " 16 to " + mName + " 31");
-        output.append("\n Total Hours Worked: " + hoursSecondCutoff);
-        output.append("\n Gross Salary: " + String.format("%.2f", grossSecondCutoff));
+        output.append("\n Cutoff Date: " + mName + " 16 to " + mName + " 31, " + year);
+        output.append("\n Total Hours Worked: " + String.format("%.2f", hoursSecondCutoff));
+        output.append("\n Gross Salary: " + "PHP " + String.format("%,.2f", grossSecondCutoff));
         output.append("\n Each Deduction:");
-        output.append("\n    SSS: " + String.format("%.2f", sss));
-        output.append("\n    PhilHealth: " + String.format("%.2f", ph));
-        output.append("\n    Pag-IBIG: " + String.format("%.2f", pi));
-        output.append("\n    Withholding Tax: " + String.format("%.2f", tax));
-        output.append("\n Total Deductions: " + String.format("%.2f", totalDeduc));
-        output.append("\n Net Salary: " + String.format("%.2f", netSalary2));
+        output.append("\n    - SSS: " + "PHP " + String.format("%,.2f", sss));
+        output.append("\n    - PhilHealth: " + "PHP " + String.format("%,.2f", ph));
+        output.append("\n    - Pag-IBIG: " + "PHP " + String.format("%,.2f", pi));
+        output.append("\n    - Withholding Tax: " + "PHP " + String.format("%,.2f", tax));
+        output.append("\n Total Deductions: " + "PHP " + String.format("%,.2f", totalDeduc));
+        output.append("\n Net Salary: " + "PHP " + String.format("%,.2f", netSalary2));
     }
 
     public static double calculateShift(String logIn, String logOut) {
