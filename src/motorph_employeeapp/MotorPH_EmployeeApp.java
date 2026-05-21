@@ -8,7 +8,7 @@ import java.awt.event.MouseEvent;
 
 /**
  * MotorPH_EmployeeApp
- * Procedural main controller handling system authentication.
+ * Main controller handling system authentication.
  */
 public class MotorPH_EmployeeApp {
 
@@ -162,7 +162,7 @@ public class MotorPH_EmployeeApp {
     }
     
     /**
-     * Procedural helper method to customize textfield components uniform styling properties.
+     * Helper method to customize textfield components uniform styling properties.
      */
     private static void styleInputField(JTextField field) {
         field.setFont(APP_FONT_PLAIN);
@@ -177,7 +177,7 @@ public class MotorPH_EmployeeApp {
     }
 
     /**
-     * Procedural helper method to style JButtons and assign focus, highlight and cursor overrides.
+     * Helper method to style JButtons and assign focus, highlight and cursor overrides.
      */
     private static void styleAccentButton(JButton button) {
         button.setFont(APP_FONT_BOLD);
