@@ -1,5 +1,5 @@
 
-package MotorPH_EmployeeApp;
+package motorph_employeeapp;
 
 /**
  * MotorPH_EmployeeApp
