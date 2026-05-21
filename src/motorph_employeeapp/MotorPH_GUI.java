@@ -21,8 +21,7 @@ import java.awt.event.KeyListener;
 
 /**
  * MotorPH_GUI
- * Built strictly from BroCode Java Swing Tutorial Reference Concepts.
- * Employs Null Layouts, setBounds, and standard ActionListener patterns.
+ * BroCode Java Swing Tutorial Reference Concepts.
  */
 public class MotorPH_GUI {
     // Shared structural layout window handles
