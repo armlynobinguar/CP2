@@ -6,18 +6,22 @@ import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;    
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import java.awt.event.KeyEvent;    
-import java.awt.event.KeyListener;
 
 /**
  * MotorPH_GUI
@@ -42,6 +46,194 @@ public class MotorPH_GUI {
     static final Font APP_FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
     static final Font APP_FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 13);
     static final Font RECEIPT_FONT = new Font("Consolas", Font.PLAIN, 13);
+
+    // SYSTEM-WIDE UNIFIED THEME CONSTANTS (From Lesson: Labels, Buttons)
+    static final Font LOGIN_APP_FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 14);
+    static final Font LOGIN_APP_FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
+    static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 22);
+    
+    static final Color PALETTE_WHITE = Color.WHITE;
+    static final Color PALETTE_LIGHT_BLUE = new Color(235, 243, 255); 
+    static final Color ACCENT_BLUE = new Color(24, 119, 242);       
+    static final Color HOVER_BLUE = new Color(12, 103, 222);
+    static final Color TEXT_DARK_NAVY = new Color(28, 57, 112);     
+    static final Color BORDER_BLUE = new Color(180, 205, 240);
+
+    // UI Global Handles accessible across the procedure hooks
+    static JDialog loginDialog;
+    static JTextField usernameField;
+    static JPasswordField passwordField;
+    static JButton btnLogin;
+
+    /**
+     * Constructs the login window with absolute boundaries. (From Lesson: Panels, TextFields, Buttons)
+     */
+    public static void showCustomLoginDialog() {
+        loginDialog = new JDialog();
+        loginDialog.setTitle("MotorPH Payroll System - Login");
+        loginDialog.setSize(420, 480);
+        loginDialog.setModal(true); // Replaces Frame parent wrapper injection cleanly
+        loginDialog.setLayout(null); // Setting layout manager to null for explicit setBounds tracking
+        loginDialog.setLocationRelativeTo(null);
+        loginDialog.setResizable(false);
+        
+        // Base Root Panel Container (From Lesson: Panels)
+        JPanel rootPanel = new JPanel();
+        rootPanel.setLayout(null);
+        rootPanel.setBackground(PALETTE_LIGHT_BLUE);
+        rootPanel.setBounds(0, 0, 420, 480);
+
+        // System Branding Header Box (Using clear absolute grid positions instead of layout wrappers)
+        JPanel headerPanel = new JPanel();
+        headerPanel.setLayout(null);
+        headerPanel.setBackground(PALETTE_WHITE);
+        headerPanel.setBounds(20, 20, 365, 80);
+        headerPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_BLUE, 1),
+            BorderFactory.createEmptyBorder(15, 10, 15, 10)
+        ));
+        
+        JLabel lblTitle = new JLabel("MotorPH", SwingConstants.CENTER);
+        lblTitle.setFont(TITLE_FONT);
+        lblTitle.setForeground(TEXT_DARK_NAVY);
+        lblTitle.setBounds(10, 12, 345, 30);
+        
+        JLabel lblSubtitle = new JLabel("Employee App", SwingConstants.CENTER);
+        lblSubtitle.setFont(LOGIN_APP_FONT_PLAIN);
+        lblSubtitle.setForeground(TEXT_DARK_NAVY);
+        lblSubtitle.setBounds(10, 42, 345, 20);
+        
+        headerPanel.add(lblTitle);
+        headerPanel.add(lblSubtitle);
+
+        // Core Form Inputs Panel Sheet
+        JPanel formPanel = new JPanel();
+        formPanel.setLayout(null); // Explicit layout alignment matching absolute canvas
+        formPanel.setBackground(PALETTE_WHITE);
+        formPanel.setBounds(20, 100, 365, 315);
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 1, 1, 1, BORDER_BLUE),
+            BorderFactory.createEmptyBorder(25, 30, 25, 30)
+        ));
+
+        // Username Rows (From Lesson: Labels, TextFields)
+        JLabel lblUser = new JLabel("Username:");
+        lblUser.setFont(LOGIN_APP_FONT_BOLD);
+        lblUser.setForeground(TEXT_DARK_NAVY);
+        lblUser.setBounds(30, 25, 305, 20);
+
+        usernameField = new JTextField();
+        usernameField.setBounds(30, 50, 305, 38);
+        styleInputField(usernameField);
+
+        // Password Rows (From Lesson: TextFields)
+        JLabel lblPass = new JLabel("Password:");
+        lblPass.setFont(LOGIN_APP_FONT_BOLD);
+        lblPass.setForeground(TEXT_DARK_NAVY);
+        lblPass.setBounds(30, 105, 305, 20);
+
+        passwordField = new JPasswordField();
+        passwordField.setFont(LOGIN_APP_FONT_PLAIN);
+        passwordField.setBackground(PALETTE_LIGHT_BLUE);
+        passwordField.setForeground(TEXT_DARK_NAVY);
+        passwordField.setCaretColor(TEXT_DARK_NAVY);
+        passwordField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_BLUE, 1),
+            BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+        passwordField.setBounds(30, 130, 305, 38);
+
+        // Login Action Trigger Button (From Lesson: Buttons)
+        btnLogin = new JButton("Login");
+        btnLogin.setBounds(30, 200, 305, 40);
+        styleAccentButton(btnLogin);
+        
+        // --- STICKING TO STANDARD ACTIONLISTENER INTERFACE ---
+        btnLogin.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (e.getSource() == btnLogin) {
+                    String user = usernameField.getText().trim();
+                    String pass = new String(passwordField.getPassword());
+
+                    // Verification logic parsing text parameters
+                    if ((pass.equals(MotorPH_EmployeeApp.AUTH_VAL_3) || pass.equals(MotorPH_EmployeeApp.AUTH_VAL_4)) && 
+                        (user.equals(MotorPH_EmployeeApp.AUTH_VAL_1) || user.equals(MotorPH_EmployeeApp.AUTH_VAL_2))) {
+                        MotorPH_EmployeeApp.loginSuccessful = true;
+                        loginDialog.dispose();
+                    } else {
+                        // Alert message match (From Lesson: JOptionPane)
+                        JOptionPane.showMessageDialog(loginDialog,
+                                "Invalid Username or Password.",
+                                "Login Failed",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+
+        // Assemble all elements back onto absolute panel structures
+        formPanel.add(lblUser);
+        formPanel.add(usernameField);
+        formPanel.add(lblPass);
+        formPanel.add(passwordField);
+        formPanel.add(btnLogin);
+
+        rootPanel.add(headerPanel);
+        rootPanel.add(formPanel);
+        
+        loginDialog.add(rootPanel);
+        loginDialog.setVisible(true);
+    }
+    
+    /**
+     * Procedural helper setting style parameters on input text components.
+     */
+    private static void styleInputField(JTextField field) {
+        field.setFont(LOGIN_APP_FONT_PLAIN);
+        field.setBackground(PALETTE_LIGHT_BLUE);
+        field.setForeground(TEXT_DARK_NAVY);
+        field.setCaretColor(TEXT_DARK_NAVY);
+        field.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_BLUE, 1),
+            BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+    }
+
+    /**
+     * Helper mapping style bounds and attaching full interface MouseListeners.
+     */
+    private static void styleAccentButton(JButton button) {
+        button.setFont(LOGIN_APP_FONT_BOLD);
+        button.setFocusable(false);
+        button.setBackground(ACCENT_BLUE);
+        button.setForeground(PALETTE_WHITE);
+        button.setBorder(BorderFactory.createEmptyBorder());
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // --- STICKING TO FULL MOUSELISTENER IMPLEMENTATION (From Lesson: MouseListener) ---
+        button.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(HOVER_BLUE);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(ACCENT_BLUE);
+            }
+
+            // Unused explicit lifecycle methods mandated by the core Interface
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+        });
+    }
 
     /**
      * Initializes the frame base window container.
@@ -85,7 +277,7 @@ public class MotorPH_GUI {
         // Navigation Menu Interactive Buttons (Lesson: Buttons)
         JButton btnPayroll = new JButton("1. MPHCRO1: Pay Coverage");
         btnPayroll.setBounds(40, 40, 320, 60);
-        styleAccentButton(btnPayroll);
+        guiStyleAccentButton(btnPayroll);
         btnPayroll.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -95,7 +287,7 @@ public class MotorPH_GUI {
 
         JButton btnInfo = new JButton("2. Employee Information");
         btnInfo.setBounds(40, 140, 320, 60);
-        styleAccentButton(btnInfo);
+        guiStyleAccentButton(btnInfo);
         btnInfo.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -194,7 +386,7 @@ public class MotorPH_GUI {
         // Core Trigger Processing Action Switches (Lesson: Buttons)
         JButton btnProcess = new JButton("Process Payroll");
         btnProcess.setBounds(30, 215, 220, 45);
-        styleAccentButton(btnProcess);
+        guiStyleAccentButton(btnProcess);
         btnProcess.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -279,7 +471,7 @@ public class MotorPH_GUI {
 
         JButton btnSearch = new JButton("Search Record");
         btnSearch.setBounds(30, 105, 160, 40);
-        styleAccentButton(btnSearch);
+        guiStyleAccentButton(btnSearch);
         btnSearch.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -448,7 +640,7 @@ public class MotorPH_GUI {
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
     
-    private static void styleAccentButton(JButton button) {
+    private static void guiStyleAccentButton(JButton button) {
         button.setFont(APP_FONT_BOLD);
         button.setFocusable(false);
         button.setBackground(new Color(37, 119, 241)); // Clear royal accent blue
