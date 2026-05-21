@@ -2,11 +2,11 @@
 **Username:** employee  
 **Password:** 12345  
 
-**Members of Group 3**
+**Members of Group 3**  
 Arrogante, Flor, Obinguar, Tavera
 
 ## Component Architecture & Class Purposes
-MotorPH_EmployeeApp (MAIN)
+MotorPH_EmployeeApp (MAIN)  
 Manages the application's root execution pipeline by enforcing credential verification dialog blocks before bootstrapping the GUI runtime thread.  
 
 MotorPH_GUI  
