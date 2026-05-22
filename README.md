@@ -3,8 +3,8 @@
 **MO-IT103 Computer Programming 2**
 **Group 3 | Section H1101**
 
-javac -d bin src/motorph_employeeapp/*.java
-java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+javac -d bin src/motorph_employeeapp/*.java  
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp  
 
 > **Demo Credentials**
 > Username: `employee` &nbsp;|&nbsp; Password: `12345`
@@ -54,10 +54,10 @@ CP2/
 3. Compile all `.java` files inside `src/motorph_employeeapp/`
 4. Run `MotorPH_EmployeeApp.java` as the main entry point
 5. Log in using the demo credentials above
-6. Select a menu option to proceed
+6. Select a menu option to proceed  
 
-javac -d bin src/motorph_employeeapp/*.java
-java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+javac -d bin src/motorph_employeeapp/*.java  
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp  
 
 ---
 
