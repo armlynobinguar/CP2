@@ -53,6 +53,9 @@ CP2/
 5. Log in using the demo credentials above
 6. Select a menu option to proceed
 
+javac -d bin src/motorph_employeeapp/*.java
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+
 ---
 
 ## Component Architecture & Class Documentation
