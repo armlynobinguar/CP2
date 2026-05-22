@@ -11,9 +11,12 @@
 Open the integrated VS Code terminal (Ctrl + \`` or Cmd + ``) at your main workspace directory root, copy the entire block below matching your operating system, paste it, and press Enter:  
 
 For Windows  
-javac -d bin src/motorph_employeeapp/*.java
-java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+javac -d bin src/motorph_employeeapp/*.java  
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp  
 
+When launching the application interface, use any of the configured testing credentials below to access the system dashboard:  
+Valid Usernames: employee or payroll_staff  
+Valid Passwords: 12345 or password123  
 
 ## Group Members
 
