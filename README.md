@@ -3,6 +3,9 @@
 **MO-IT103 Computer Programming 2**
 **Group 3 | Section H1101**
 
+javac -d bin src/motorph_employeeapp/*.java
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+
 > **Demo Credentials**
 > Username: `employee` &nbsp;|&nbsp; Password: `12345`
 
