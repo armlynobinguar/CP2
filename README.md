@@ -8,6 +8,13 @@
 
 ---
 
+Open the integrated VS Code terminal (Ctrl + \`` or Cmd + ``) at your main workspace directory root, copy the entire block below matching your operating system, paste it, and press Enter:  
+
+For Windows  
+javac -d bin src/motorph_employeeapp/*.java
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+
+
 ## Group Members
 
 | Name |
