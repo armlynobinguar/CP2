@@ -14,10 +14,45 @@ public class FileHandlerModule {
     public static final String ATTENDANCE_FILE = "resources/MotorPH_Employee Data - Attendance Record.csv";
     public static final String EMPLOYEE_FILE = "resources/MotorPH_Employee Data - Employee Details.csv";
 
+    /**
+     * Resolves CSV paths whether the app is run from the project root, bin/, or IDE.
+     */
+    private static String resolveDataFile(String relativePath) {
+        File direct = new File(relativePath);
+        if (direct.isFile()) {
+            return direct.getPath();
+        }
+        String userDir = System.getProperty("user.dir");
+        File fromCwd = new File(userDir, relativePath);
+        if (fromCwd.isFile()) {
+            return fromCwd.getPath();
+        }
+        File fromParent = new File(userDir, "../" + relativePath);
+        if (fromParent.isFile()) {
+            return fromParent.getAbsolutePath();
+        }
+        return relativePath;
+    }
+
+    /**
+     * Returns true when the given ID exists in the Employee Details CSV (column 0).
+     */
+    public static boolean employeeExists(String id) {
+        return findEmployeeData(id) != null;
+    }
+
     public static String findEmployeeData(String id) {
-        try (BufferedReader br = new BufferedReader(new FileReader(EMPLOYEE_FILE))) {
+        if (id == null || id.trim().isEmpty()) {
+            return null;
+        }
+        String filePath = resolveDataFile(EMPLOYEE_FILE);
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            br.readLine(); // Skip CSV header row
             String line;
             while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
                 String[] columns = smartSplit(line);
                 if (columns.length > 0 && columns[0].trim().equals(id.trim())) {
                     return line;
@@ -31,7 +66,7 @@ public class FileHandlerModule {
 
 public static List<String> findAttendanceData(String id) {
         List<String> records = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(ATTENDANCE_FILE))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(resolveDataFile(ATTENDANCE_FILE)))) {
             br.readLine(); // Skip header
             String line;
             while ((line = br.readLine()) != null) {
@@ -53,7 +88,7 @@ public static List<String> findAttendanceData(String id) {
      */
     public static List<String[]> getAllEmployees() {
         List<String[]> employees = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(EMPLOYEE_FILE))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(resolveDataFile(EMPLOYEE_FILE)))) {
             br.readLine(); // Skip CSV Header
             String line;
             while ((line = br.readLine()) != null) {
@@ -71,7 +106,7 @@ public static List<String> findAttendanceData(String id) {
      * Appends a newly validated employee record line to the CSV file.
      */
     public static boolean appendEmployeeRecord(String rawCsvLine) {
-        try (FileWriter fw = new FileWriter(EMPLOYEE_FILE, true);
+        try (FileWriter fw = new FileWriter(resolveDataFile(EMPLOYEE_FILE), true);
              BufferedWriter bw = new BufferedWriter(fw);
              PrintWriter out = new PrintWriter(bw)) {
             out.println(); // Ensure it writes to a brand new line

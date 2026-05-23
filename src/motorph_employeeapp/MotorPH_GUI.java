@@ -2,8 +2,11 @@
 package motorph_employeeapp;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Font;
+import java.util.ArrayList;
+import java.util.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -61,6 +64,8 @@ public class MotorPH_GUI {
     static final Color HOVER_BLUE = new Color(12, 103, 222);
     static final Color TEXT_DARK_NAVY = new Color(28, 57, 112);
     static final Color BORDER_BLUE = new Color(180, 205, 240);
+    static final Color BORDER_DEFAULT = new Color(163, 196, 243);
+    static final Color BORDER_ERROR = Color.RED;
 
     // UI Global Handles accessible across the procedure hooks
     static JDialog loginDialog;
@@ -158,17 +163,38 @@ public class MotorPH_GUI {
                     String user = usernameField.getText().trim();
                     String pass = new String(passwordField.getPassword());
 
+                    resetLoginFieldBorders();
+
+                    List<String> loginErrors = new ArrayList<>();
+
+                    if (user.isEmpty()) {
+                        setLoginFieldError(usernameField);
+                        loginErrors.add("Username is required.");
+                    }
+                    if (pass.isEmpty()) {
+                        setLoginFieldError(passwordField);
+                        loginErrors.add("Password is required.");
+                    }
+
+                    if (!loginErrors.isEmpty()) {
+                        showBulletErrorDialog(loginDialog, loginErrors, "Input Error",
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
                     // Verification logic parsing text parameters
-                    if ((pass.equals(MotorPH_EmployeeApp.AUTH_VAL_3) || pass.equals(MotorPH_EmployeeApp.AUTH_VAL_4)) &&
-                            (user.equals(MotorPH_EmployeeApp.AUTH_VAL_1)
+                    if ((pass.equals(MotorPH_EmployeeApp.AUTH_VAL_3) || pass.equals(MotorPH_EmployeeApp.AUTH_VAL_4))
+                            && (user.equals(MotorPH_EmployeeApp.AUTH_VAL_1)
                                     || user.equals(MotorPH_EmployeeApp.AUTH_VAL_2))) {
                         MotorPH_EmployeeApp.loginSuccessful = true;
                         loginDialog.dispose();
                     } else {
-                        // Alert message match (From Lesson: JOptionPane)
-                        JOptionPane.showMessageDialog(loginDialog,
-                                createStyledAlertText("Invalid Username or Password."), // Wrapped here!
-                                "Login Failed",
+                        setLoginFieldError(usernameField);
+                        setLoginFieldError(passwordField);
+                        List<String> authErrors = new ArrayList<>();
+                        authErrors.add("Invalid Username or Password.");
+                        authErrors.add("Please check your credentials and try again.");
+                        showBulletErrorDialog(loginDialog, authErrors, "Login Failed",
                                 JOptionPane.ERROR_MESSAGE);
                     }
                 }
@@ -366,25 +392,14 @@ public class MotorPH_GUI {
 
             @Override
             public void keyPressed(KeyEvent e) {
-                // Invoked when a physical key is pressed down. Uses KeyCode.
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    validateEmployeeNumberField(true);
+                }
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
-                String id = txtEmployeeNo.getText().trim();
-
-                if (id.isEmpty()) {
-                    txtEmployeeName.setText("");
-                    return;
-                }
-
-                String data = FileHandlerModule.findEmployeeData(id);
-                if (data != null) {
-                    String[] emp = FileHandlerModule.smartSplit(data);
-                    txtEmployeeName.setText(EmployeeModule.fullName(emp));
-                } else {
-                    txtEmployeeName.setText("");
-                }
+                updateEmployeeNameFromId(false);
             }
         });
 
@@ -483,6 +498,15 @@ public class MotorPH_GUI {
 
         txtLookupInput = createStyledTextField(true);
         txtLookupInput.setBounds(30, 55, 340, 35);
+        txtLookupInput.addKeyListener(new KeyListener() {
+            @Override public void keyTyped(KeyEvent e) {}
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    runEmployeeLookupAction();
+                }
+            }
+            @Override public void keyReleased(KeyEvent e) {}
+        });
 
         JButton btnSearch = new JButton("Search Record");
         btnSearch.setBounds(30, 105, 160, 40);
@@ -531,27 +555,34 @@ public class MotorPH_GUI {
      */
     static void runEmployeeLookupAction() {
         String idInput = txtLookupInput.getText().trim();
+        resetFieldBorder(txtLookupInput);
+        txtLookupDisplay.setText("");
 
-        // Check if the user input is completely blank or cleared out
+        List<String> lookupErrors = new ArrayList<>();
+
         if (idInput.isEmpty()) {
-            // If the user is deleting characters via key listener, keep the screen clean.
-            // If they click a static button trigger while empty, prompt them safely.
-            txtLookupDisplay.setText("");
+            setFieldError(txtLookupInput);
+            lookupErrors.add("Employee ID is required.");
+        } else if (!idInput.matches("\\d+")) {
+            setFieldError(txtLookupInput);
+            lookupErrors.add("Employee ID must be numeric (e.g. 10001).");
+        } else if (!FileHandlerModule.employeeExists(idInput)) {
+            setFieldError(txtLookupInput);
+            lookupErrors.add("Employee ID \"" + idInput + "\" was not found in the employee records (CSV).");
+        }
+
+        if (!lookupErrors.isEmpty()) {
+            txtLookupDisplay.setText(formatPlainBulletList(lookupErrors));
+            showBulletErrorDialog(frame, lookupErrors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Query the data file module using the provided input string parameter
         String data = FileHandlerModule.findEmployeeData(idInput);
-        if (data != null) {
-            String[] emp = FileHandlerModule.smartSplit(data);
-            txtLookupDisplay.setText(
-                    "Employee ID: " + emp[EmployeeModule.ID] + "\n" +
-                            "Full Name:   " + EmployeeModule.fullName(emp) + "\n" +
-                            "Birthday:    " + emp[EmployeeModule.BIRTHDAY]);
-        } else {
-            // Fallback display state if parsing fails to locate an ID match
-            txtLookupDisplay.setText("Employee ID not found.");
-        }
+        String[] emp = FileHandlerModule.smartSplit(data);
+        txtLookupDisplay.setText(
+                "Employee ID: " + emp[EmployeeModule.ID] + "\n" +
+                        "Full Name:   " + EmployeeModule.fullName(emp) + "\n" +
+                        "Birthday:    " + emp[EmployeeModule.BIRTHDAY]);
     }
 
     /**
@@ -561,86 +592,169 @@ public class MotorPH_GUI {
     static void runPayrollCalculation() {
         txtResultArea.setText("");
 
-        String id    = txtEmployeeNo.getText().trim();
-        String year  = txtYear.getText().trim();
+        String id = txtEmployeeNo.getText().trim();
+        String year = txtYear.getText().trim();
 
-        // Reset field highlights first
-        txtEmployeeNo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
-        txtYear.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
-        monthCombo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
+        resetPayrollFieldBorders();
 
-        boolean hasError = false;
-        StringBuilder errorMsg = new StringBuilder("Please fix the following:\n");
+        List<String> errors = new ArrayList<>();
 
-        if (id.isEmpty()) {
-            txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-            errorMsg.append("• Employee Number is required.\n");
-            hasError = true;
-        } else {
-            try {
-                Integer.parseInt(id);
-            } catch (NumberFormatException e) {
-                txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-                errorMsg.append("• Employee Number must be numeric.\n");
-                hasError = true;
-            }
-        }
+        collectEmployeeNumberErrors(id, errors);
 
         if (monthCombo.getSelectedIndex() == 0) {
-            monthCombo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-            errorMsg.append("• No month selected.\n");
-            hasError = true;
+            setFieldError(monthCombo);
+            errors.add("Pay Coverage Month is required.");
         }
 
-        // 3. Pay Coverage Year validation
         if (year.isEmpty()) {
-            txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-            errorMsg.append("• Pay Coverage Year is required.\n");
-            hasError = true;
-        } else {
-            try {
-                Integer.parseInt(year);
-                if (!year.equals("2024")) {
-                    txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-                    errorMsg.append("• Only year 2024 is currently supported.\n");
-                    hasError = true;
-                }
-            } catch (NumberFormatException e) {
-                txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-                errorMsg.append("• Pay Coverage Year must be numeric.\n");
-                hasError = true;
-            }
+            setFieldError(txtYear);
+            errors.add("Pay Coverage Year is required.");
+        } else if (!year.matches("\\d+")) {
+            setFieldError(txtYear);
+            errors.add("Pay Coverage Year must be numeric.");
+        } else if (!year.equals("2024")) {
+            setFieldError(txtYear);
+            errors.add("Only year 2024 is currently supported.");
         }
 
-        // Show all errors at once if any
-        if (hasError) {
-            JOptionPane.showMessageDialog(
-                    frame,
-                    createStyledAlertText(errorMsg.toString()),
-                    "Input Error",
-                    JOptionPane.WARNING_MESSAGE
-            );
+        if (!errors.isEmpty()) {
+            txtResultArea.setText(formatPlainBulletList(errors));
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // 4. Database entry verification
         String data = FileHandlerModule.findEmployeeData(id);
-        if (data == null) {
-            txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
-            JOptionPane.showMessageDialog(
-                    frame,
-                    createStyledAlertText("No Employee Records Found. Please type the correct Employee Number."),
-                    "Record Not Found",
-                    JOptionPane.ERROR_MESSAGE
-            );
-            return;
-        }
-
         String[] emp = FileHandlerModule.smartSplit(data);
         txtEmployeeName.setText(EmployeeModule.fullName(emp));
 
         String actualMonth = String.valueOf(monthCombo.getSelectedIndex() + 5);
         SalaryComputationModule.calculatePayroll(emp, actualMonth, year, txtResultArea);
+    }
+
+    private static void resetLoginFieldBorders() {
+        resetLoginFieldBorder(usernameField);
+        resetLoginFieldBorder(passwordField);
+    }
+
+    private static void resetLoginFieldBorder(JTextField field) {
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_BLUE, 1),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)));
+    }
+
+    private static void setLoginFieldError(JTextField field) {
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_ERROR, 2),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)));
+    }
+
+    private static void resetPayrollFieldBorders() {
+        resetFieldBorder(txtEmployeeNo);
+        resetFieldBorder(txtYear);
+        resetFieldBorder(monthCombo);
+    }
+
+    private static void resetFieldBorder(JTextField field) {
+        if (field != null) {
+            field.setBorder(BorderFactory.createLineBorder(BORDER_DEFAULT, 1));
+        }
+    }
+
+    private static void resetFieldBorder(JComboBox<?> combo) {
+        if (combo != null) {
+            combo.setBorder(BorderFactory.createLineBorder(BORDER_DEFAULT, 1));
+        }
+    }
+
+    private static void setFieldError(JTextField field) {
+        field.setBorder(BorderFactory.createLineBorder(BORDER_ERROR, 2));
+    }
+
+    private static void setFieldError(JComboBox<?> combo) {
+        combo.setBorder(BorderFactory.createLineBorder(BORDER_ERROR, 2));
+    }
+
+    /**
+     * Adds employee-number validation messages to the list (checks Employee Details CSV).
+     */
+    private static void collectEmployeeNumberErrors(String id, List<String> errors) {
+        if (id == null || id.isEmpty()) {
+            setFieldError(txtEmployeeNo);
+            errors.add("Employee Number is required.");
+            return;
+        }
+        if (!id.matches("\\d+")) {
+            setFieldError(txtEmployeeNo);
+            errors.add("Employee Number must be numeric (e.g. 10001).");
+            return;
+        }
+        if (!FileHandlerModule.employeeExists(id)) {
+            setFieldError(txtEmployeeNo);
+            errors.add("Employee Number \"" + id + "\" was not found in the employee records (CSV).");
+        }
+    }
+
+    /**
+     * Live lookup for the employee name field. Optionally shows a dialog on Enter.
+     */
+    private static boolean validateEmployeeNumberField(boolean showDialog) {
+        String id = txtEmployeeNo.getText().trim();
+        resetFieldBorder(txtEmployeeNo);
+
+        if (id.isEmpty()) {
+            txtEmployeeName.setText("");
+            return false;
+        }
+
+        List<String> errors = new ArrayList<>();
+        collectEmployeeNumberErrors(id, errors);
+
+        if (!errors.isEmpty()) {
+            if (id.matches("\\d+")) {
+                txtEmployeeName.setText("(Employee not found)");
+            } else {
+                txtEmployeeName.setText("");
+            }
+            if (showDialog) {
+                showBulletErrorDialog(frame, errors, "Invalid Employee Number",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+            return false;
+        }
+
+        String data = FileHandlerModule.findEmployeeData(id);
+        String[] emp = FileHandlerModule.smartSplit(data);
+        txtEmployeeName.setText(EmployeeModule.fullName(emp));
+        return true;
+    }
+
+    private static void updateEmployeeNameFromId(boolean showDialog) {
+        validateEmployeeNumberField(showDialog);
+    }
+
+    private static void showBulletErrorDialog(Component parent, List<String> items,
+            String title, int messageType) {
+        StringBuilder html = new StringBuilder(
+                "<html><body style='width:320px;font-family:Segoe UI;font-size:13px;color:rgb(28,57,112);'>");
+        html.append("<b>Please fix the following:</b>");
+        html.append("<ul style='margin-top:8px;margin-bottom:0;padding-left:22px;'>");
+        for (String item : items) {
+            html.append("<li>").append(escapeHtml(item)).append("</li>");
+        }
+        html.append("</ul></body></html>");
+        JOptionPane.showMessageDialog(parent, html.toString(), title, messageType);
+    }
+
+    private static String formatPlainBulletList(List<String> items) {
+        StringBuilder text = new StringBuilder("Please fix the following:\n");
+        for (String item : items) {
+            text.append("• ").append(item).append("\n");
+        }
+        return text.toString();
+    }
+
+    private static String escapeHtml(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
     
     // --- STYLE HELPER FUNCTIONS MATCHING SCRIPT CHOICES ---
@@ -666,17 +780,6 @@ public class MotorPH_GUI {
 
         field.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
         return field;
-    }
-
-    /**
-     * Helper to wrap alert message strings inside beautifully styled JLabels.
-     * Ensures popups strictly match the application font and theme palette.
-     */
-    private static JLabel createStyledAlertText(String text) {
-        JLabel alertLabel = new JLabel(text);
-        alertLabel.setFont(APP_FONT_PLAIN); // Matches standard UI font body selection
-        alertLabel.setForeground(new Color(11, 29, 58)); // Dark Navy color match
-        return alertLabel;
     }
 
     private static void styleStandardButton(JButton button) {
