@@ -3,9 +3,6 @@
 **MO-IT103 Computer Programming 2**
 **Group 3 | Section H1101**
 
-javac -d bin src/motorph_employeeapp/*.java  
-java -cp bin motorph_employeeapp.MotorPH_EmployeeApp  
-
 > **Demo Credentials**
 > Username: `employee` &nbsp;|&nbsp; Password: `12345`
 
@@ -49,15 +46,61 @@ CP2/
 
 ## How to Run
 
-1. Open the project in VS Code or NetBeans
-2. Ensure the `resources/` folder is in the project root with both CSV files
-3. Compile all `.java` files inside `src/motorph_employeeapp/`
-4. Run `MotorPH_EmployeeApp.java` as the main entry point
-5. Log in using the demo credentials above
-6. Select a menu option to proceed  
+### Prerequisites
 
-javac -d bin src/motorph_employeeapp/*.java  
-java -cp bin motorph_employeeapp.MotorPH_EmployeeApp  
+- [JDK 21](https://adoptium.net/) or newer installed (`java` and `javac` available on your PATH)
+- Both CSV files present under `resources/` at the project root
+- Commands run from the **project root** (`CP2/`) so the app can find `resources/`
+
+Verify Java:
+
+```bash
+java -version
+javac -version
+```
+
+### Option 1 — Terminal (recommended)
+
+From the project root:
+
+```bash
+# 1. Compile all source files into bin/
+mkdir -p bin
+javac -d bin src/motorph_employeeapp/*.java
+
+# 2. Launch the application
+java -cp bin motorph_employeeapp.MotorPH_EmployeeApp
+```
+
+A login window opens. Sign in with the demo credentials above, then use the main menu (Pay Coverage, Employee Information, or Logout).
+
+### Option 2 — VS Code
+
+1. Open the `CP2` folder in VS Code.
+2. Install the **Extension Pack for Java** (Microsoft).
+3. Confirm `resources/` is at the project root with both CSV files.
+4. Open `src/motorph_employeeapp/MotorPH_EmployeeApp.java`.
+5. Click **Run** above `main`, or press **F5** / use **Run > Run Without Debugging**.
+6. Set the working directory to the project root if prompted (required for CSV paths).
+
+### Option 3 — NetBeans
+
+1. Open the project in NetBeans (Ant project with `build.xml`).
+2. Right-click the project → **Run** (main class: `motorph_employeeapp.MotorPH_EmployeeApp`).
+
+Or from the project root:
+
+```bash
+ant run
+```
+
+### Troubleshooting
+
+| Issue | Fix |
+|---|---|
+| `Unable to locate a Java Runtime` | Install JDK 21+ and ensure `java` / `javac` are on your PATH |
+| Employee or attendance data not loading | Run from the `CP2/` directory, not from `src/` or `bin/` |
+| Compile errors after pulling changes | Delete `bin/` and recompile with the `javac` command above |
 
 ---
 
