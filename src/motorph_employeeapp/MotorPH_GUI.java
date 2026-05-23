@@ -371,30 +371,20 @@ public class MotorPH_GUI {
 
             @Override
             public void keyReleased(KeyEvent e) {
-<<<<<<< HEAD
-                // Clear name field when employee number is cleared
-                if (txtEmployeeNo.getText().trim().isEmpty()) {
-                    txtEmployeeName.setText("");
-=======
-                // Invoked whenever a button is released.
                 String id = txtEmployeeNo.getText().trim();
 
-                // If input clear, instantly empty the read-only name field
                 if (id.isEmpty()) {
                     txtEmployeeName.setText("");
                     return;
                 }
 
-                // Query file storage module instantly as the user types
                 String data = FileHandlerModule.findEmployeeData(id);
                 if (data != null) {
                     String[] emp = FileHandlerModule.smartSplit(data);
                     txtEmployeeName.setText(EmployeeModule.fullName(emp));
                 } else {
-                    txtEmployeeName.setText("Searching records...");
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
+                    txtEmployeeName.setText("");
                 }
-            
             }
         });
 
@@ -405,16 +395,9 @@ public class MotorPH_GUI {
 
         JLabel lblMonth = createStyledLabel("Pay Coverage Month:");
         lblMonth.setBounds(30, 110, 230, 30);
-<<<<<<< HEAD
         String[] months = {" ", "06 - June",
                         "07 - July", "08 - August", "09 - September",
                         "10 - October", "11 - November", "12 - December"};
-=======
-        String[] months = { "January", "February", "March",
-                "April", "May", "June",
-                "July", "August", "September",
-                "October", "November", "December" };
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
         monthCombo = new JComboBox<>(months);
         monthCombo.setBounds(255, 110, 243, 30);
         monthCombo.setFont(APP_FONT_PLAIN);
@@ -580,19 +563,15 @@ public class MotorPH_GUI {
 
         String id    = txtEmployeeNo.getText().trim();
         String year  = txtYear.getText().trim();
-        String month = String.valueOf(monthCombo.getSelectedIndex());
 
-<<<<<<< HEAD
         // Reset field highlights first
         txtEmployeeNo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
         txtYear.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
         monthCombo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
-        // Track which fields are missing
         boolean hasError = false;
         StringBuilder errorMsg = new StringBuilder("Please fix the following:\n");
 
-        // 1. Employee Number validation
         if (id.isEmpty()) {
             txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
             errorMsg.append("• Employee Number is required.\n");
@@ -607,36 +586,10 @@ public class MotorPH_GUI {
             }
         }
 
-        // 2. Pay Coverage Month validation
         if (monthCombo.getSelectedIndex() == 0) {
             monthCombo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
             errorMsg.append("• No month selected.\n");
             hasError = true;
-=======
-        // 1. Empty field layout check
-        if (id.isEmpty() || year.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    frame,
-                    createStyledAlertText("Please fill in all fields to proceed."),
-                    "Missing Information",
-                    JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-
-        // 2. Numerical validation parsing parameters
-        try {
-            Integer.parseInt(id);
-            Integer.parseInt(month);
-            Integer.parseInt(year);
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(
-                    frame,
-                    createStyledAlertText(
-                            "Please type only numerical values for Employee Number, Pay Coverage Month, and Pay Coverage Year."),
-                    "Input Error",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
         }
 
         // 3. Pay Coverage Year validation
@@ -663,16 +616,10 @@ public class MotorPH_GUI {
         if (hasError) {
             JOptionPane.showMessageDialog(
                     frame,
-<<<<<<< HEAD
                     createStyledAlertText(errorMsg.toString()),
                     "Input Error",
                     JOptionPane.WARNING_MESSAGE
             );
-=======
-                    createStyledAlertText("Only year 2024 is currently supported. Please enter 2024."),
-                    "Invalid Year",
-                    JOptionPane.WARNING_MESSAGE);
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
             return;
         }
 
@@ -682,30 +629,16 @@ public class MotorPH_GUI {
             txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
             JOptionPane.showMessageDialog(
                     frame,
-<<<<<<< HEAD
                     createStyledAlertText("No Employee Records Found. Please type the correct Employee Number."),
                     "Record Not Found",
                     JOptionPane.ERROR_MESSAGE
             );
-=======
-                    createStyledAlertText("The requested Employee ID was not found in our database records."),
-                    "Record Not Found",
-                    JOptionPane.ERROR_MESSAGE);
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
             return;
         }
 
-        // 5. Success — populate name and compute payroll
         String[] emp = FileHandlerModule.smartSplit(data);
         txtEmployeeName.setText(EmployeeModule.fullName(emp));
-<<<<<<< HEAD
-=======
 
-        SalaryComputationModule.calculatePayroll(emp, month, year, txtResultArea);
-    }
->>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
-
-        // Adjust month index since index 0 is blank
         String actualMonth = String.valueOf(monthCombo.getSelectedIndex() + 5);
         SalaryComputationModule.calculatePayroll(emp, actualMonth, year, txtResultArea);
     }
