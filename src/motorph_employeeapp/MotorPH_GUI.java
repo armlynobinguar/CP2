@@ -175,6 +175,19 @@ public class MotorPH_GUI {
             }
         });
 
+        // Allow Enter key to trigger login from either field
+        KeyListener enterKeyListener = new KeyListener() {
+            @Override public void keyTyped(KeyEvent e) {}
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    btnLogin.doClick();
+                }
+            }
+            @Override public void keyReleased(KeyEvent e) {}
+        };
+        usernameField.addKeyListener(enterKeyListener);
+        passwordField.addKeyListener(enterKeyListener);
+
         // Assemble all elements back onto absolute panel structures
         formPanel.add(lblUser);
         formPanel.add(usernameField);
@@ -358,6 +371,11 @@ public class MotorPH_GUI {
 
             @Override
             public void keyReleased(KeyEvent e) {
+<<<<<<< HEAD
+                // Clear name field when employee number is cleared
+                if (txtEmployeeNo.getText().trim().isEmpty()) {
+                    txtEmployeeName.setText("");
+=======
                 // Invoked whenever a button is released.
                 String id = txtEmployeeNo.getText().trim();
 
@@ -374,7 +392,9 @@ public class MotorPH_GUI {
                     txtEmployeeName.setText(EmployeeModule.fullName(emp));
                 } else {
                     txtEmployeeName.setText("Searching records...");
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
                 }
+            
             }
         });
 
@@ -385,15 +405,24 @@ public class MotorPH_GUI {
 
         JLabel lblMonth = createStyledLabel("Pay Coverage Month:");
         lblMonth.setBounds(30, 110, 230, 30);
+<<<<<<< HEAD
+        String[] months = {" ", "06 - June",
+                        "07 - July", "08 - August", "09 - September",
+                        "10 - October", "11 - November", "12 - December"};
+=======
         String[] months = { "January", "February", "March",
                 "April", "May", "June",
                 "July", "August", "September",
                 "October", "November", "December" };
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
         monthCombo = new JComboBox<>(months);
-        monthCombo.setBounds(260, 110, 240, 30);
+        monthCombo.setBounds(255, 110, 243, 30);
         monthCombo.setFont(APP_FONT_PLAIN);
         monthCombo.setBackground(Color.white);
         monthCombo.setForeground(new Color(11, 29, 58));
+        monthCombo.putClientProperty("JComboBox.isPopDown", Boolean.TRUE);
+        ((JLabel) monthCombo.getRenderer()).setBorder(
+            BorderFactory.createEmptyBorder(0, 2, 0, 0));
 
         JLabel lblYear = createStyledLabel("Pay Coverage Year (2024 only):");
         lblYear.setBounds(30, 155, 230, 30);
@@ -549,10 +578,41 @@ public class MotorPH_GUI {
     static void runPayrollCalculation() {
         txtResultArea.setText("");
 
-        String id = txtEmployeeNo.getText().trim();
-        String month = String.valueOf(monthCombo.getSelectedIndex() + 1);
-        String year = txtYear.getText().trim();
+        String id    = txtEmployeeNo.getText().trim();
+        String year  = txtYear.getText().trim();
+        String month = String.valueOf(monthCombo.getSelectedIndex());
 
+<<<<<<< HEAD
+        // Reset field highlights first
+        txtEmployeeNo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
+        txtYear.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
+        monthCombo.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
+
+        // Track which fields are missing
+        boolean hasError = false;
+        StringBuilder errorMsg = new StringBuilder("Please fix the following:\n");
+
+        // 1. Employee Number validation
+        if (id.isEmpty()) {
+            txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+            errorMsg.append("• Employee Number is required.\n");
+            hasError = true;
+        } else {
+            try {
+                Integer.parseInt(id);
+            } catch (NumberFormatException e) {
+                txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                errorMsg.append("• Employee Number must be numeric.\n");
+                hasError = true;
+            }
+        }
+
+        // 2. Pay Coverage Month validation
+        if (monthCombo.getSelectedIndex() == 0) {
+            monthCombo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+            errorMsg.append("• No month selected.\n");
+            hasError = true;
+=======
         // 1. Empty field layout check
         if (id.isEmpty() || year.isEmpty()) {
             JOptionPane.showMessageDialog(
@@ -576,36 +636,80 @@ public class MotorPH_GUI {
                     "Input Error",
                     JOptionPane.WARNING_MESSAGE);
             return;
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
         }
 
-        // 2b. Year range validation — only 2024 data is available
-        if (!year.equals("2024")) {
+        // 3. Pay Coverage Year validation
+        if (year.isEmpty()) {
+            txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+            errorMsg.append("• Pay Coverage Year is required.\n");
+            hasError = true;
+        } else {
+            try {
+                Integer.parseInt(year);
+                if (!year.equals("2024")) {
+                    txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                    errorMsg.append("• Only year 2024 is currently supported.\n");
+                    hasError = true;
+                }
+            } catch (NumberFormatException e) {
+                txtYear.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
+                errorMsg.append("• Pay Coverage Year must be numeric.\n");
+                hasError = true;
+            }
+        }
+
+        // Show all errors at once if any
+        if (hasError) {
             JOptionPane.showMessageDialog(
                     frame,
+<<<<<<< HEAD
+                    createStyledAlertText(errorMsg.toString()),
+                    "Input Error",
+                    JOptionPane.WARNING_MESSAGE
+            );
+=======
                     createStyledAlertText("Only year 2024 is currently supported. Please enter 2024."),
                     "Invalid Year",
                     JOptionPane.WARNING_MESSAGE);
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
             return;
         }
 
-        // 3. Database entry verification check
+        // 4. Database entry verification
         String data = FileHandlerModule.findEmployeeData(id);
         if (data == null) {
+            txtEmployeeNo.setBorder(BorderFactory.createLineBorder(Color.RED, 2));
             JOptionPane.showMessageDialog(
                     frame,
+<<<<<<< HEAD
+                    createStyledAlertText("No Employee Records Found. Please type the correct Employee Number."),
+                    "Record Not Found",
+                    JOptionPane.ERROR_MESSAGE
+            );
+=======
                     createStyledAlertText("The requested Employee ID was not found in our database records."),
                     "Record Not Found",
                     JOptionPane.ERROR_MESSAGE);
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
             return;
         }
 
-        // 4. Success state computation pass
+        // 5. Success — populate name and compute payroll
         String[] emp = FileHandlerModule.smartSplit(data);
         txtEmployeeName.setText(EmployeeModule.fullName(emp));
+<<<<<<< HEAD
+=======
 
         SalaryComputationModule.calculatePayroll(emp, month, year, txtResultArea);
     }
+>>>>>>> e3a39db09e12fd9ac6e759efee6f8e31330b1ace
 
+        // Adjust month index since index 0 is blank
+        String actualMonth = String.valueOf(monthCombo.getSelectedIndex() + 5);
+        SalaryComputationModule.calculatePayroll(emp, actualMonth, year, txtResultArea);
+    }
+    
     // --- STYLE HELPER FUNCTIONS MATCHING SCRIPT CHOICES ---
     private static JLabel createStyledLabel(String text) {
         JLabel label = new JLabel(text);
