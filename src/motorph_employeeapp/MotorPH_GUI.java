@@ -155,7 +155,7 @@ public class MotorPH_GUI {
         loginDialog = new JDialog();
         loginDialog.setTitle("MotorPH Payroll System - Login");
         // Sized so the header card + form card + small bottom margin fit cleanly
-        loginDialog.setSize(420, 460);
+        loginDialog.setSize(436, 460);
         loginDialog.setModal(true); // Replaces Frame parent wrapper injection cleanly
         loginDialog.setLayout(null); // Setting layout manager to null for explicit setBounds tracking
         loginDialog.setLocationRelativeTo(null);
@@ -471,18 +471,18 @@ public class MotorPH_GUI {
     static void showMainMenu() {
         frame.getContentPane().removeAll();
         frame.setLayout(null); // Setting layout to null to use setBounds explicitly
-        frame.setSize(520, 600);
+        frame.setSize(476, 530);
         frame.getContentPane().setBackground(new Color(212, 228, 252)); // Hex conversion color match
 
         // Branded blue header strip replaces the prior plain title label
-        addColoredHeaderStrip("MAIN MENU", 520);
+        addColoredHeaderStrip("MAIN MENU", 460);
 
         // Container Panel (Lesson: Panels) — shifted just below the header strip.
         // x = (frameWidth 520 - cardWidth 400) / 2 = 60, so left and right margins both equal 60.
         JPanel menuPanel = new JPanel();
         menuPanel.setBackground(Color.white);
         menuPanel.setLayout(null); // Using null layout within the panel container
-        menuPanel.setBounds(60, 70, 400, 380);
+        menuPanel.setBounds(30, 70, 400, 380);
         menuPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         // Navigation Menu Interactive Buttons (Lesson: Buttons)
@@ -521,7 +521,7 @@ public class MotorPH_GUI {
         menuPanel.add(btnLogout);
 
         frame.add(menuPanel);
-        addLoggedInFooter(520, 575, 60); // Right margin 60 matches menuPanel right edge
+        addLoggedInFooter(460, 500, 30); // Right margin 60 matches menuPanel right edge
         updateDisplay();
     }
 
@@ -634,7 +634,7 @@ public class MotorPH_GUI {
 
         // Section header above the result area for clearer visual grouping
         JLabel lblOutputHeader = createStyledLabel("Payroll Output:");
-        lblOutputHeader.setBounds(30, 315, 200, 20);
+        lblOutputHeader.setBounds(30, 335, 200, 20);
         frame.add(lblOutputHeader);
 
         // Text display output panel container
@@ -646,7 +646,7 @@ public class MotorPH_GUI {
 
         // JScrollPane allows text wrapping views inside layout sheets
         JScrollPane scrollPane = new JScrollPane(txtResultArea);
-        scrollPane.setBounds(30, 340, 490, 340);
+        scrollPane.setBounds(30, 365, 490, 315);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         frame.add(formPanel);
@@ -665,17 +665,17 @@ public class MotorPH_GUI {
     static void showEmployeeLookupUI() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
-        frame.setSize(480, 560);
+        frame.setSize(476, 550);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
         // Branded blue header strip across the top
-        addColoredHeaderStrip("EMPLOYEE LOOKUP", 480);
+        addColoredHeaderStrip("EMPLOYEE LOOKUP", 460);
 
         // Center the card: x = (frameWidth 480 - cardWidth 400) / 2 = 40
         JPanel lookupPanel = new JPanel();
         lookupPanel.setLayout(null);
         lookupPanel.setBackground(Color.white);
-        lookupPanel.setBounds(40, 70, 400, 400);
+        lookupPanel.setBounds(30, 70, 400, 400);
         lookupPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         JLabel lblPrompt = createStyledLabel("Enter Employee ID:");
@@ -738,7 +738,7 @@ public class MotorPH_GUI {
         lookupPanel.add(infoScroll);
 
         frame.add(lookupPanel);
-        addLoggedInFooter(480, 535, 40); // Right margin 40 matches lookupPanel right edge
+        addLoggedInFooter(460, 520, 30); // Right margin 40 matches lookupPanel right edge
         updateDisplay();
     }
 
