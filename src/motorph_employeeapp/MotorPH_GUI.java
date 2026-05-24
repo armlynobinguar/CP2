@@ -534,7 +534,7 @@ public class MotorPH_GUI {
     static void setupPayrollUI() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
-        frame.setSize(550, 750);
+        frame.setSize(566, 750);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
         // Branded blue header strip across the top
