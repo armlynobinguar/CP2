@@ -30,33 +30,72 @@ import javax.swing.SwingConstants;
 
 /**
  * MotorPH_GUI
- * BroCode Java Swing Tutorial Reference Concepts.
+ * -----------
+ * Swing-based presentation layer for the MotorPH Employee Payroll System.
+ *
+ * This class builds and navigates all screens:
+ *   - Login dialog (modal authentication gate)
+ *   - Main menu (payroll, employee lookup, logout)
+ *   - Pay coverage / payroll processing form (MPHCRO1)
+ *   - Employee information lookup view
+ *
+ * Layout uses null layout ({@code setLayout(null)}) with explicit {@code setBounds}
+ * positioning, following BroCode Java Swing tutorial patterns for frames, panels,
+ * labels, text fields, buttons, and event listeners.
+ *
+ * Business logic is delegated to {@link FileHandlerModule}, {@link EmployeeModule},
+ * and {@link SalaryComputationModule}; this class handles validation, styling,
+ * navigation, and user feedback (dialogs and  error borders, result text areas).
  */
 public class MotorPH_GUI {
-    // Shared structural layout window handles
+
+    // --- Main application window and shared payroll controls ---
+
+    /** Primary JFrame container; content is swapped per screen via removeAll(). */
     static JFrame frame;
+
+    /** Dropdown for pay coverage month (June–December in current dataset). */
     static JComboBox<String> monthCombo;
 
-    // Core User Input Fields (From Lesson: TextFields)
+    // --- Payroll screen input and output widgets ---
+
+    /** Employee ID entry on the pay coverage form. */
     static JTextField txtEmployeeNo;
+
+    /** Read-only employee name; auto-filled from CSV when ID is valid. */
     static JTextField txtEmployeeName;
+
+    /** Legacy month field (superseded by monthCombo on payroll UI). */
     static JTextField txtMonth;
+
+    /** Pay coverage year; validated to "2024" only. */
     static JTextField txtYear;
+
+    /** Scrollable payslip / validation message output on payroll screen. */
     static JTextArea txtResultArea;
 
-    // Reference Lookup Field Window Variables
+    // --- Employee lookup screen widgets ---
+
+    /** Employee ID search box on the information lookup screen. */
     static JTextField txtLookupInput;
+
+    /** Displays ID, full name, and birthday after a successful lookup. */
     static JTextArea txtLookupDisplay;
 
-    // Fixed Font Styles sourced directly from BroCode lesson parameters
+    // --- Typography: main app screens ---
+
     static final Font APP_FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
     static final Font APP_FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 13);
+    /** Monospace font for aligned payslip columns in the result area. */
     static final Font RECEIPT_FONT = new Font("Consolas", Font.PLAIN, 13);
 
-    // SYSTEM-WIDE UNIFIED THEME CONSTANTS (From Lesson: Labels, Buttons)
+    // --- Typography: login dialog ---
+
     static final Font LOGIN_APP_FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 14);
     static final Font LOGIN_APP_FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
     static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 22);
+
+    // --- Color palette (MotorPH blue theme) ---
 
     static final Color PALETTE_WHITE = Color.WHITE;
     static final Color PALETTE_LIGHT_BLUE = new Color(235, 243, 255);
@@ -65,17 +104,23 @@ public class MotorPH_GUI {
     static final Color TEXT_DARK_NAVY = new Color(28, 57, 112);
     static final Color BORDER_BLUE = new Color(180, 205, 240);
     static final Color BORDER_DEFAULT = new Color(163, 196, 243);
+    /** Red border highlight for fields that failed validation. */
     static final Color BORDER_ERROR = Color.RED;
 
-    // UI Global Handles accessible across the procedure hooks
+    // --- Login dialog component references (used by listeners and validators) ---
+
     static JDialog loginDialog;
     static JTextField usernameField;
     static JPasswordField passwordField;
     static JButton btnLogin;
 
     /**
-     * Constructs the login window with absolute boundaries. (From Lesson: Panels,
-     * TextFields, Buttons)
+     * Builds and shows the modal login dialog before the main application loads.
+     *
+     * Validates non-empty username/password, then checks credentials against
+     * {@link MotorPH_EmployeeApp} auth constants. On success, sets
+     * {@link MotorPH_EmployeeApp#loginSuccessful} and disposes the dialog flow
+     * so {@code main()} can continue to {@link #initialize()}.
      */
     public static void showCustomLoginDialog() {
         loginDialog = new JDialog();
@@ -229,7 +274,9 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Procedural helper setting style parameters on input text components.
+     * Applies login-screen styling to a text field (font, colors, padded border).
+     *
+     * @param field JTextField or subclass to style (username field)
      */
     private static void styleInputField(JTextField field) {
         field.setFont(LOGIN_APP_FONT_PLAIN);
@@ -242,7 +289,12 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Helper mapping style bounds and attaching full interface MouseListeners.
+     * Styles the primary login button and wires|hover feedback via {@link MouseListener}.
+     *
+     * macOS-specific flags ({@code setOpaque}, {@code setContentAreaFilled},
+     * {@code setBorderPainted}) ensure custom background colors render correctly.
+     *
+     * @param button login submit button
      */
     private static void styleAccentButton(JButton button) {
         button.setFont(LOGIN_APP_FONT_BOLD);
@@ -284,8 +336,9 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Initializes the frame base window container.
-     * Lesson: Frames
+     * Creates the main {@link JFrame} after successful login and opens the main menu.
+     *
+     * Window is fixed-size, centered, and exits the JVM on close.
      */
     public static void initialize() {
         frame = new JFrame();
@@ -299,8 +352,8 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Renders a static Main Navigation Menu using explicit bounds.
-     * Lesson: Frames, Labels, Panels, Buttons
+     * Clears the frame and displays the main navigation hub with three actions:
+     * pay coverage (payroll), employee information lookup, and logout.
      */
     static void showMainMenu() {
         frame.getContentPane().removeAll();
@@ -362,8 +415,10 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Constructs the processing workbench for payroll execution loops.
-     * Lesson: Panels, TextFields, Buttons, Labels
+     * Builds the MPHCRO1 pay coverage screen: employee ID, month/year selection,
+     * process/back buttons, and scrollable payslip output area.
+     *
+     * Employee name auto-updates on key release; Enter on ID field triggers validation.
      */
     static void setupPayrollUI() {
         frame.getContentPane().removeAll();
@@ -478,8 +533,10 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Displays a clean info lookup interface aligned with BroCode's layout style.
-     * Lesson: OpenNewWindow panel manipulation models
+     * Shows the employee information lookup screen.
+     *
+     * User enters an employee ID; search loads ID, full name, and birthday from CSV
+     * or displays validation errors in the text area and a JOptionPane dialog.
      */
     static void showEmployeeLookupUI() {
         frame.getContentPane().removeAll();
@@ -549,9 +606,10 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Executes internal logic string reads parsing lookup queries.
-     * Combines both real-time clearing and button-click empty validation states
-     * safely.
+     * Handles employee lookup when Search is clicked or Enter is pressed.
+     *
+     * Validates: non-empty ID, numeric format, and existence in Employee Details CSV.
+     * On success, formats and displays ID, name, and birthday in {@link #txtLookupDisplay}.
      */
     static void runEmployeeLookupAction() {
         String idInput = txtLookupInput.getText().trim();
@@ -586,8 +644,11 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Validation checks and execution routine for calculations.
-     * Lesson: JOptionPane Dialog Mechanics
+     * Validates payroll form inputs and runs {@link SalaryComputationModule#calculatePayroll}.
+     *
+     * Checks employee ID (required, numeric, exists in CSV), month selection,
+     * and year (required, numeric, must be 2024). Errors are listed in the result
+     * area and shown in an HTML bullet-list dialog.
      */
     static void runPayrollCalculation() {
         txtResultArea.setText("");
