@@ -7,16 +7,31 @@ import java.util.List;
 
 /**
  * SalaryComputationModule
- * This module centralizes all calculation logic.
+ * -----------------------
+ * Core payroll engine for MotorPH semi-monthly pay processing.
+ *
+ * Business rules implemented here:
+ *   - Attendance hours are split into two cutoffs per month (days 1–15 and 16–31).
+ *   - Shift hours use an 8:00 AM start with 8:10 AM grace period, 5:00 PM cap, and 1-hour lunch.
+ *   - Government deductions (SSS, PhilHealth, Pag-IBIG, withholding tax) apply to the
+ *     second cutoff net pay only; first cutoff is gross-only in this model.
+ *   - Deduction amounts follow simplified Philippine contribution/tax tables.
+ *
+ * Output is written directly to a Swing {@link javax.swing.JTextArea} for on-screen payslip display.
  */
 public class SalaryComputationModule {
 
     /**
-     * Payroll output engine.
-     * Handles mathematical logic for shift calculation and government deductions.
+     * Main payroll routine: aggregates attendance, computes gross per cutoff, applies deductions,
+     * and renders a formatted payslip into the GUI text area.
+     *
+     * @param emp    split employee row from Employee Details CSV (minimum 19 columns)
+     * @param month  numeric month as string (e.g. "6" for June)
+     * @param year   pay coverage year (currently validated as "2024" in the GUI)
+     * @param output JTextArea on the payroll screen; cleared then filled with results
      */
     public static void calculatePayroll(String[] emp, String month, String year, javax.swing.JTextArea output) {
-        // Validation: ensures the array has enough data
+        // Guard: employee array must include ID and hourly rate column
         if (emp == null || emp.length < 19 || emp[0].isEmpty())
             return;
 
@@ -26,35 +41,38 @@ public class SalaryComputationModule {
         double hourlyRate = EmployeeModule.getHourlyRate(emp);
         String mName = monthName(month);
 
+        // Accumulators for semi-monthly cutoffs
         double hoursFirstCutoff = 0;
         double hoursSecondCutoff = 0;
 
-        // Retrieve attendance records for the specific ID
+        // Load every attendance row for this employee; filter by month/year below
         List<String> records = FileHandlerModule.findAttendanceData(id);
 
         for (String line : records) {
             String[] row = FileHandlerModule.smartSplit(line);
             if (row.length < 6)
-                continue; // Safety check for empty lines
+                continue; // Row must have ID, names, date, login, logout
 
+            // Date is stored as MM/DD/YYYY in column index 3
             String[] dateParts = row[3].split("/");
             if (dateParts.length < 3)
-                continue; // Ensure it's a valid date split
+                continue;
 
             try {
-                // Use .trim() to strip away any hidden spaces from user inputs and CSV columns
                 int inputMonth = Integer.parseInt(month.trim());
                 int inputYear = Integer.parseInt(year.trim());
 
                 int csvMonth = Integer.parseInt(dateParts[0].trim());
                 int csvYear = Integer.parseInt(dateParts[2].trim());
 
+                // Only count attendance within the selected pay period
                 if (csvMonth == inputMonth && csvYear == inputYear) {
                     int day = Integer.parseInt(dateParts[1].trim());
 
-                    // Trim log times before passing them to the shift calculator
+                    // Columns 4 and 5 hold login and logout times (H:mm format)
                     double shift = calculateShift(row[4].trim(), row[5].trim());
 
+                    // First cutoff: 1st through 15th; second cutoff: 16th through end of month
                     if (day <= 15) {
                         hoursFirstCutoff += shift;
                     } else {
@@ -62,18 +80,18 @@ public class SalaryComputationModule {
                     }
                 }
             } catch (Exception e) {
-                // If a row still fails, print it to the terminal so you can diagnose it!
+                // Log bad rows to console for debugging without stopping payroll
                 System.out.println("Skipped unparseable row: " + line + " due to: " + e.getMessage());
                 continue;
             }
         }
 
-        // Calculate gross salaries
+        // Gross pay = total hours in cutoff × hourly rate from employee master file
         double grossFirstCutoff = hoursFirstCutoff * hourlyRate;
         double grossSecondCutoff = hoursSecondCutoff * hourlyRate;
         double totalMonthlyGross = grossFirstCutoff + grossSecondCutoff;
 
-        // Deduction logic
+        // Statutory deductions computed on full monthly gross, applied on 2nd cutoff net
         double sss = computeSSS(totalMonthlyGross);
         double ph = computePhilHealth(totalMonthlyGross);
         double pi = computePagIBIG(totalMonthlyGross);
@@ -81,10 +99,11 @@ public class SalaryComputationModule {
         double tax = calculateWithholdingTax(taxableIncome);
         double totalDeduc = sss + ph + pi + tax;
 
+        // 1st cutoff: no deductions in this payslip model; 2nd cutoff bears all deductions
         double netSalary1 = grossFirstCutoff;
         double netSalary2 = grossSecondCutoff - totalDeduc;
 
-        // --- OUTPUT REDIRECTED TO GUI BOX ---
+        // --- Build payslip text in the GUI result panel ---
         output.append("\n Employee #: " + id);
         output.append("\n Employee Name: " + EmployeeModule.fullName(emp));
         output.append("\n Birthday: " + emp[EmployeeModule.BIRTHDAY]);
@@ -105,6 +124,19 @@ public class SalaryComputationModule {
         output.append("\n Net Salary: " + "PHP " + String.format("%,.2f", netSalary2));
     }
 
+    /**
+     * Computes billable work hours for one attendance day from login/logout timestamps.
+     *
+     * Rules:
+     *   - Official shift window: 8:00 AM – 5:00 PM.
+     *   - Arrival before or at 8:10 AM counts as 8:00 AM start (grace period).
+     *   - Logout after 5:00 PM is capped at 5:00 PM.
+     *   - One hour is subtracted for lunch break.
+     *
+     * @param logIn  time string in H:mm format (e.g. "8:04")
+     * @param logOut time string in H:mm format (e.g. "17:12")
+     * @return hours worked as double; 0.0 if invalid or negative duration
+     */
     public static double calculateShift(String logIn, String logOut) {
         try {
             DateTimeFormatter format = DateTimeFormatter.ofPattern("H:mm");
@@ -114,7 +146,9 @@ public class SalaryComputationModule {
             LocalTime startLimit = LocalTime.of(8, 0);
             LocalTime endLimit = LocalTime.of(17, 0);
 
+            // Apply grace: late within 10 minutes still starts at 8:00
             LocalTime actualStart = timeIn.isAfter(graceLimit) ? timeIn : startLimit;
+            // Cap end time at official shift end
             LocalTime actualEnd = timeOut.isAfter(endLimit) ? endLimit : timeOut;
 
             if (actualStart.isAfter(actualEnd))
@@ -123,6 +157,7 @@ public class SalaryComputationModule {
             int startMins = actualStart.getHour() * 60 + actualStart.getMinute();
             int endMins = actualEnd.getHour() * 60 + actualEnd.getMinute();
 
+            // Subtract 60 minutes for lunch; convert total minutes to hours
             return Math.max(0, (endMins - startMins - 60) / 60.0);
         } catch (Exception e) {
             return 0.0;
@@ -130,10 +165,13 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Simplified SSS Calculation using threshold loop for better readability.
-     * 
-     * @param salary - total monthly gross income.
-     * @return the calculated SSS contribution amount.
+     * SSS employee contribution based on monthly salary credit brackets.
+     *
+     * Uses stepped 500-peso brackets from 3,250 to 24,750 salary credits.
+     * Below minimum: flat 135.00; at/above maximum: capped at 1,125.00.
+     *
+     * @param salary total monthly gross income
+     * @return SSS contribution amount in PHP
      */
     public static double computeSSS(double salary) {
         if (salary < 3250)
@@ -152,11 +190,12 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Computes PhilHealth contribution (Employee share).
-     * Returns the 50% employee share of the PhilHealth premium.
-     * 
-     * @param salary - total monthly gross income.
-     * @return the PhilHealth contribution amount.
+     * PhilHealth employee share (50% of total premium).
+     *
+     * Premium is 3% of salary between 10,000 and 60,000, with floor 300 and ceiling 1,800.
+     *
+     * @param salary total monthly gross income
+     * @return employee PhilHealth contribution in PHP
      */
     public static double computePhilHealth(double salary) {
         double totalPremium;
@@ -170,11 +209,13 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Computes PagIBIG contribution with a max cap.
-     * Applies PagIBIG rates with a contribution cap of 100.00
-     * 
-     * @param salary - total monthly gross income.
-     * @return the PagIBIG contribution amount.
+     * Pag-IBIG employee contribution with combined employee/employer cap logic.
+     *
+     * Employee rate: 1% if salary ≤ 1,500, else 2%. Employer share modeled at 2%.
+     * Total contribution capped at 100.00 PHP.
+     *
+     * @param salary total monthly gross income
+     * @return Pag-IBIG contribution amount in PHP
      */
     public static double computePagIBIG(double salary) {
         double employeeRate = (salary > 1500) ? 0.02 : 0.01;
@@ -183,11 +224,12 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Computes Withholding Tax based on taxable income brackets.
-     * Calculates tax after government deductions are subtracted from gross
-     * 
-     * @param taxableIncome - Gross salary minus SSS, PhilHealth, and PagIBIG.
-     * @return the calculated withholding tax amount.
+     * BIR withholding tax on taxable income (gross minus SSS, PhilHealth, Pag-IBIG).
+     *
+     * Progressive brackets: 0% up to 20,832, then 20%, 25%, 30%, 32%, 35% tiers.
+     *
+     * @param taxableIncome gross salary minus mandatory non-tax deductions
+     * @return withholding tax amount in PHP
      */
     public static double calculateWithholdingTax(double taxableIncome) {
         if (taxableIncome <= 20832)
@@ -205,10 +247,10 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Helper to map month number to name.
-     * Compatible with all Java versions.
-     * @param monthStr - numeric month string 
-     * @return the full name of the month 
+     * Converts numeric month string to full English month name for payslip labels.
+     *
+     * @param monthStr month number as string (1–12)
+     * @return month name or fallback label on parse error
      */
     public static String monthName(String monthStr) {
         try {
@@ -228,16 +270,19 @@ public class SalaryComputationModule {
                 case 12: return "December";
                 default: return "Month " + month;
             }
-        } catch (Exception e) { 
-            return "Invalid Month"; 
+        } catch (Exception e) {
+            return "Invalid Month";
         }
     }
 
     /**
-     * Helper to find MM/YYYY in attendance
-     * Uses simple ArrayList logic to avoid duplicates.
-     * 
-     * @param id Employee ID.
+     * Discovers distinct month/year pairs present in an employee's attendance history.
+     *
+     * Used to populate pay-period selectors or validate available coverage dates.
+     * Format returned: "M/YYYY" (e.g. "6/2024").
+     *
+     * @param id employee number
+     * @return unique list of month/year strings; may be empty
      */
     public static List<String> findWorkingPeriods(String id) {
         List<String> workingPeriods = new java.util.ArrayList<>();
@@ -249,11 +294,11 @@ public class SalaryComputationModule {
 
             if (dateParts.length >= 3) {
                 try {
-
                     int m = Integer.parseInt(dateParts[0]);
                     int y = Integer.parseInt(dateParts[2]);
                     String monthYear = m + "/" + y;
 
+                    // Avoid duplicate entries for the same month/year
                     if (!workingPeriods.contains(monthYear)) {
                         workingPeriods.add(monthYear);
                     }
