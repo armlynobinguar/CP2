@@ -30,6 +30,18 @@ public class EmployeeModule {
     /** CSV column index: employee birthday (display format from CSV). */
     public static final int BIRTHDAY = 3;
 
+    /** CSV column index: employment status (Regular, Probationary, etc.). */
+    public static final int STATUS = 10;
+
+    /** CSV column index: job title / position (e.g. Chief Executive Officer). */
+    public static final int POSITION = 11;
+
+    /** CSV column index: immediate supervisor name (or "N/A"). */
+    public static final int IMMEDIATE_SUPERVISOR = 12;
+
+    /** CSV column index: basic monthly salary (formatted with thousand separators). */
+    public static final int BASIC_SALARY = 13;
+
     /**
      * CSV column index: hourly pay rate used in {@link SalaryComputationModule#calculatePayroll}.
      * Must be parsed with comma stripping before numeric conversion.
