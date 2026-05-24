@@ -1,4 +1,5 @@
 
+
 package motorph_employeeapp;
 
 import java.awt.Color;
@@ -24,7 +25,6 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.JComboBox;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
@@ -80,7 +80,7 @@ public class MotorPH_GUI {
     public static void showCustomLoginDialog() {
         loginDialog = new JDialog();
         loginDialog.setTitle("MotorPH Payroll System - Login");
-        loginDialog.setSize(420, 540);
+        loginDialog.setSize(420, 495);
         loginDialog.setModal(true); // Replaces Frame parent wrapper injection cleanly
         loginDialog.setLayout(null); // Setting layout manager to null for explicit setBounds tracking
         loginDialog.setLocationRelativeTo(null);
@@ -90,7 +90,7 @@ public class MotorPH_GUI {
         JPanel rootPanel = new JPanel();
         rootPanel.setLayout(null);
         rootPanel.setBackground(PALETTE_LIGHT_BLUE);
-        rootPanel.setBounds(0, 0, 420, 480);
+        rootPanel.setBounds(0, 0, 420, 495);
 
         // System Branding Header Box (Using clear absolute grid positions instead of
         // layout wrappers)
@@ -310,7 +310,7 @@ public class MotorPH_GUI {
 
         // Title Header Label (Lesson: Labels)
         JLabel lblMenuTitle = new JLabel("MAIN MENU", SwingConstants.CENTER);
-        lblMenuTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblMenuTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
         lblMenuTitle.setForeground(new Color(11, 29, 58));
         lblMenuTitle.setBounds(50, 30, 400, 30);
         frame.add(lblMenuTitle);
@@ -414,7 +414,7 @@ public class MotorPH_GUI {
                         "07 - July", "08 - August", "09 - September",
                         "10 - October", "11 - November", "12 - December"};
         monthCombo = new JComboBox<>(months);
-        monthCombo.setBounds(255, 110, 243, 30);
+        monthCombo.setBounds(260, 110, 240, 30);
         monthCombo.setFont(APP_FONT_PLAIN);
         monthCombo.setBackground(Color.white);
         monthCombo.setForeground(new Color(11, 29, 58));
@@ -490,7 +490,7 @@ public class MotorPH_GUI {
         JPanel lookupPanel = new JPanel();
         lookupPanel.setLayout(null);
         lookupPanel.setBackground(Color.white);
-        lookupPanel.setBounds(40, 40, 400, 400);
+        lookupPanel.setBounds(32, 44, 400, 400);
         lookupPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         JLabel lblPrompt = createStyledLabel("Enter Employee ID:");
