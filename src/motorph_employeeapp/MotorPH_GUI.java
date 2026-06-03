@@ -1,35 +1,12 @@
 
-
 package motorph_employeeapp;
 
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Font;
-import java.util.ArrayList;
-import java.util.List;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.util.List; // Optional, see note below
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 
 /**
  * MotorPH_GUI
@@ -37,18 +14,21 @@ import javax.swing.SwingConstants;
  * Swing-based presentation layer for the MotorPH Employee Payroll System.
  *
  * This class builds and navigates all screens:
- *   - Login dialog (modal authentication gate)
- *   - Main menu (payroll, employee lookup, logout)
- *   - Pay coverage / payroll processing form (MPHCRO1)
- *   - Employee information lookup view
+ * - Login dialog (modal authentication gate)
+ * - Main menu (payroll, employee lookup, logout)
+ * - Pay coverage / payroll processing form (MPHCRO1)
+ * - Employee information lookup view
  *
- * Layout uses null layout ({@code setLayout(null)}) with explicit {@code setBounds}
- * positioning, following BroCode Java Swing tutorial patterns for frames, panels,
+ * Layout uses null layout ({@code setLayout(null)}) with explicit
+ * {@code setBounds}
+ * positioning, following BroCode Java Swing tutorial patterns for frames,
+ * panels,
  * labels, text fields, buttons, and event listeners.
  *
- * Business logic is delegated to {@link FileHandlerModule}, {@link EmployeeModule},
+ * Business logic is delegated to {@link FileHandlerModule},
+ * {@link EmployeeModule},
  * and {@link SalaryComputationModule}; this class handles validation, styling,
- * navigation, and user feedback (dialogs and  error borders, result text areas).
+ * navigation, and user feedback (dialogs and error borders, result text areas).
  */
 public class MotorPH_GUI {
 
@@ -80,11 +60,12 @@ public class MotorPH_GUI {
     /**
      * Parallel month-number lookup for {@link #monthCombo}.
      *
-     * Index 0 is a sentinel ("no selection"); subsequent entries map combo positions
+     * Index 0 is a sentinel ("no selection"); subsequent entries map combo
+     * positions
      * to actual calendar month numbers. Using this lookup avoids fragile arithmetic
      * like {@code getSelectedIndex() + 5}, which silently breaks if items change.
      */
-    static final int[] MONTH_NUMBERS = {0, 6, 7, 8, 9, 10, 11, 12};
+    static final int[] MONTH_NUMBERS = { 0, 6, 7, 8, 9, 10, 11, 12 };
 
     // --- Employee lookup screen widgets ---
 
@@ -123,7 +104,10 @@ public class MotorPH_GUI {
     /** Red border highlight for fields that failed validation. */
     static final Color BORDER_ERROR = Color.RED;
 
-    /** Default echo character for the password field (used when toggling visibility). */
+    /**
+     * Default echo character for the password field (used when toggling
+     * visibility).
+     */
     static final char PASSWORD_ECHO_CHAR = '\u2022';
 
     // --- Login dialog component references (used by listeners and validators) ---
@@ -133,7 +117,9 @@ public class MotorPH_GUI {
     static JPasswordField passwordField;
     static JButton btnLogin;
 
-    /** Username captured at login; rendered in each screen's bottom-right footer. */
+    /**
+     * Username captured at login; rendered in each screen's bottom-right footer.
+     */
     static String loggedInUser = "";
 
     /** Height of the colored header strip at the top of every main screen. */
@@ -142,6 +128,11 @@ public class MotorPH_GUI {
     static final Font HEADER_STRIP_FONT = new Font("Segoe UI", Font.BOLD, 20);
     /** Font for the small "Logged in as: …" status label. */
     static final Font STATUS_FONT = new Font("Segoe UI", Font.PLAIN, 12);
+
+    /* For ShowEmployeeSelfServiceDashboard */
+    static javax.swing.JTable profileTable;
+    static JButton btnUpdateExistingRecord, btnDeleteRecord;
+    static DefaultTableModel tableModel;
 
     /**
      * Builds and shows the modal login dialog before the main application loads.
@@ -193,7 +184,8 @@ public class MotorPH_GUI {
         headerPanel.add(lblSubtitle);
 
         // Core Form Inputs Panel Sheet
-        // Width 360 matches the header card so both align with equal 30px dialog margins.
+        // Width 360 matches the header card so both align with equal 30px dialog
+        // margins.
         // Height = 25 top padding + button bottom (y=275) + 25 bottom padding = 300
         JPanel formPanel = new JPanel();
         formPanel.setLayout(null); // Explicit layout alignment matching absolute canvas
@@ -204,9 +196,9 @@ public class MotorPH_GUI {
                 BorderFactory.createEmptyBorder(25, 30, 25, 30)));
 
         // Login form vertical rhythm (kept consistent across every row):
-        //   labelHeight=20, fieldHeight=38, checkboxHeight=22, buttonHeight=40
-        //   gap between a label and its field   = 6px
-        //   gap between sections (field→label)  = 20px
+        // labelHeight=20, fieldHeight=38, checkboxHeight=22, buttonHeight=40
+        // gap between a label and its field = 6px
+        // gap between sections (field→label) = 20px
         // Adjusting any of these values? Update every row below to keep the grid even.
 
         // Username row
@@ -218,7 +210,8 @@ public class MotorPH_GUI {
         usernameField = new JTextField();
         usernameField.setBounds(30, 51, 300, 38); // 45 + 6 label-to-field gap, ends y=89
         styleInputField(usernameField);
-        // Placeholder hint shown only when field is empty and unfocused (From Lesson: FocusListener)
+        // Placeholder hint shown only when field is empty and unfocused (From Lesson:
+        // FocusListener)
         attachPlaceholder(usernameField, "e.g. employee");
 
         // Password row (89 + 20 section gap = 109)
@@ -315,13 +308,20 @@ public class MotorPH_GUI {
 
         // Allow Enter key to trigger login from either field
         KeyListener enterKeyListener = new KeyListener() {
-            @Override public void keyTyped(KeyEvent e) {}
-            @Override public void keyPressed(KeyEvent e) {
+            @Override
+            public void keyTyped(KeyEvent e) {
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                     btnLogin.doClick();
                 }
             }
-            @Override public void keyReleased(KeyEvent e) {}
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+            }
         };
         usernameField.addKeyListener(enterKeyListener);
         passwordField.addKeyListener(enterKeyListener);
@@ -357,7 +357,8 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Styles the primary login button and wires|hover feedback via {@link MouseListener}.
+     * Styles the primary login button and wires|hover feedback via
+     * {@link MouseListener}.
      *
      * macOS-specific flags ({@code setOpaque}, {@code setContentAreaFilled},
      * {@code setBorderPainted}) ensure custom background colors render correctly.
@@ -415,9 +416,12 @@ public class MotorPH_GUI {
     /**
      * Attaches placeholder/hint behavior to a text field via {@link FocusListener}.
      *
-     * Shows {@code hint} in gray when the field is empty and unfocused. On focus the hint
-     * is cleared and the foreground reverts to the regular text color so user input is
-     * displayed normally. The hint string is treated as empty by validators (callers should
+     * Shows {@code hint} in gray when the field is empty and unfocused. On focus
+     * the hint
+     * is cleared and the foreground reverts to the regular text color so user input
+     * is
+     * displayed normally. The hint string is treated as empty by validators
+     * (callers should
      * still trim and check via {@link JTextField#getText()} after focus).
      *
      * @param field text input to decorate
@@ -449,7 +453,8 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Creates the main {@link JFrame} after successful login and opens the main menu.
+     * Creates the main {@link JFrame} after successful login and opens the main
+     * menu.
      *
      * Window is fixed-size, centered, and exits the JVM on close.
      */
@@ -478,16 +483,22 @@ public class MotorPH_GUI {
         addColoredHeaderStrip("MAIN MENU", 460);
 
         // Container Panel (Lesson: Panels) — shifted just below the header strip.
-        // x = (frameWidth 520 - cardWidth 400) / 2 = 60, so left and right margins both equal 60.
+        // x = (frameWidth 520 - cardWidth 400) / 2 = 60, so left and right margins both
+        // equal 60.
         JPanel menuPanel = new JPanel();
         menuPanel.setBackground(Color.white);
         menuPanel.setLayout(null); // Using null layout within the panel container
         menuPanel.setBounds(30, 70, 400, 380);
         menuPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
-        // Navigation Menu Interactive Buttons (Lesson: Buttons)
+        // --- Uniform dimensions for a neat layout grid ---
+        int btnWidth = 320;
+        int btnHeight = 50;
+        int startX = 40;
+
+        // Button 1: Payroll processing
         JButton btnPayroll = new JButton("1. MPHCRO1: Pay Coverage");
-        btnPayroll.setBounds(40, 50, 320, 60);
+        btnPayroll.setBounds(startX, 40, btnWidth, btnHeight); // Occupies y=40 to y=90
         guiStyleAccentButton(btnPayroll);
         btnPayroll.addActionListener(new ActionListener() {
             @Override
@@ -496,8 +507,9 @@ public class MotorPH_GUI {
             }
         });
 
+        // Button 2: Look up records
         JButton btnInfo = new JButton("2. Employee Information");
-        btnInfo.setBounds(40, 160, 320, 60);
+        btnInfo.setBounds(startX, 110, btnWidth, btnHeight); // Occupies y=110 to y=160
         guiStyleAccentButton(btnInfo);
         btnInfo.addActionListener(new ActionListener() {
             @Override
@@ -506,8 +518,20 @@ public class MotorPH_GUI {
             }
         });
 
-        JButton btnLogout = new JButton("3. Logout");
-        btnLogout.setBounds(40, 270, 320, 60);
+        // Button 3: Self Service Dashboard (Shifted cleanly down to y=180)
+        JButton btnSelfUpdate = new JButton("3. Employee Update");
+        btnSelfUpdate.setBounds(startX, 180, btnWidth, btnHeight); // Occupies y=180 to y=230
+        guiStyleAccentButton(btnSelfUpdate);
+        btnSelfUpdate.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showEmployeeSelfServiceDashboard();
+            }
+        });
+
+        // Button 4: System exit sequence
+        JButton btnLogout = new JButton("4. Logout");
+        btnLogout.setBounds(startX, 250, btnWidth, btnHeight); // Occupies y=250 to y=300
         styleStandardButton(btnLogout);
         btnLogout.addActionListener(new ActionListener() {
             @Override
@@ -516,8 +540,10 @@ public class MotorPH_GUI {
             }
         });
 
+        // --- Add elements to panel ---
         menuPanel.add(btnPayroll);
         menuPanel.add(btnInfo);
+        menuPanel.add(btnSelfUpdate);
         menuPanel.add(btnLogout);
 
         frame.add(menuPanel);
@@ -529,7 +555,8 @@ public class MotorPH_GUI {
      * Builds the MPHCRO1 pay coverage screen: employee ID, month/year selection,
      * process/back buttons, and scrollable payslip output area.
      *
-     * Employee name auto-updates on key release; Enter on ID field triggers validation.
+     * Employee name auto-updates on key release; Enter on ID field triggers
+     * validation.
      */
     static void setupPayrollUI() {
         frame.getContentPane().removeAll();
@@ -547,7 +574,7 @@ public class MotorPH_GUI {
         formPanel.setBounds(0, HEADER_STRIP_HEIGHT, 550, 280);
 
         // Form columns: label x=30 width=230 (ends x=260),
-        //               field x=260 width=260 (ends x=520) — matches scroll pane edge.
+        // field x=260 width=260 (ends x=520) — matches scroll pane edge.
         JLabel lblEmpNo = createStyledLabel("Employee Number (ex. 10001):");
         lblEmpNo.setBounds(30, 20, 230, 30);
         txtEmployeeNo = createStyledTextField(true);
@@ -580,9 +607,9 @@ public class MotorPH_GUI {
 
         JLabel lblMonth = createStyledLabel("Pay Coverage Month:");
         lblMonth.setBounds(30, 110, 230, 30);
-        String[] months = {" ", "06 - June",
-                        "07 - July", "08 - August", "09 - September",
-                        "10 - October", "11 - November", "12 - December"};
+        String[] months = { " ", "06 - June",
+                "07 - July", "08 - August", "09 - September",
+                "10 - October", "11 - November", "12 - December" };
         monthCombo = new JComboBox<>(months);
         monthCombo.setBounds(260, 110, 260, 30);
         monthCombo.setFont(APP_FONT_PLAIN);
@@ -590,7 +617,7 @@ public class MotorPH_GUI {
         monthCombo.setForeground(new Color(11, 29, 58));
         monthCombo.putClientProperty("JComboBox.isPopDown", Boolean.TRUE);
         ((JLabel) monthCombo.getRenderer()).setBorder(
-            BorderFactory.createEmptyBorder(0, 2, 0, 0));
+                BorderFactory.createEmptyBorder(0, 2, 0, 0));
 
         JLabel lblYear = createStyledLabel("Pay Coverage Year (2024 only):");
         lblYear.setBounds(30, 155, 230, 30);
@@ -684,13 +711,19 @@ public class MotorPH_GUI {
         txtLookupInput = createStyledTextField(true);
         txtLookupInput.setBounds(30, 55, 340, 35);
         txtLookupInput.addKeyListener(new KeyListener() {
-            @Override public void keyTyped(KeyEvent e) {}
-            @Override public void keyPressed(KeyEvent e) {
+            @Override
+            public void keyTyped(KeyEvent e) {
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                     runEmployeeLookupAction();
                 }
             }
-            @Override public void keyReleased(KeyEvent e) {
+
+            @Override
+            public void keyReleased(KeyEvent e) {
                 // Wipe stale results as soon as the user edits the ID,
                 // but skip the Enter key (which just populated the display).
                 if (e.getKeyCode() != KeyEvent.VK_ENTER) {
@@ -745,8 +778,10 @@ public class MotorPH_GUI {
     /**
      * Handles employee lookup when Search is clicked or Enter is pressed.
      *
-     * Validates: non-empty ID, numeric format, and existence in Employee Details CSV.
-     * On success, formats and displays ID, name, and birthday in {@link #txtLookupDisplay}.
+     * Validates: non-empty ID, numeric format, and existence in Employee Details
+     * CSV.
+     * On success, formats and displays ID, name, and birthday in
+     * {@link #txtLookupDisplay}.
      */
     static void runEmployeeLookupAction() {
         String idInput = txtLookupInput.getText().trim();
@@ -789,24 +824,27 @@ public class MotorPH_GUI {
      */
     private static String formatEmployeeProfile(String[] emp) {
         return "Employee ID:           " + safeColumn(emp, EmployeeModule.ID) + "\n"
-             + "Full Name:             " + EmployeeModule.fullName(emp) + "\n"
-             + "Birthday:              " + safeColumn(emp, EmployeeModule.BIRTHDAY) + "\n"
-             + "Status:                " + safeColumn(emp, EmployeeModule.STATUS) + "\n"
-             + "Position:              " + safeColumn(emp, EmployeeModule.POSITION) + "\n"
-             + "Immediate Supervisor:  " + safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) + "\n"
-             + "Basic Salary:          PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY);
+                + "Full Name:             " + EmployeeModule.fullName(emp) + "\n"
+                + "Birthday:              " + safeColumn(emp, EmployeeModule.BIRTHDAY) + "\n"
+                + "Status:                " + safeColumn(emp, EmployeeModule.STATUS) + "\n"
+                + "Position:              " + safeColumn(emp, EmployeeModule.POSITION) + "\n"
+                + "Immediate Supervisor:  " + safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) + "\n"
+                + "Basic Salary:          PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY);
     }
 
     /** Returns the trimmed CSV column or "—" if the row is too short / null. */
     private static String safeColumn(String[] row, int idx) {
-        if (row == null || idx < 0 || idx >= row.length) return "—";
+        if (row == null || idx < 0 || idx >= row.length)
+            return "—";
         String value = row[idx];
-        if (value == null || value.trim().isEmpty()) return "—";
+        if (value == null || value.trim().isEmpty())
+            return "—";
         return value.trim();
     }
 
     /**
-     * Validates payroll form inputs and runs {@link SalaryComputationModule#calculatePayroll}.
+     * Validates payroll form inputs and runs
+     * {@link SalaryComputationModule#calculatePayroll}.
      *
      * Checks employee ID (required, numeric, exists in CSV), month selection,
      * and year (required, numeric, must be 2024). Errors are listed in the result
@@ -899,7 +937,8 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Adds employee-number validation messages to the list (checks Employee Details CSV).
+     * Adds employee-number validation messages to the list (checks Employee Details
+     * CSV).
      */
     private static void collectEmployeeNumberErrors(String id, List<String> errors) {
         if (id == null || id.isEmpty()) {
@@ -980,7 +1019,7 @@ public class MotorPH_GUI {
     private static String escapeHtml(String text) {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
-    
+
     // --- STYLE HELPER FUNCTIONS MATCHING SCRIPT CHOICES ---
     private static JLabel createStyledLabel(String text) {
         JLabel label = new JLabel(text);
@@ -1016,7 +1055,8 @@ public class MotorPH_GUI {
         button.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Mirrors guiStyleAccentButton's pattern so secondary buttons also feel interactive
+        // Mirrors guiStyleAccentButton's pattern so secondary buttons also feel
+        // interactive
         button.addMouseListener(new MouseListener() {
             @Override
             public void mouseEntered(MouseEvent e) {
@@ -1028,9 +1068,17 @@ public class MotorPH_GUI {
                 button.setBackground(Color.white);
             }
 
-            @Override public void mouseClicked(MouseEvent e) {}
-            @Override public void mousePressed(MouseEvent e) {}
-            @Override public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseClicked(MouseEvent e) {
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+            }
         });
     }
 
@@ -1041,8 +1089,9 @@ public class MotorPH_GUI {
      * giving every main screen a consistent branded top bar. Callers must add
      * remaining content below {@link #HEADER_STRIP_HEIGHT}.
      *
-     * @param title       white screen title (e.g. "MAIN MENU")
-     * @param frameWidth  current frame width so the strip spans the full content area
+     * @param title      white screen title (e.g. "MAIN MENU")
+     * @param frameWidth current frame width so the strip spans the full content
+     *                   area
      */
     private static void addColoredHeaderStrip(String title, int frameWidth) {
         JPanel header = new JPanel();
@@ -1066,11 +1115,13 @@ public class MotorPH_GUI {
      * footer visually lines up with the card / scroll pane above it instead of
      * floating in the dialog gutter.
      *
-     * Skipped silently when no username is recorded (defensive only — main() requires login).
+     * Skipped silently when no username is recorded (defensive only — main()
+     * requires login).
      *
      * @param frameWidth    current frame width
      * @param contentHeight visible content-area height used to position the footer
-     * @param rightMargin   right margin of the screen's main content (e.g. card right margin),
+     * @param rightMargin   right margin of the screen's main content (e.g. card
+     *                      right margin),
      *                      so the footer right edge matches the card right edge
      */
     private static void addLoggedInFooter(int frameWidth, int contentHeight, int rightMargin) {
@@ -1103,5 +1154,114 @@ public class MotorPH_GUI {
         frame.revalidate();
         frame.repaint();
         frame.setVisible(true); // Always refreshed at the end to force accurate UI updates
+    }
+
+    /**
+     * Builds the Self-Service profile dashboard exclusively for logged-in
+     * Employees.
+     */
+    public static void showEmployeeSelfServiceDashboard() {
+        frame.getContentPane().removeAll();
+        frame.setLayout(null);
+        frame.setSize(850, 400);
+        frame.getContentPane().setBackground(new Color(212, 228, 252));
+
+        addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 850);
+
+        String[] columnHeaders = { "Employee ID", "Last Name", "First Name", "Address (Editable)",
+                "Phone Number (Editable)" };
+
+        tableModel = new javax.swing.table.DefaultTableModel(columnHeaders, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 3 || column == 4;
+            }
+        };
+
+        profileTable = new javax.swing.JTable(tableModel);
+        profileTable.setFont(APP_FONT_PLAIN);
+        profileTable.setRowHeight(30);
+        profileTable.getTableHeader().setFont(APP_FONT_BOLD);
+        profileTable.getTableHeader().setReorderingAllowed(false);
+
+        List<String[]> allRecords = FileHandlerModule.getAllEmployees();
+        for (String[] row : allRecords) {
+            if (row.length > 5) {
+                Object[] displayRow = {
+                        safeColumn(row, EmployeeModule.ID),
+                        safeColumn(row, EmployeeModule.LAST_NAME),
+                        safeColumn(row, EmployeeModule.FIRST_NAME),
+                        safeColumn(row, EmployeeModule.ADDRESS),
+                        safeColumn(row, EmployeeModule.PHONE_NUMBER)
+                };
+                tableModel.addRow(displayRow);
+            }
+        }
+
+        JScrollPane tableScrollPane = new JScrollPane(profileTable);
+        tableScrollPane.setBounds(30, 80, 790, 180);
+        frame.add(tableScrollPane);
+
+        JButton btnSaveChanges = new JButton("Save Changes to CSV");
+        btnSaveChanges.setBounds(120, 280, 180, 40);
+        guiStyleAccentButton(btnSaveChanges);
+        btnSaveChanges.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (profileTable.isEditing()) {
+                    profileTable.getCellEditor().stopCellEditing();
+                }
+
+                int successCount = 0;
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    String empId = tableModel.getValueAt(i, 0).toString();
+                    String updatedAddress = tableModel.getValueAt(i, 3).toString().trim();
+                    String updatedPhone = tableModel.getValueAt(i, 4).toString().trim();
+
+                    boolean isUpdated = FileHandlerModule.updateEmployeeContactInfo(empId, updatedAddress,
+                            updatedPhone);
+                    if (isUpdated) {
+                        successCount++;
+                    }
+                }
+
+                if (successCount > 0) {
+                    JOptionPane.showMessageDialog(frame,
+                            "Successfully updated records for " + successCount + " employees!",
+                            "Data Saved", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(frame, "No modifications were saved.", "Information",
+                            JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        });
+        frame.add(btnSaveChanges);
+
+        // Modified Back Button to correctly loop back to Main Menu structure instead of
+        // killing runtime execution completely
+        JButton btnBackToMenu = new JButton("Back to Main Menu");
+        btnBackToMenu.setBounds(320, 280, 180, 40);
+        styleStandardButton(btnBackToMenu);
+        btnBackToMenu.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showMainMenu();
+            }
+        });
+        frame.add(btnBackToMenu);
+
+        JButton btnExit = new JButton("Exit Application");
+        btnExit.setBounds(520, 280, 180, 40);
+        styleStandardButton(btnExit);
+        btnExit.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.exit(0);
+            }
+        });
+        frame.add(btnExit);
+
+        addLoggedInFooter(850, 370, 30);
+        updateDisplay();
     }
 }

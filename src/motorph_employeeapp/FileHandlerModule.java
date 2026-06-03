@@ -10,14 +10,15 @@ import java.util.*;
  * Centralizes all CSV file I/O for the MotorPH Employee App.
  *
  * Responsibilities:
- *   - Resolve data file paths regardless of working directory (IDE, project root, or bin/).
- *   - Look up employee master data and attendance time logs by employee ID.
- *   - Parse CSV lines safely when fields contain commas inside quoted text.
- *   - Append new employee records to the master CSV when needed.
+ * - Resolve data file paths regardless of working directory (IDE, project root,
+ * or bin/).
+ * - Look up employee master data and attendance time logs by employee ID.
+ * - Parse CSV lines safely when fields contain commas inside quoted text.
+ * - Append new employee records to the master CSV when needed.
  *
  * Data sources (under resources/):
- *   - Employee Details CSV  — master employee profile and hourly rate.
- *   - Attendance Record CSV — daily login/logout entries per employee.
+ * - Employee Details CSV — master employee profile and hourly rate.
+ * - Attendance Record CSV — daily login/logout entries per employee.
  */
 public class FileHandlerModule {
 
@@ -28,12 +29,13 @@ public class FileHandlerModule {
     public static final String EMPLOYEE_FILE = "resources/MotorPH_Employee Data - Employee Details.csv";
 
     /**
-     * Resolves CSV paths whether the app is run from the project root, bin/, or IDE.
+     * Resolves CSV paths whether the app is run from the project root, bin/, or
+     * IDE.
      *
      * Search order:
-     *   1. Path as given (relative to current working directory).
-     *   2. user.dir + relativePath.
-     *   3. user.dir/../relativePath (parent folder, e.g. when cwd is bin/).
+     * 1. Path as given (relative to current working directory).
+     * 2. user.dir + relativePath.
+     * 3. user.dir/../relativePath (parent folder, e.g. when cwd is bin/).
      *
      * @param relativePath path such as "resources/...csv"
      * @return absolute or relative + relative path string for FileReader
@@ -70,7 +72,8 @@ public class FileHandlerModule {
      * Searches the Employee Details CSV for a single row matching the employee ID.
      *
      * @param id employee number; null or blank returns null immediately
-     * @return the raw CSV line for that employee, or null if not found or on read error
+     * @return the raw CSV line for that employee, or null if not found or on read
+     *         error
      */
     public static String findEmployeeData(String id) {
         if (id == null || id.trim().isEmpty()) {
@@ -99,8 +102,10 @@ public class FileHandlerModule {
     /**
      * Retrieves all attendance rows for one employee from the Attendance CSV.
      *
-     * Each line contains: Employee ID, name fields, date (MM/DD/YYYY), login time, logout time.
-     * Payroll logic filters these rows by month/year in {@link SalaryComputationModule}.
+     * Each line contains: Employee ID, name fields, date (MM/DD/YYYY), login time,
+     * logout time.
+     * Payroll logic filters these rows by month/year in
+     * {@link SalaryComputationModule}.
      *
      * @param id employee number to match against column 0
      * @return list of raw CSV lines (empty list if none found or on error)
@@ -154,8 +159,8 @@ public class FileHandlerModule {
      */
     public static boolean appendEmployeeRecord(String rawCsvLine) {
         try (FileWriter fw = new FileWriter(resolveDataFile(EMPLOYEE_FILE), true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
+                BufferedWriter bw = new BufferedWriter(fw);
+                PrintWriter out = new PrintWriter(bw)) {
             out.println(); // Ensure record starts on a new line after existing data
             out.print(rawCsvLine);
             return true;
@@ -169,14 +174,16 @@ public class FileHandlerModule {
      * Parses a CSV line into columns, respecting double-quoted fields.
      *
      * Standard String.split(",") breaks when address or name fields contain commas
-     * inside quotes. This scanner toggles {@code inQuotes} on each {@code "} character
+     * inside quotes. This scanner toggles {@code inQuotes} on each {@code "}
+     * character
      * and only splits on commas outside quotes.
      *
      * @param line one line from a CSV file (no trailing newline)
      * @return array of trimmed column values; empty array for null/empty input
      */
     public static String[] smartSplit(String line) {
-        if (line == null || line.isEmpty()) return new String[0];
+        if (line == null || line.isEmpty())
+            return new String[0];
         List<String> results = new ArrayList<>();
         StringBuilder tempText = new StringBuilder();
         boolean inQuotes = false;
@@ -193,5 +200,84 @@ public class FileHandlerModule {
         // Add the final column after the last comma (or entire line if no commas)
         results.add(tempText.toString().trim());
         return results.toArray(new String[0]);
+    }
+
+    /**
+     * Locates an employee by ID and updates their Address and Phone Number,
+     * then rewrites the updated records list back onto the source CSV file.
+     *
+     * @param empId          The target employee ID to match
+     * @param newAddress     The modified home address string
+     * @param newPhoneNumber The modified contact phone string
+     * @return true if the record was found and successfully written back to disk
+     */
+    public static boolean updateEmployeeContactInfo(String empId, String newAddress, String newPhoneNumber) {
+        List<String[]> allRecords = getAllEmployees();
+        boolean foundAndUpdated = false;
+
+        for (int i = 0; i < allRecords.size(); i++) {
+            String[] row = allRecords.get(i);
+            // Match the target employee ID in the first column
+            if (row.length > 0 && row[0].trim().equals(empId.trim())) {
+
+                // Re-allocate array sizing if row lengths are shorter than expected
+                if (row.length < 6) {
+                    String[] largerRow = new String[19];
+                    Arrays.fill(largerRow, "");
+                    System.arraycopy(row, 0, largerRow, 0, row.length);
+                    row = largerRow;
+                }
+
+                // Assign the newly edited table cell values to their designated CSV indexes
+                row[4] = newAddress; // Address field
+                row[5] = newPhoneNumber; // Phone Number field
+
+                allRecords.set(i, row);
+                foundAndUpdated = true;
+                break;
+            }
+        }
+
+        // Save the entire record array collection back onto the local file track if
+        // updated
+        if (foundAndUpdated) {
+            return saveEntireDatabaseCollectionHelper(allRecords);
+        }
+        return false;
+    }
+
+    /**
+     * Helper utility to securely rewrite the master collection database onto disk.
+     */
+    private static boolean saveEntireDatabaseCollectionHelper(List<String[]> recordsList) {
+        String fileHeaderStr = "Employee ID,Last Name,First Name,Birthday,Address,Phone Number,SSS #,PhilHealth #,TIN,Pag-IBIG #,Status,Position,Immediate Supervisor,Basic Salary,Gross Semi-monthly Rate,Hourly Rate,Rice Subsidy,Phone Allowance,Clothing Allowance";
+        String resolvedPath = resolveDataFile(EMPLOYEE_FILE);
+
+        try (PrintWriter writerStream = new PrintWriter(new FileWriter(new java.io.File(resolvedPath), false))) {
+            writerStream.println(fileHeaderStr);
+
+            for (String[] lineRow : recordsList) {
+                StringBuilder lineBuilder = new StringBuilder();
+                for (int m = 0; m < lineRow.length; m++) {
+                    String singleCellStr = lineRow[m];
+                    if (singleCellStr == null)
+                        singleCellStr = "";
+
+                    // Wrap strings with commas in quotes to preserve structured columns
+                    if (singleCellStr.contains(",")) {
+                        singleCellStr = "\"" + singleCellStr + "\"";
+                    }
+                    lineBuilder.append(singleCellStr);
+                    if (m < lineRow.length - 1) {
+                        lineBuilder.append(",");
+                    }
+                }
+                writerStream.println(lineBuilder.toString());
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Critical failure during database file rewrite streams: " + e.getMessage());
+            return false;
+        }
     }
 }

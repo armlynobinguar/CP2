@@ -1,6 +1,7 @@
 
 package motorph_employeeapp;
 
+
 /**
  * EmployeeModule
  * --------------
@@ -8,7 +9,6 @@ package motorph_employeeapp;
  *
  * Employee rows are stored as {@code String[]} arrays after {@link FileHandlerModule#smartSplit(String)}.
  * Column indices below map to the MotorPH Employee Details CSV structure:
- *
  *   Index 0  - Employee ID (e.g. "10001")
  *   Index 1  - Last name
  *   Index 2  - First name
@@ -18,29 +18,46 @@ package motorph_employeeapp;
  */
 public class EmployeeModule {
 
+
     /** CSV column index: unique employee identifier. */
     public static final int ID = 0;
+
 
     /** CSV column index: employee last name. */
     public static final int LAST_NAME = 1;
 
+
     /** CSV column index: employee first name. */
     public static final int FIRST_NAME = 2;
+
 
     /** CSV column index: employee birthday (display format from CSV). */
     public static final int BIRTHDAY = 3;
 
+
+    /** CSV column index: home address field. */
+    public static final int ADDRESS = 4;
+
+
+    /** CSV column index: mobile/contact number. */
+    public static final int PHONE_NUMBER = 5;
+
+
     /** CSV column index: employment status (Regular, Probationary, etc.). */
     public static final int STATUS = 10;
+
 
     /** CSV column index: job title / position (e.g. Chief Executive Officer). */
     public static final int POSITION = 11;
 
+
     /** CSV column index: immediate supervisor name (or "N/A"). */
     public static final int IMMEDIATE_SUPERVISOR = 12;
 
+
     /** CSV column index: basic monthly salary (formatted with thousand separators). */
     public static final int BASIC_SALARY = 13;
+
 
     /**
      * CSV column index: hourly pay rate used in {@link SalaryComputationModule#calculatePayroll}.
@@ -58,6 +75,7 @@ public class EmployeeModule {
         if (emp == null || emp.length < 3) return "Unknown";
         return emp[FIRST_NAME] + " " + emp[LAST_NAME];
     }
+
 
     /**
      * Reads hourly rate from the employee record for gross salary multiplication.
