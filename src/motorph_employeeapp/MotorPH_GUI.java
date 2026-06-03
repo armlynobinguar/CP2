@@ -1162,24 +1162,23 @@ public class MotorPH_GUI {
     public static void showEmployeeSelfServiceDashboard() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
-        frame.setSize(850, 550);
+        frame.setSize(870, 600);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
-        addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 850);
+        addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 870);
 
-        String[] columnHeaders = { "Employee ID", "Last Name", "First Name", "Address (Editable)",
-                "Phone Number (Editable)" };
+        String[] columnHeaders = { "Employee ID", "Last Name", "First Name", "Current Address", "Phone Number" };
 
         tableModel = new javax.swing.table.DefaultTableModel(columnHeaders, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 3 || column == 4;
+                return false; 
             }
         };
 
         profileTable = new javax.swing.JTable(tableModel);
         profileTable.setFont(APP_FONT_PLAIN);
-        profileTable.setRowHeight(30);
+        profileTable.setRowHeight(28);
         profileTable.getTableHeader().setFont(APP_FONT_BOLD);
         profileTable.getTableHeader().setReorderingAllowed(false);
 
@@ -1198,52 +1197,158 @@ public class MotorPH_GUI {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(profileTable);
-        tableScrollPane.setBounds(30, 80, 790, 330);
+        tableScrollPane.setBounds(40, 75, 790, 200);
         frame.add(tableScrollPane);
 
-        // --- BUTTON LAYOUT CONTROLS  ---
+        int formY = 290; 
+        int fieldHeight = 30;
+        int fieldXPosition = 250;   
+        // Shortened field length down to 350px so it cuts off cleanly exactly where you drew the line
+        int uniformFieldWidth = 350; 
+
+        JLabel lblFormTitle = createStyledLabel("Profile:");
+        lblFormTitle.setBounds(40, formY, 200, 25);
+        frame.add(lblFormTitle);
+
+        // Row 1: Target Employee ID Input
+        JLabel lblEditId = createStyledLabel("Employee ID:");
+        lblEditId.setBounds(40, formY + 30, 200, fieldHeight);
+        frame.add(lblEditId);
+
+        final JTextField txtEditId = createStyledTextField(true);
+        txtEditId.setBounds(fieldXPosition, formY + 30, uniformFieldWidth, fieldHeight);
+        frame.add(txtEditId);
+
+        // Row 2: Editable Home Address Field
+        JLabel lblEditAddress = createStyledLabel("Home Address:");
+        lblEditAddress.setBounds(40, formY + 70, 200, fieldHeight);
+        frame.add(lblEditAddress);
+
+        final JTextField txtEditAddress = createStyledTextField(true);
+        txtEditAddress.setBounds(fieldXPosition, formY + 70, uniformFieldWidth, fieldHeight);
+        frame.add(txtEditAddress);
+
+        // Row 3: Editable Contact Phone Number Field
+        JLabel lblEditPhone = createStyledLabel("Phone Number:");
+        lblEditPhone.setBounds(40, formY + 110, 200, fieldHeight);
+        frame.add(lblEditPhone);
+
+        final JTextField txtEditPhone = createStyledTextField(true);
+        txtEditPhone.setBounds(fieldXPosition, formY + 110, uniformFieldWidth, fieldHeight);
+        frame.add(txtEditPhone);
+
+        // --- TABLE ROW CLICK LISTENER ---
+        profileTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int selectedRowIdx = profileTable.getSelectedRow();
+                if (selectedRowIdx != -1) {
+                    String idValue = tableModel.getValueAt(selectedRowIdx, 0).toString();
+                    String addressValue = tableModel.getValueAt(selectedRowIdx, 3).toString();
+                    String phoneValue = tableModel.getValueAt(selectedRowIdx, 4).toString();
+                    
+                    txtEditId.setText(idValue);
+                    txtEditAddress.setText(addressValue);
+                    txtEditPhone.setText(phoneValue);
+                    
+                    resetFieldBorder(txtEditId);
+                }
+            }
+        });
+
+        // --- LIVE SEARCH KEY LISTENER ---
+        txtEditId.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                String inputIdStr = txtEditId.getText().trim();
+                resetFieldBorder(txtEditId);
+
+                if (inputIdStr.isEmpty()) {
+                    txtEditAddress.setText("");
+                    txtEditPhone.setText("");
+                    profileTable.clearSelection();
+                    return;
+                }
+
+                boolean recordMatchFound = false;
+                for (int rowIdx = 0; rowIdx < tableModel.getRowCount(); rowIdx++) {
+                    String tableId = tableModel.getValueAt(rowIdx, 0).toString().trim();
+                    
+                    if (tableId.equals(inputIdStr)) {
+                        txtEditAddress.setText(tableModel.getValueAt(rowIdx, 3).toString());
+                        txtEditPhone.setText(tableModel.getValueAt(rowIdx, 4).toString());
+                        profileTable.setRowSelectionInterval(rowIdx, rowIdx);
+                        recordMatchFound = true;
+                        break;
+                    }
+                }
+
+                if (!recordMatchFound) {
+                    txtEditAddress.setText("");
+                    txtEditPhone.setText("");
+                    profileTable.clearSelection();
+                }
+            }
+        });
+
+        // --- RE-CENTERED CONTROL BUTTONS ---
         int dashboardButtonWidth = 180;
         int dashboardButtonHeight = 40;
-        int rowYPosition = 430;
-
-        // Button 1: Save Changes
-        JButton btnSaveChanges = new JButton("Save Changes to CSV");
-        btnSaveChanges.setBounds(235, rowYPosition, dashboardButtonWidth, dashboardButtonHeight);
+        int actionButtonsY = formY + 165; 
+        
+        JButton btnSaveChanges = new JButton("Save Changes");
+        btnSaveChanges.setBounds(245, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
         guiStyleAccentButton(btnSaveChanges);
         btnSaveChanges.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (profileTable.isEditing()) {
-                    profileTable.getCellEditor().stopCellEditing();
+                String targetId = txtEditId.getText().trim();
+                String newAddressValue = txtEditAddress.getText().trim();
+                String newPhoneValue = txtEditPhone.getText().trim();
+
+                if (targetId.isEmpty() || !targetId.matches("\\d+")) {
+                    setFieldError(txtEditId);
+                    JOptionPane.showMessageDialog(frame, "Please provide or select a valid Employee ID first.", 
+                            "Input Validation Failure", JOptionPane.WARNING_MESSAGE);
+                    return;
                 }
 
-                int successCount = 0;
-                for (int i = 0; i < tableModel.getRowCount(); i++) {
-                    String empId = tableModel.getValueAt(i, 0).toString();
-                    String updatedAddress = tableModel.getValueAt(i, 3).toString().trim();
-                    String updatedPhone = tableModel.getValueAt(i, 4).toString().trim();
+                if (!FileHandlerModule.employeeExists(targetId)) {
+                    setFieldError(txtEditId);
+                    JOptionPane.showMessageDialog(frame, "The entered Employee ID \"" + targetId + "\" does not exist in our CSV dataset.", 
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
 
-                    boolean isUpdated = FileHandlerModule.updateEmployeeContactInfo(empId, updatedAddress, updatedPhone);
-                    if (isUpdated) {
-                        successCount++;
+                boolean writeStatusSuccess = FileHandlerModule.updateEmployeeContactInfo(targetId, newAddressValue, newPhoneValue);
+
+                if (writeStatusSuccess) {
+                    for (int i = 0; i < tableModel.getRowCount(); i++) {
+                        if (tableModel.getValueAt(i, 0).toString().trim().equals(targetId)) {
+                            tableModel.setValueAt(newAddressValue, i, 3);
+                            tableModel.setValueAt(newPhoneValue, i, 4);
+                            break;
+                        }
                     }
-                }
-
-                if (successCount > 0) {
-                    JOptionPane.showMessageDialog(frame,
-                            "Successfully updated records for " + successCount + " employees!",
-                            "Data Saved", JOptionPane.INFORMATION_MESSAGE);
+                    
+                    JOptionPane.showMessageDialog(frame, "Successfully updated records for Employee #" + targetId + "!", 
+                            "Database Saved", JOptionPane.INFORMATION_MESSAGE);
+                    
+                    txtEditId.setText("");
+                    txtEditAddress.setText("");
+                    txtEditPhone.setText("");
+                    resetFieldBorder(txtEditId);
+                    profileTable.clearSelection();
                 } else {
-                    JOptionPane.showMessageDialog(frame, "No modifications were saved.", "Information",
-                            JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(frame, "Critical failure: Could not update the CSV disk file data records.", 
+                            "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
         frame.add(btnSaveChanges);
 
-        // Button 2: Back to Main Menu
         JButton btnBackToMenu = new JButton("Back to Main Menu");
-        btnBackToMenu.setBounds(435, rowYPosition, dashboardButtonWidth, dashboardButtonHeight);
+        btnBackToMenu.setBounds(445, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
         styleStandardButton(btnBackToMenu);
         btnBackToMenu.addActionListener(new ActionListener() {
             @Override
@@ -1253,8 +1358,7 @@ public class MotorPH_GUI {
         });
         frame.add(btnBackToMenu);
 
-        // --- FOOTER RENDER SEQUENCES ---
-        addLoggedInFooter(850, 520, 30);
+        addLoggedInFooter(870, 570, 40);
         updateDisplay();
     }
 }
