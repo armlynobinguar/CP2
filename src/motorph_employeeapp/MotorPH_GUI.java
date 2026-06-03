@@ -4,7 +4,7 @@ package motorph_employeeapp;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
-import java.util.List; // Optional, see note below
+import java.util.List;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
@@ -1295,7 +1295,7 @@ public class MotorPH_GUI {
         int dashboardButtonWidth = 180;
         int dashboardButtonHeight = 40;
         int actionButtonsY = formY + 165; 
-        
+
         JButton btnSaveChanges = new JButton("Save Changes");
         btnSaveChanges.setBounds(245, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
         guiStyleAccentButton(btnSaveChanges);
