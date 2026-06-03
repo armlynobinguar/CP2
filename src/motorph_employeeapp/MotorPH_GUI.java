@@ -1157,13 +1157,12 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Builds the Self-Service profile dashboard exclusively for logged-in
-     * Employees.
+     * Builds the Self-Service profile dashboard exclusively for logged-in Employees.
      */
     public static void showEmployeeSelfServiceDashboard() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
-        frame.setSize(850, 400);
+        frame.setSize(850, 550);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
         addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 850);
@@ -1199,11 +1198,17 @@ public class MotorPH_GUI {
         }
 
         JScrollPane tableScrollPane = new JScrollPane(profileTable);
-        tableScrollPane.setBounds(30, 80, 790, 180);
+        tableScrollPane.setBounds(30, 80, 790, 330);
         frame.add(tableScrollPane);
 
+        // --- BUTTON LAYOUT CONTROLS  ---
+        int dashboardButtonWidth = 180;
+        int dashboardButtonHeight = 40;
+        int rowYPosition = 430;
+
+        // Button 1: Save Changes
         JButton btnSaveChanges = new JButton("Save Changes to CSV");
-        btnSaveChanges.setBounds(120, 280, 180, 40);
+        btnSaveChanges.setBounds(235, rowYPosition, dashboardButtonWidth, dashboardButtonHeight);
         guiStyleAccentButton(btnSaveChanges);
         btnSaveChanges.addActionListener(new ActionListener() {
             @Override
@@ -1218,8 +1223,7 @@ public class MotorPH_GUI {
                     String updatedAddress = tableModel.getValueAt(i, 3).toString().trim();
                     String updatedPhone = tableModel.getValueAt(i, 4).toString().trim();
 
-                    boolean isUpdated = FileHandlerModule.updateEmployeeContactInfo(empId, updatedAddress,
-                            updatedPhone);
+                    boolean isUpdated = FileHandlerModule.updateEmployeeContactInfo(empId, updatedAddress, updatedPhone);
                     if (isUpdated) {
                         successCount++;
                     }
@@ -1237,10 +1241,9 @@ public class MotorPH_GUI {
         });
         frame.add(btnSaveChanges);
 
-        // Modified Back Button to correctly loop back to Main Menu structure instead of
-        // killing runtime execution completely
+        // Button 2: Back to Main Menu
         JButton btnBackToMenu = new JButton("Back to Main Menu");
-        btnBackToMenu.setBounds(320, 280, 180, 40);
+        btnBackToMenu.setBounds(435, rowYPosition, dashboardButtonWidth, dashboardButtonHeight);
         styleStandardButton(btnBackToMenu);
         btnBackToMenu.addActionListener(new ActionListener() {
             @Override
@@ -1250,18 +1253,8 @@ public class MotorPH_GUI {
         });
         frame.add(btnBackToMenu);
 
-        JButton btnExit = new JButton("Exit Application");
-        btnExit.setBounds(520, 280, 180, 40);
-        styleStandardButton(btnExit);
-        btnExit.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                System.exit(0);
-            }
-        });
-        frame.add(btnExit);
-
-        addLoggedInFooter(850, 370, 30);
+        // --- FOOTER RENDER SEQUENCES ---
+        addLoggedInFooter(850, 520, 30);
         updateDisplay();
     }
 }
