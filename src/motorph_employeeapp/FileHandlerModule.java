@@ -145,6 +145,28 @@ public class FileHandlerModule {
     }
 
     /**
+     * Reads all attendance rows from the attendance CSV (skipping header) and
+     * returns them split into columns using {@link #smartSplit}.
+     *
+     * @return list of split attendance rows; empty on read failure
+     */
+    public static List<String[]> getAllAttendanceRecords() {
+        List<String[]> records = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(resolveDataFile(ATTENDANCE_FILE)))) {
+            br.readLine(); // Skip header
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    records.add(smartSplit(line));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading Attendance file: " + e.getMessage());
+        }
+        return records;
+    }
+
+    /**
      * Appends a newly validated employee record line to the CSV file.
      *
      * Opens the file in append mode, writes a newline, then the raw CSV line.

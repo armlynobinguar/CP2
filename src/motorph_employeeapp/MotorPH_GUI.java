@@ -30,6 +30,10 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.LinkedList;
 
 /**
  * MotorPH_GUI
@@ -85,6 +89,10 @@ public class MotorPH_GUI {
      * like {@code getSelectedIndex() + 5}, which silently breaks if items change.
      */
     static final int[] MONTH_NUMBERS = {0, 6, 7, 8, 9, 10, 11, 12};
+
+    // Calendar display state (month 1-12, year)
+    static int CAL_MONTH = LocalDate.now().getMonthValue();
+    static int CAL_YEAR = LocalDate.now().getYear();
 
     // --- Employee lookup screen widgets ---
 
@@ -456,12 +464,357 @@ public class MotorPH_GUI {
     public static void initialize() {
         frame = new JFrame();
         frame.setTitle("MotorPH Management System");
-        frame.setSize(550, 750);
+        // Larger dashboard-oriented window
+        frame.setSize(1000, 700);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(false); // Matching BroCode default window properties
         frame.setLocationRelativeTo(null);
 
-        showMainMenu();
+        // Start on the new dashboard layout which keeps all existing features.
+        showDashboard();
+    }
+
+    /**
+     * Shows the new Dashboard screen featuring a left navigation bar, central
+     * cards area and a right column for calendar/schedule. Existing features
+     * (Payroll, Employee Lookup) are reachable from the sidebar or the cards.
+     */
+    static void showDashboard() {
+        frame.getContentPane().removeAll();
+        frame.setLayout(null);
+        frame.getContentPane().setBackground(new Color(242, 246, 252));
+
+        // Left sidebar (navigation)
+        int sidebarWidth = 220;
+        JPanel sidebar = new JPanel();
+        sidebar.setLayout(null);
+        sidebar.setBackground(ACCENT_BLUE);
+        sidebar.setBounds(0, 0, sidebarWidth, 700);
+
+        // Branding / avatar area
+        JLabel brand = new JLabel("MotorPH", SwingConstants.CENTER);
+        brand.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        brand.setForeground(PALETTE_WHITE);
+        brand.setBounds(0, 15, sidebarWidth, 40);
+        sidebar.add(brand);
+
+        // Small search box at top of sidebar
+        JTextField sidebarSearch = new JTextField();
+        sidebarSearch.setBounds(12, 60, sidebarWidth-24, 28);
+        sidebarSearch.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        sidebarSearch.setForeground(PALETTE_WHITE);
+        sidebarSearch.setBackground(new Color(28,78,196));
+        sidebarSearch.setBorder(BorderFactory.createLineBorder(new Color(50,100,210),1));
+        sidebar.add(sidebarSearch);
+
+        // Helper to add sidebar buttons
+        int y = 80;
+        int btnH = 38;
+        sidebar.add(createSidebarButton("Dashboard", 10, y, sidebarWidth-20, btnH, new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { showDashboard(); }
+        }));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("My Profile", 10, y, sidebarWidth-20, btnH, new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { showEmployeeLookupUI(); }
+        }));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("My Pay", 10, y, sidebarWidth-20, btnH, new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { setupPayrollUI(); }
+        }));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("My Documents", 10, y, sidebarWidth-20, btnH, null));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("My Retirement", 10, y, sidebarWidth-20, btnH, null));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("Help Center", 10, y, sidebarWidth-20, btnH, null));
+        y += btnH + 8;
+        sidebar.add(createSidebarButton("Notifications", 10, y, sidebarWidth-20, btnH, null));
+
+        // Top header for central content (created after content area is known)
+
+        // Center content area (cards)
+        int contentX = sidebarWidth + 20;
+        int contentW = 560;
+        JPanel content = new JPanel();
+        content.setLayout(null);
+        content.setBackground(new Color(242, 246, 252));
+        content.setBounds(contentX, 0, contentW, 700);
+
+        // Now we can safely create the page title and avatar using contentX/contentW
+        JLabel pageTitle = new JLabel("Dashboard");
+        pageTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        pageTitle.setForeground(new Color(11,29,58));
+        pageTitle.setBounds(contentX, 10, contentW-40, 34);
+        frame.add(pageTitle);
+
+        // Top-right avatar + logged-in name
+        JLabel avatar = new JLabel(loggedInUser == null || loggedInUser.isEmpty() ? "User" : loggedInUser, SwingConstants.RIGHT);
+        avatar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        avatar.setForeground(new Color(11,29,58));
+        avatar.setBounds(contentX + contentW - 160, 14, 150, 24);
+        frame.add(avatar);
+
+        // Top row cards
+        JPanel empCard = buildInfoCard("Employees", "Total: " + FileHandlerModule.getAllEmployees().size(), 0, 20, 260, 110);
+        content.add(empCard);
+
+        JPanel checksCard = buildInfoCard("Check Stubs", "View payroll and stubs", 280, 20, 260, 110);
+        JButton btnOpenPayroll = new JButton("Open Pay");
+        btnOpenPayroll.setBounds(20, 60, 100, 30);
+        guiStyleAccentButton(btnOpenPayroll);
+        btnOpenPayroll.addActionListener(new ActionListener() { @Override public void actionPerformed(ActionEvent e) { setupPayrollUI(); } });
+        checksCard.add(btnOpenPayroll);
+        content.add(checksCard);
+
+        JPanel meetingsCard = buildInfoCard("Product Meetings", "No meetings scheduled", 0, 150, 180, 110);
+        content.add(meetingsCard);
+
+        JPanel taxCard = buildInfoCard("Tax Documents", "W2s and summaries", 200, 150, 180, 110);
+        JButton btnTax = new JButton("View All");
+        btnTax.setBounds(20, 60, 100, 30);
+        styleStandardButton(btnTax);
+        taxCard.add(btnTax);
+        content.add(taxCard);
+
+        // Retirement chart placeholder (large card)
+        JPanel retirementCard = buildInfoCard("Retirement", "Trend", 0, 280, 480, 220);
+        content.add(retirementCard);
+
+        // Right column: calendar / schedule
+        int rightX = contentX + contentW + 20;
+        int rightW = 180;
+        JPanel rightCol = new JPanel();
+        rightCol.setLayout(null);
+        rightCol.setBackground(new Color(245, 247, 251));
+        rightCol.setBounds(rightX, 0, rightW, 700);
+
+        // Calendar panel (shows month grid and birthdays + attendance events)
+        JPanel calPanel = buildCalendarPanel(rightW-20, 300, CAL_MONTH, CAL_YEAR);
+        calPanel.setBounds(10, 20, rightW-20, 300);
+        rightCol.add(calPanel);
+
+        // Assemble
+        frame.add(sidebar);
+        frame.add(content);
+        frame.add(rightCol);
+
+        addLoggedInFooter(980, 660, 40);
+        updateDisplay();
+    }
+
+    private static JButton createSidebarButton(String text, int x, int y, int w, int h, ActionListener action) {
+        JButton b = new JButton(text);
+        b.setBounds(x, y, w, h);
+        b.setFont(APP_FONT_BOLD);
+        b.setForeground(PALETTE_WHITE);
+        b.setBackground(new Color(28, 78, 196));
+        b.setBorder(BorderFactory.createEmptyBorder());
+        b.setFocusPainted(false);
+        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        if (action != null) b.addActionListener(action);
+        return b;
+    }
+
+    private static JPanel buildInfoCard(String title, String subtitle, int x, int y, int w, int h) {
+        JPanel p = new JPanel();
+        p.setLayout(null);
+        p.setBackground(PALETTE_WHITE);
+        p.setBounds(x, y, w, h);
+        p.setBorder(BorderFactory.createCompoundBorder(new javax.swing.border.LineBorder(new Color(220,225,235),1,true), BorderFactory.createEmptyBorder(10,10,10,10)));
+        JLabel t = new JLabel(title);
+        t.setFont(APP_FONT_BOLD);
+        t.setForeground(new Color(11,29,58));
+        t.setBounds(10, 8, w-20, 22);
+
+        JLabel s;
+        if (subtitle != null && subtitle.startsWith("Total:")) {
+            s = new JLabel(subtitle);
+            s.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            s.setForeground(new Color(37,119,241));
+        } else {
+            s = new JLabel(subtitle == null ? "" : subtitle);
+            s.setFont(APP_FONT_PLAIN);
+            s.setForeground(new Color(80,90,120));
+        }
+        s.setBounds(10, 36, w-20, 26);
+        p.add(t);
+        p.add(s);
+        return p;
+    }
+
+    /**
+     * Builds a small calendar panel showing the current month and highlights
+     * birthdays pulled from the Employee CSV (EmployeeModule.BIRTHDAY).
+     * The panel includes a grid of days and an event list for the selected day.
+     *
+     * @param width  desired panel width
+     * @param height desired panel height
+     * @return JPanel containing calendar and events list
+     */
+    private static JPanel buildCalendarPanel(int width, int height, int month, int year) {
+        JPanel panel = new JPanel();
+        panel.setLayout(null);
+        panel.setBackground(new Color(245,247,251));
+        LocalDate viewDate = LocalDate.of(year, month, 1);
+        JLabel header = new JLabel(viewDate.getMonth().name() + " " + year, SwingConstants.CENTER);
+        header.setFont(APP_FONT_BOLD);
+        header.setBounds(0, 0, width, 28);
+        panel.add(header);
+
+        // Prev / Next navigation
+        JButton btnPrev = new JButton("◀");
+        btnPrev.setBounds(4, 0, 28, 26);
+        btnPrev.setFont(new Font("Segoe UI", Font.BOLD, 10));
+        btnPrev.setFocusable(false);
+        btnPrev.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                CAL_MONTH--;
+                if (CAL_MONTH < 1) { CAL_MONTH = 12; CAL_YEAR--; }
+                showDashboard();
+            }
+        });
+        panel.add(btnPrev);
+
+        JButton btnNext = new JButton("▶");
+        btnNext.setBounds(width-32, 0, 28, 26);
+        btnNext.setFont(new Font("Segoe UI", Font.BOLD, 10));
+        btnNext.setFocusable(false);
+        btnNext.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                CAL_MONTH++;
+                if (CAL_MONTH > 12) { CAL_MONTH = 1; CAL_YEAR++; }
+                showDashboard();
+            }
+        });
+        panel.add(btnNext);
+
+        // Map day-of-month -> list of employee names with birthdays on that day
+        Map<Integer, java.util.List<String>> birthdays = new HashMap<>();
+        List<String[]> all = FileHandlerModule.getAllEmployees();
+        for (String[] row : all) {
+            String b = safeColumn(row, EmployeeModule.BIRTHDAY);
+            if (b == null || b.isEmpty() || b.equals("—")) continue;
+            try {
+                if (!b.contains("/")) continue;
+                String[] parts = b.split("/");
+                if (parts.length < 2) continue;
+                int m = Integer.parseInt(parts[0]);
+                int d = Integer.parseInt(parts[1]);
+                if (m == month) {
+                    birthdays.computeIfAbsent(d, k -> new LinkedList<>()).add(EmployeeModule.fullName(row));
+                }
+            } catch (Exception ex) {
+                // ignore malformed dates
+            }
+        }
+
+        // Parse attendance records and map day -> list of names who logged in that day
+        Map<Integer, java.util.List<String>> attendanceMap = new HashMap<>();
+        List<String[]> attendance = FileHandlerModule.getAllAttendanceRecords();
+        for (String[] arow : attendance) {
+            if (arow.length < 3) continue;
+            String dateStr = arow[2]; // expected MM/DD/YYYY
+            try {
+                if (!dateStr.contains("/")) continue;
+                String[] p = dateStr.split("/");
+                if (p.length < 2) continue;
+                int m = Integer.parseInt(p[0]);
+                int d = Integer.parseInt(p[1]);
+                if (m == month) {
+                    String name = "";
+                    if (arow.length > 2) {
+                        // attempt to use name fields if present
+                        String maybeFirst = arow.length > 2 ? arow[1] : "";
+                        name = maybeFirst;
+                    }
+                    attendanceMap.computeIfAbsent(d, k -> new LinkedList<>()).add(name.isEmpty() ? arow[0] : name + " (" + arow[0] + ")");
+                }
+            } catch (Exception ex) {
+                // ignore malformed
+            }
+        }
+
+        int gridTop = 36;
+        int rows = 6;
+        int cols = 7;
+        int cellW = width / cols;
+        int cellH = (height - gridTop - 80) / rows;
+
+        LocalDate first = LocalDate.of(year, month, 1);
+        int shift = first.getDayOfWeek().getValue() % 7; // Sunday start -> 0
+        int totalDays = first.lengthOfMonth();
+
+        // Day-of-week headers
+        String[] dow = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+        for (int c=0;c<7;c++) {
+            JLabel l = new JLabel(dow[c], SwingConstants.CENTER);
+            l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            l.setBounds(c*cellW, gridTop-20, cellW, 18);
+            panel.add(l);
+        }
+
+        JTextArea eventsArea = new JTextArea();
+        eventsArea.setEditable(false);
+        eventsArea.setFont(APP_FONT_PLAIN);
+        JScrollPane eventsScroll = new JScrollPane(eventsArea);
+        eventsScroll.setBounds(0, gridTop + rows*cellH + 6, width, 70);
+        eventsScroll.setBorder(BorderFactory.createLineBorder(new Color(220,225,235),1));
+
+        // Create day cells
+        int day = 1;
+        for (int r=0;r<rows;r++) {
+            for (int c=0;c<cols;c++) {
+                int index = r*cols + c;
+                JLabel cell = new JLabel("", SwingConstants.LEFT);
+                cell.setOpaque(true);
+                cell.setBackground(new Color(245,247,251));
+                cell.setBorder(BorderFactory.createLineBorder(new Color(235,238,243),1));
+                cell.setBounds(c*cellW, gridTop + r*cellH, cellW, cellH);
+                int displayDay = index - shift + 1;
+                if (displayDay >= 1 && displayDay <= totalDays) {
+                    String text = String.valueOf(displayDay);
+                    boolean hasBirthday = birthdays.containsKey(displayDay);
+                    boolean hasAttendance = attendanceMap.containsKey(displayDay);
+                    if (hasBirthday) {
+                        text += "  •";
+                        cell.setForeground(new Color(37,119,241));
+                    }
+                    if (hasAttendance) {
+                        text += "  (" + attendanceMap.get(displayDay).size() + ")";
+                    }
+                    cell.setText("  " + text);
+                    final int dnum = displayDay;
+                    cell.addMouseListener(new MouseListener() {
+                        @Override public void mouseClicked(MouseEvent e) {
+                            StringBuilder sb = new StringBuilder();
+                            if (birthdays.containsKey(dnum)) {
+                                sb.append("Birthdays on ").append(dnum).append("/" ).append(month).append("\n\n");
+                                for (String n : birthdays.get(dnum)) sb.append("- ").append(n).append("\n");
+                                sb.append("\n");
+                            }
+                            if (attendanceMap.containsKey(dnum)) {
+                                sb.append("Attendance (logins) on ").append(dnum).append("/" ).append(month).append("\n\n");
+                                for (String n : attendanceMap.get(dnum)) sb.append("- ").append(n).append("\n");
+                            }
+                            if (sb.length() == 0) sb.append("No events for " + dnum + " " + viewDate.getMonth().name());
+                            eventsArea.setText(sb.toString());
+                        }
+                        @Override public void mousePressed(MouseEvent e) {}
+                        @Override public void mouseReleased(MouseEvent e) {}
+                        @Override public void mouseEntered(MouseEvent e) { cell.setBackground(new Color(235,243,255)); }
+                        @Override public void mouseExited(MouseEvent e) { cell.setBackground(new Color(245,247,251)); }
+                    });
+                } else {
+                    cell.setText("");
+                    cell.setEnabled(false);
+                    cell.setBackground(new Color(250,251,253));
+                }
+                panel.add(cell);
+            }
+        }
+
+        panel.add(eventsScroll);
+        return panel;
     }
 
     /**
