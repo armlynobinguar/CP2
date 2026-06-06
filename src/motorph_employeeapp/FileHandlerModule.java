@@ -188,6 +188,110 @@ public class FileHandlerModule {
     }
 
     /**
+     * Loads application notifications from a simple text file (one notification per line).
+     * The file is stored under {@code resources/notifications.txt} so it travels with the project.
+     * If the file does not exist an empty list is returned.
+     *
+     * @return list of notification lines (may be empty)
+     */
+    public static List<String> loadNotifications() {
+        List<String> items = new ArrayList<>();
+        String path = resolveDataFile("resources/notifications.txt");
+        File f = new File(path);
+        if (!f.isFile()) return items;
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) items.add(line);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading notifications: " + e.getMessage());
+        }
+        return items;
+    }
+
+    /**
+     * Saves the current notifications list to disk overwriting the previous file.
+     * This is a simple persistence mechanism used by the GUI to remember dismissed
+     * or marked notifications between runs.
+     *
+     * @param items ordered list of notification lines
+     * @return true on success
+     */
+    public static boolean saveNotifications(List<String> items) {
+        String path = resolveDataFile("resources/notifications.txt");
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (String s : items) {
+                out.println(s == null ? "" : s);
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Structured notification load/save using NotificationModule.Notification */
+    public static java.util.List<NotificationModule.Notification> loadStructuredNotifications() {
+        java.util.List<NotificationModule.Notification> list = new ArrayList<>();
+        String path = resolveDataFile("resources/notifications.txt");
+        File f = new File(path);
+        if (!f.isFile()) return list;
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                NotificationModule.Notification n = NotificationModule.Notification.parseLine(line);
+                if (n != null) list.add(n);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading structured notifications: " + e.getMessage());
+        }
+        return list;
+    }
+
+    public static boolean saveStructuredNotifications(java.util.List<NotificationModule.Notification> items) {
+        String path = resolveDataFile("resources/notifications.txt");
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (NotificationModule.Notification n : items) {
+                out.println(n == null ? "" : n.serializeLine());
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving structured notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Export structured notifications to an explicit relative path. */
+    public static boolean exportStructuredNotifications(java.util.List<NotificationModule.Notification> items, String relativePath) {
+        String path = resolveDataFile(relativePath);
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (NotificationModule.Notification n : items) out.println(n == null ? "" : n.serializeLine());
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error exporting notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Load structured notifications from an explicit file path. */
+    public static java.util.List<NotificationModule.Notification> loadStructuredNotificationsFromPath(String filePath) {
+        java.util.List<NotificationModule.Notification> list = new ArrayList<>();
+        File f = new File(filePath);
+        if (!f.isFile()) return list;
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                NotificationModule.Notification n = NotificationModule.Notification.parseLine(line);
+                if (n != null) list.add(n);
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading notifications from path: " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
      * Parses a CSV line into columns, respecting double-quoted fields.
      *
      * Standard String.split(",") breaks when address or name fields contain commas
@@ -214,6 +318,7 @@ public class FileHandlerModule {
         }
         // Add the final column after the last comma (or entire line if no commas)
         results.add(tempText.toString().trim());
-        return results.toArray(new String[0]);
+        String[] out = new String[results.size()];
+        return results.toArray(out);
     }
 }

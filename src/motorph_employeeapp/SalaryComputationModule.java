@@ -79,10 +79,9 @@ public class SalaryComputationModule {
                         hoursSecondCutoff += shift;
                     }
                 }
-            } catch (Exception e) {
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
                 // Log bad rows to console for debugging without stopping payroll
                 System.out.println("Skipped unparseable row: " + line + " due to: " + e.getMessage());
-                continue;
             }
         }
 
@@ -159,7 +158,7 @@ public class SalaryComputationModule {
 
             // Subtract 60 minutes for lunch; convert total minutes to hours
             return Math.max(0, (endMins - startMins - 60) / 60.0);
-        } catch (Exception e) {
+        } catch (java.time.format.DateTimeParseException e) {
             return 0.0;
         }
     }
@@ -270,7 +269,7 @@ public class SalaryComputationModule {
                 case 12: return "December";
                 default: return "Month " + month;
             }
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return "Invalid Month";
         }
     }
@@ -302,8 +301,7 @@ public class SalaryComputationModule {
                     if (!workingPeriods.contains(monthYear)) {
                         workingPeriods.add(monthYear);
                     }
-                } catch (Exception e) {
-                    continue;
+                } catch (NumberFormatException e) {
                 }
             }
         }

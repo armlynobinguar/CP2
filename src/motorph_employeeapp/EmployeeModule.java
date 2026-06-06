@@ -69,7 +69,7 @@ public class EmployeeModule {
         try {
             // Remove thousand separators before parsing (e.g. "1,234.56" -> "1234.56")
             return Double.parseDouble(emp[HOURLY_RATE].replace(",", "").trim());
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return 0.0;
         }
     }
