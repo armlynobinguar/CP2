@@ -505,18 +505,18 @@ public class MotorPH_GUI {
         int gap = 20;
         int rightWidth = 280;
         int outerPadding = 20;
-        int frameWidth = APP_FRAME_WIDTH;
 
         buildAndAddSidebar("Dashboard");
 
-        // Use frame insets so the layout respects the OS title bar and the status bar
+        // Use frame insets for both axes so layout respects OS chrome and status bar
         java.awt.Insets ins = frame.getInsets();
+        int visibleW = APP_FRAME_WIDTH - ins.left - ins.right;
         int visibleH = APP_FRAME_HEIGHT - ins.top - ins.bottom - STATUS_BAR_H;
         // header starts at y=16, height=70, then 16px gap → content starts at y=102
         int contentHeight = visibleH - 16 - 70 - 16 - 8; // 8px bottom margin
 
         int contentX = sidebarWidth + gap;
-        int contentWidth = frameWidth - sidebarWidth - gap - rightWidth - outerPadding;
+        int contentWidth = visibleW - sidebarWidth - gap - rightWidth - outerPadding;
 
         int headerWidth = contentWidth + rightWidth + outerPadding;
         int headerHeight = 70;
@@ -566,13 +566,12 @@ public class MotorPH_GUI {
 
         JPanel rightCol = new JPanel(null);
         rightCol.setBackground(PALETTE_WHITE);
-        rightCol.setBounds(frameWidth - rightWidth - outerPadding, content.getY(), rightWidth, contentHeight);
-        rightCol.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+        rightCol.setBounds(visibleW - rightWidth - outerPadding, content.getY(), rightWidth, contentHeight);
+        rightCol.setBorder(null); // calPanel draws its own border
 
-        int innerPadding = 8;
-        int calH = contentHeight - 16;
-        JPanel calPanel = buildCalendarPanel(rightWidth - 2 * innerPadding, calH, CAL_MONTH, CAL_YEAR);
-        calPanel.setBounds(innerPadding, 8, rightWidth - 2 * innerPadding, calH);
+        // calPanel fills rightCol exactly: 280/7 = 40px per cell — no rounding gap
+        JPanel calPanel = buildCalendarPanel(rightWidth, contentHeight, CAL_MONTH, CAL_YEAR);
+        calPanel.setBounds(0, 0, rightWidth, contentHeight);
         rightCol.add(calPanel);
 
         frame.add(header);
@@ -1931,13 +1930,12 @@ public class MotorPH_GUI {
 
     private static void showNotificationDetail(NotificationModule.Notification n) {
         javax.swing.JDialog dialog = new javax.swing.JDialog(frame, "Notification", true);
-        dialog.setSize(480, 300);
+        dialog.setSize(480, 220);
         dialog.setLocationRelativeTo(frame);
-        dialog.setLayout(null);
-        dialog.getContentPane().setBackground(PALETTE_WHITE);
         dialog.setResizable(false);
+        dialog.setLayout(new java.awt.BorderLayout());
 
-        // Category badge strip at top
+        // Category badge strip — BorderLayout so labels never overflow
         Color badgeColor;
         switch (n.category) {
             case "Payroll":    badgeColor = new Color(220, 20, 60);   break;
@@ -1946,16 +1944,16 @@ public class MotorPH_GUI {
             case "System":     badgeColor = new Color(70, 130, 255);  break;
             default:           badgeColor = new Color(100, 110, 130); break;
         }
-        JPanel strip = new JPanel(null);
+        JPanel strip = new JPanel(new java.awt.BorderLayout(0, 0));
         strip.setBackground(badgeColor);
-        strip.setBounds(0, 0, 480, 36);
+        strip.setPreferredSize(new java.awt.Dimension(0, 40));
+        strip.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+
         JLabel catLbl = new JLabel(n.category.toUpperCase());
         catLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         catLbl.setForeground(PALETTE_WHITE);
-        catLbl.setBounds(16, 8, 200, 20);
-        strip.add(catLbl);
+        strip.add(catLbl, java.awt.BorderLayout.WEST);
 
-        // Timestamp (right-aligned in strip)
         String ts = n.timestamp;
         try {
             java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(ts);
@@ -1967,12 +1965,11 @@ public class MotorPH_GUI {
         JLabel tsLbl = new JLabel(ts);
         tsLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         tsLbl.setForeground(new Color(220, 230, 245));
-        tsLbl.setHorizontalAlignment(SwingConstants.RIGHT);
-        tsLbl.setBounds(240, 8, 224, 20);
-        strip.add(tsLbl);
-        dialog.add(strip);
+        strip.add(tsLbl, java.awt.BorderLayout.EAST);
 
-        // Message body
+        dialog.add(strip, java.awt.BorderLayout.NORTH);
+
+        // Message body fills remaining space
         JTextArea body = new JTextArea(n.text);
         body.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         body.setForeground(TEXT_DARK_NAVY);
@@ -1980,26 +1977,12 @@ public class MotorPH_GUI {
         body.setEditable(false);
         body.setLineWrap(true);
         body.setWrapStyleWord(true);
-        body.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+        body.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
         JScrollPane bodyScroll = new JScrollPane(body,
             JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
             JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         bodyScroll.setBorder(null);
-        bodyScroll.setBounds(0, 36, 480, 186);
-        dialog.add(bodyScroll);
-
-        // Divider
-        JPanel divider = new JPanel();
-        divider.setBackground(CARD_BORDER_COLOR);
-        divider.setBounds(0, 222, 480, 1);
-        dialog.add(divider);
-
-        // Close button
-        JButton closeBtn = new JButton("Close");
-        closeBtn.setBounds(360, 234, 100, 32);
-        guiStyleAccentButton(closeBtn);
-        closeBtn.addActionListener(e -> dialog.dispose());
-        dialog.add(closeBtn);
+        dialog.add(bodyScroll, java.awt.BorderLayout.CENTER);
 
         dialog.setVisible(true);
     }
