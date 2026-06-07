@@ -188,6 +188,107 @@ public class FileHandlerModule {
     }
 
     /**
+     * Reads the header line from the Employee Details CSV.
+     *
+     * @return header row text, or a default header if the file cannot be read
+     */
+    public static String getEmployeeFileHeader() {
+        String filePath = resolveDataFile(EMPLOYEE_FILE);
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String header = br.readLine();
+            if (header != null && !header.trim().isEmpty()) {
+                return header;
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading employee header: " + e.getMessage());
+        }
+        return "Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,Status,Position,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate";
+    }
+
+    /**
+     * Rewrites the entire Employee Details CSV from an in-memory list of rows.
+     *
+     * @param employees ordered employee rows (each row must match CSV column count)
+     * @return true when the file is written successfully
+     */
+    public static boolean rewriteEmployeeFile(List<String[]> employees) {
+        String filePath = resolveDataFile(EMPLOYEE_FILE);
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(filePath)))) {
+            out.println(getEmployeeFileHeader());
+            for (String[] row : employees) {
+                out.println(joinCsvLine(row));
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error rewriting employee file: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Replaces one employee row in the CSV by employee ID.
+     *
+     * @param id         employee number to update
+     * @param updatedRow complete replacement row
+     * @return true when the record exists and the file is saved
+     */
+    public static boolean updateEmployeeRecord(String id, String[] updatedRow) {
+        if (id == null || updatedRow == null || updatedRow.length == 0) {
+            return false;
+        }
+        List<String[]> all = getAllEmployees();
+        boolean found = false;
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).length > 0 && all.get(i)[0].trim().equals(id.trim())) {
+                all.set(i, updatedRow);
+                found = true;
+                break;
+            }
+        }
+        return found && rewriteEmployeeFile(all);
+    }
+
+    /**
+     * Removes one employee row from the CSV by employee ID.
+     *
+     * @param id employee number to delete
+     * @return true when the record exists and the file is saved
+     */
+    public static boolean deleteEmployeeRecord(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return false;
+        }
+        List<String[]> all = getAllEmployees();
+        boolean removed = all.removeIf(row -> row.length > 0 && row[0].trim().equals(id.trim()));
+        return removed && rewriteEmployeeFile(all);
+    }
+
+    /**
+     * Serializes one CSV row, quoting fields that contain commas or quotes.
+     *
+     * @param columns split employee row
+     * @return comma-separated line suitable for writing to the CSV file
+     */
+    public static String joinCsvLine(String[] columns) {
+        if (columns == null || columns.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            String value = columns[i] == null ? "" : columns[i];
+            if (value.contains(",") || value.contains("\"")) {
+                sb.append('"').append(value.replace("\"", "\"\"")).append('"');
+            } else {
+                sb.append(value);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
      * Loads application notifications from a simple text file (one notification per line).
      * The file is stored under {@code resources/notifications.txt} so it travels with the project.
      * If the file does not exist an empty list is returned.

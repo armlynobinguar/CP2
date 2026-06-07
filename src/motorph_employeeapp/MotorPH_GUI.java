@@ -36,9 +36,12 @@ import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTable;
 import javax.swing.ListCellRenderer;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableModel;
 
 /**
  * MotorPH_GUI
@@ -107,6 +110,19 @@ public class MotorPH_GUI {
 
     /** Displays ID, full name, and birthday after a successful lookup. */
     static JTextArea txtLookupDisplay;
+
+    // --- Employee records management (Feature 1 / Chantal CRUD) ---
+
+    static JTable employeeTable;
+    static DefaultTableModel employeeTableModel;
+    static JTextField txtRecEmpNo;
+    static JTextField txtRecLastName;
+    static JTextField txtRecFirstName;
+    static JTextField txtRecSSS;
+    static JTextField txtRecPhilHealth;
+    static JTextField txtRecTIN;
+    static JTextField txtRecPagIBIG;
+    static String selectedEmployeeId = null;
 
     // --- Typography: main app screens ---
 
@@ -559,6 +575,13 @@ public class MotorPH_GUI {
         guiStyleAccentButton(btnOpenPayroll);
         btnOpenPayroll.addActionListener(e -> setupPayrollUI());
         checksCard.add(btnOpenPayroll);
+        if (isPayrollStaff()) {
+            JButton btnOpenRecords = new JButton("Manage Records");
+            btnOpenRecords.setBounds(124, 76, 140, 28);
+            guiStyleAccentButton(btnOpenRecords);
+            btnOpenRecords.addActionListener(e -> showEmployeeRecordsUI());
+            checksCard.add(btnOpenRecords);
+        }
         content.add(checksCard);
 
         JPanel meetingsCard = buildInfoCard("Product Meetings", "No meetings scheduled", 0, cardHeight + cardGap, contentWidth, 220);
@@ -636,6 +659,10 @@ public class MotorPH_GUI {
         btnY += btnH + 4;
         sidebar.add(makeSidebarNavButton("Lookup",        0, btnY, sw, btnH, "Lookup".equals(activePage),        e -> showEmployeeLookupUI()));
         btnY += btnH + 4;
+        if (isPayrollStaff()) {
+            sidebar.add(makeSidebarNavButton("Records",   0, btnY, sw, btnH, "Records".equals(activePage),       e -> showEmployeeRecordsUI()));
+            btnY += btnH + 4;
+        }
         sidebar.add(makeSidebarNavButton("Payroll",       0, btnY, sw, btnH, "Payroll".equals(activePage),       e -> setupPayrollUI()));
         btnY += btnH + 4;
         sidebar.add(makeSidebarNavButton("Notifications", 0, btnY, sw, btnH, "Notifications".equals(activePage), e -> showNotificationsUI()));
@@ -1184,7 +1211,7 @@ public class MotorPH_GUI {
 
         // Core Trigger Processing Action Switches (Lesson: Buttons)
         // Two equal-width buttons spanning x=30 to x=520 with a 20px gap between them.
-        JButton btnProcess = new JButton("Process Payroll");
+        JButton btnProcess = new JButton("Compute Salaries");
         btnProcess.setBounds(30, 215, 235, 45);
         guiStyleAccentButton(btnProcess);
         btnProcess.addActionListener(e -> runPayrollCalculation());
@@ -1304,7 +1331,331 @@ public class MotorPH_GUI {
         updateDisplay();
     }
 
-    
+    /** True when the logged-in user has payroll-staff privileges (employee record CRUD). */
+    private static boolean isPayrollStaff() {
+        return MotorPH_EmployeeApp.AUTH_VAL_2.equals(loggedInUser);
+    }
+
+    /**
+     * Employee Records screen (Feature 1): JTable listing, form fields, and Add / Update / Delete.
+     * Available to payroll staff only.
+     */
+    static void showEmployeeRecordsUI() {
+        if (!isPayrollStaff()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Employee record management is available to payroll staff only.",
+                    "Access Restricted", JOptionPane.WARNING_MESSAGE);
+            showDashboard();
+            return;
+        }
+
+        frame.getContentPane().removeAll();
+        frame.setLayout(null);
+        frame.setSize(APP_FRAME_WIDTH, APP_FRAME_HEIGHT);
+        frame.getContentPane().setBackground(APP_BG);
+
+        buildAndAddSidebar("Records");
+        addPageHeader("Employee Records");
+
+        int panelX = SIDEBAR_WIDTH + 16;
+        int panelY = 76;
+        int panelW = APP_FRAME_WIDTH - SIDEBAR_WIDTH - 32;
+        int contentH = frame.getContentPane().getHeight();
+        int panelH = (contentH > 100 ? contentH : APP_FRAME_HEIGHT - 34) - panelY - 36;
+
+        JPanel panel = new JPanel(null);
+        panel.setBackground(PALETTE_WHITE);
+        panel.setBounds(panelX, panelY, panelW, panelH);
+        panel.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+
+        JLabel tableTitle = new JLabel("Employee List");
+        tableTitle.setFont(APP_FONT_BOLD);
+        tableTitle.setForeground(TEXT_DARK_NAVY);
+        tableTitle.setBounds(16, 14, 200, 22);
+        panel.add(tableTitle);
+
+        employeeTableModel = new DefaultTableModel(EmployeeRecordsModule.TABLE_COLUMNS, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        employeeTable = new JTable(employeeTableModel);
+        employeeTable.setFont(APP_FONT_PLAIN);
+        employeeTable.setRowHeight(28);
+        employeeTable.setSelectionBackground(new Color(220, 236, 255));
+        employeeTable.setSelectionForeground(TEXT_DARK_NAVY);
+        employeeTable.setGridColor(CARD_BORDER_COLOR);
+        employeeTable.getTableHeader().setFont(APP_FONT_BOLD);
+        employeeTable.getTableHeader().setBackground(new Color(245, 248, 252));
+        employeeTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        int tableW = (int) (panelW * 0.58);
+        int formX = tableW + 24;
+        int formW = panelW - formX - 16;
+
+        JScrollPane tableScroll = new JScrollPane(employeeTable);
+        tableScroll.setBounds(16, 42, tableW, panelH - 58);
+        tableScroll.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+        tableScroll.getVerticalScrollBar().setUnitIncrement(16);
+        panel.add(tableScroll);
+
+        JLabel formTitle = new JLabel("Record Details");
+        formTitle.setFont(APP_FONT_BOLD);
+        formTitle.setForeground(TEXT_DARK_NAVY);
+        formTitle.setBounds(formX, 14, formW, 22);
+        panel.add(formTitle);
+
+        int fy = 46;
+        int labelW = 110;
+        int fieldX = formX + labelW + 8;
+        int fieldW = formW - labelW - 8;
+        int rowH = 30;
+        int rowGap = 10;
+
+        txtRecEmpNo = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "Employee #:", true);
+        fy += rowH + rowGap;
+        txtRecLastName = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "Last Name:", true);
+        fy += rowH + rowGap;
+        txtRecFirstName = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "First Name:", true);
+        fy += rowH + rowGap;
+        txtRecSSS = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "SSS #:", true);
+        fy += rowH + rowGap;
+        txtRecPhilHealth = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "PhilHealth #:", true);
+        fy += rowH + rowGap;
+        txtRecTIN = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "TIN #:", true);
+        fy += rowH + rowGap;
+        txtRecPagIBIG = addRecordFormField(panel, formX, fy, labelW, fieldX, fieldW, rowH, "Pag-IBIG #:", true);
+        fy += rowH + 18;
+
+        JButton btnAdd = new JButton("Add Record");
+        btnAdd.setBounds(formX, fy, 108, 34);
+        guiStyleAccentButton(btnAdd);
+        btnAdd.addActionListener(e -> runAddEmployeeRecord());
+
+        JButton btnUpdate = new JButton("Update");
+        btnUpdate.setBounds(formX + 116, fy, 88, 34);
+        styleStandardButton(btnUpdate);
+        btnUpdate.addActionListener(e -> runUpdateEmployeeRecord());
+
+        JButton btnDelete = new JButton("Delete");
+        btnDelete.setBounds(formX + 212, fy, 88, 34);
+        styleStandardButton(btnDelete);
+        btnDelete.addActionListener(e -> runDeleteEmployeeRecord());
+
+        JButton btnClear = new JButton("Clear");
+        btnClear.setBounds(formX, fy + 42, formW, 34);
+        styleStandardButton(btnClear);
+        btnClear.addActionListener(e -> clearEmployeeRecordForm());
+
+        employeeTable.getSelectionModel().addListSelectionListener((ListSelectionListener) e -> {
+            if (e.getValueIsAdjusting()) {
+                return;
+            }
+            int row = employeeTable.getSelectedRow();
+            if (row < 0) {
+                return;
+            }
+            String id = String.valueOf(employeeTableModel.getValueAt(row, 0)).trim();
+            String data = FileHandlerModule.findEmployeeData(id);
+            if (data == null) {
+                return;
+            }
+            populateEmployeeRecordForm(FileHandlerModule.smartSplit(data));
+            selectedEmployeeId = id;
+            txtRecEmpNo.setEditable(false);
+        });
+
+        refreshEmployeeTable();
+        frame.add(panel);
+        addStatusBar();
+        updateDisplay();
+    }
+
+    private static JTextField addRecordFormField(JPanel panel, int labelX, int y, int labelW,
+            int fieldX, int fieldW, int height, String labelText, boolean editable) {
+        JLabel label = createStyledLabel(labelText);
+        label.setBounds(labelX, y, labelW, height);
+        panel.add(label);
+
+        JTextField field = createStyledTextField(editable);
+        field.setBounds(fieldX, y, fieldW, height);
+        panel.add(field);
+        return field;
+    }
+
+    private static void refreshEmployeeTable() {
+        if (employeeTableModel == null) {
+            return;
+        }
+        employeeTableModel.setRowCount(0);
+        for (String[] emp : FileHandlerModule.getAllEmployees()) {
+            employeeTableModel.addRow(EmployeeRecordsModule.toTableRow(emp));
+        }
+    }
+
+    private static void populateEmployeeRecordForm(String[] emp) {
+        resetEmployeeRecordFieldBorders();
+        txtRecEmpNo.setText(safeColumn(emp, EmployeeModule.ID).equals("-") ? "" : safeColumn(emp, EmployeeModule.ID));
+        txtRecLastName.setText(safeColumn(emp, EmployeeModule.LAST_NAME).equals("-") ? "" : safeColumn(emp, EmployeeModule.LAST_NAME));
+        txtRecFirstName.setText(safeColumn(emp, EmployeeModule.FIRST_NAME).equals("-") ? "" : safeColumn(emp, EmployeeModule.FIRST_NAME));
+        txtRecSSS.setText(safeColumn(emp, EmployeeModule.SSS).equals("-") ? "" : safeColumn(emp, EmployeeModule.SSS));
+        txtRecPhilHealth.setText(safeColumn(emp, EmployeeModule.PHILHEALTH).equals("-") ? "" : safeColumn(emp, EmployeeModule.PHILHEALTH));
+        txtRecTIN.setText(safeColumn(emp, EmployeeModule.TIN).equals("-") ? "" : safeColumn(emp, EmployeeModule.TIN));
+        txtRecPagIBIG.setText(safeColumn(emp, EmployeeModule.PAGIBIG).equals("-") ? "" : safeColumn(emp, EmployeeModule.PAGIBIG));
+    }
+
+    private static void clearEmployeeRecordForm() {
+        selectedEmployeeId = null;
+        if (employeeTable != null) {
+            employeeTable.clearSelection();
+        }
+        if (txtRecEmpNo != null) {
+            txtRecEmpNo.setText("");
+            txtRecEmpNo.setEditable(true);
+        }
+        if (txtRecLastName != null) txtRecLastName.setText("");
+        if (txtRecFirstName != null) txtRecFirstName.setText("");
+        if (txtRecSSS != null) txtRecSSS.setText("");
+        if (txtRecPhilHealth != null) txtRecPhilHealth.setText("");
+        if (txtRecTIN != null) txtRecTIN.setText("");
+        if (txtRecPagIBIG != null) txtRecPagIBIG.setText("");
+        resetEmployeeRecordFieldBorders();
+    }
+
+    private static void resetEmployeeRecordFieldBorders() {
+        resetFieldBorder(txtRecEmpNo);
+        resetFieldBorder(txtRecLastName);
+        resetFieldBorder(txtRecFirstName);
+        resetFieldBorder(txtRecSSS);
+        resetFieldBorder(txtRecPhilHealth);
+        resetFieldBorder(txtRecTIN);
+        resetFieldBorder(txtRecPagIBIG);
+    }
+
+    private static void markEmployeeRecordFieldErrors(List<String> errors) {
+        for (String err : errors) {
+            if (err.contains("Employee Number")) setFieldError(txtRecEmpNo);
+            if (err.contains("Last Name")) setFieldError(txtRecLastName);
+            if (err.contains("First Name")) setFieldError(txtRecFirstName);
+            if (err.contains("SSS")) setFieldError(txtRecSSS);
+            if (err.contains("PhilHealth")) setFieldError(txtRecPhilHealth);
+            if (err.contains("TIN")) setFieldError(txtRecTIN);
+            if (err.contains("Pag-IBIG")) setFieldError(txtRecPagIBIG);
+        }
+    }
+
+    private static void runAddEmployeeRecord() {
+        resetEmployeeRecordFieldBorders();
+        String empNo = txtRecEmpNo.getText().trim();
+        String last = txtRecLastName.getText().trim();
+        String first = txtRecFirstName.getText().trim();
+        String sss = txtRecSSS.getText().trim();
+        String phil = txtRecPhilHealth.getText().trim();
+        String tin = txtRecTIN.getText().trim();
+        String pagibig = txtRecPagIBIG.getText().trim();
+
+        List<String> errors = EmployeeRecordsModule.validateForm(
+                empNo, last, first, sss, phil, tin, pagibig, false, null);
+        if (!errors.isEmpty()) {
+            markEmployeeRecordFieldErrors(errors);
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String[] row = EmployeeRecordsModule.createNewRow(empNo, last, first, sss, phil, tin, pagibig);
+        if (!FileHandlerModule.appendEmployeeRecord(FileHandlerModule.joinCsvLine(row))) {
+            JOptionPane.showMessageDialog(frame,
+                    "Could not save the employee record. Please check file permissions.",
+                    "Save Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        refreshEmployeeTable();
+        clearEmployeeRecordForm();
+        JOptionPane.showMessageDialog(frame,
+                "Employee record added successfully.",
+                "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static void runUpdateEmployeeRecord() {
+        if (selectedEmployeeId == null || selectedEmployeeId.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Select a record from the table before updating.",
+                    "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        resetEmployeeRecordFieldBorders();
+        String empNo = txtRecEmpNo.getText().trim();
+        String last = txtRecLastName.getText().trim();
+        String first = txtRecFirstName.getText().trim();
+        String sss = txtRecSSS.getText().trim();
+        String phil = txtRecPhilHealth.getText().trim();
+        String tin = txtRecTIN.getText().trim();
+        String pagibig = txtRecPagIBIG.getText().trim();
+
+        List<String> errors = EmployeeRecordsModule.validateForm(
+                empNo, last, first, sss, phil, tin, pagibig, true, selectedEmployeeId);
+        if (!errors.isEmpty()) {
+            markEmployeeRecordFieldErrors(errors);
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String existingLine = FileHandlerModule.findEmployeeData(selectedEmployeeId);
+        if (existingLine == null) {
+            JOptionPane.showMessageDialog(frame,
+                    "The selected employee record could not be found.",
+                    "Update Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String[] updated = EmployeeRecordsModule.applyFormToRow(
+                FileHandlerModule.smartSplit(existingLine), empNo, last, first, sss, phil, tin, pagibig);
+        if (!FileHandlerModule.updateEmployeeRecord(selectedEmployeeId, updated)) {
+            JOptionPane.showMessageDialog(frame,
+                    "Could not update the employee record. Please try again.",
+                    "Update Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        refreshEmployeeTable();
+        clearEmployeeRecordForm();
+        JOptionPane.showMessageDialog(frame,
+                "Employee record updated successfully.",
+                "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static void runDeleteEmployeeRecord() {
+        if (selectedEmployeeId == null || selectedEmployeeId.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Select a record from the table before deleting.",
+                    "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(frame,
+                "Delete employee #" + selectedEmployeeId + "? This cannot be undone.",
+                "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        if (!FileHandlerModule.deleteEmployeeRecord(selectedEmployeeId)) {
+            JOptionPane.showMessageDialog(frame,
+                    "Could not delete the employee record. Please try again.",
+                    "Delete Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        refreshEmployeeTable();
+        clearEmployeeRecordForm();
+        JOptionPane.showMessageDialog(frame,
+                "Employee record deleted successfully.",
+                "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
     static void showHelpCenterUI() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
@@ -2157,6 +2508,10 @@ public class MotorPH_GUI {
         // Use parallel array instead of fragile arithmetic on the combo index
         String actualMonth = String.valueOf(MONTH_NUMBERS[monthCombo.getSelectedIndex()]);
         SalaryComputationModule.calculatePayroll(emp, actualMonth, year, txtResultArea);
+        JOptionPane.showMessageDialog(frame,
+                "Salary computation completed successfully.\n"
+                + "Gross pay, deductions, and net pay are shown in the output area.",
+                "Computation Complete", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private static void resetLoginFieldBorders() {
@@ -2374,7 +2729,8 @@ public class MotorPH_GUI {
         if (l.contains("dashboard") || l.contains("main menu")) showDashboard();
         else if (l.contains("notification")) showNotificationsUI();
         else if (l.contains("pay") || l.contains("coverage")) setupPayrollUI();
-        else if (l.contains("employee")) showEmployeeLookupUI();
+        else if (l.contains("employee") || l.contains("record")) showEmployeeRecordsUI();
+        else if (l.contains("lookup")) showEmployeeLookupUI();
         else if (l.contains("help")) showHelpCenterUI();
         else showDashboard();
     }
@@ -2413,10 +2769,33 @@ public class MotorPH_GUI {
         button.setOpaque(true); // macOS fix: force background paint
         button.setContentAreaFilled(true); // macOS fix: fill the button area
         button.setBorderPainted(false); // macOS fix: remove native chrome
-        button.setBackground(new Color(37, 119, 241)); // Clear royal accent blue
+        button.setBackground(ACCENT_BLUE);
         button.setForeground(Color.white);
         button.setBorder(BorderFactory.createEmptyBorder());
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.addMouseListener(new MouseListener() {
+            private boolean cursorInside = false;
+
+            @Override public void mouseEntered(MouseEvent e) {
+                cursorInside = true;
+                button.setBackground(HOVER_BLUE);
+            }
+
+            @Override public void mouseExited(MouseEvent e) {
+                cursorInside = false;
+                button.setBackground(ACCENT_BLUE);
+            }
+
+            @Override public void mousePressed(MouseEvent e) {
+                button.setBackground(PRESSED_BLUE);
+            }
+
+            @Override public void mouseReleased(MouseEvent e) {
+                button.setBackground(cursorInside ? HOVER_BLUE : ACCENT_BLUE);
+            }
+
+            @Override public void mouseClicked(MouseEvent e) {}
+        });
     }
 
     static void updateDisplay() {
