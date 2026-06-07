@@ -4,7 +4,11 @@
 **Group 3 | Section H1101**
 
 > **Demo Credentials**
-> Username: `employee` &nbsp;|&nbsp; Password: `12345`
+>
+> | Portal | Username | Password |
+> |---|---|---|
+> | **Employee** | `employee` | `12345` |
+> | **HR** | `hr` | `hr12345` |
 
 ---
 

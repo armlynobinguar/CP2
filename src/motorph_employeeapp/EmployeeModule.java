@@ -1,6 +1,9 @@
 
 package motorph_employeeapp;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * EmployeeModule
  * --------------
@@ -29,6 +32,12 @@ public class EmployeeModule {
 
     /** CSV column index: employee birthday (display format from CSV). */
     public static final int BIRTHDAY = 3;
+
+    /** CSV column index: home address. */
+    public static final int ADDRESS = 4;
+
+    /** CSV column index: contact phone number. */
+    public static final int PHONE = 5;
 
     /** CSV column index: SSS membership number. */
     public static final int SSS = 6;
@@ -87,5 +96,29 @@ public class EmployeeModule {
         } catch (NumberFormatException e) {
             return 0.0;
         }
+    }
+
+    /**
+     * Finds employees whose ID, first name, last name, or full name matches the query.
+     */
+    public static List<String[]> searchByNameOrId(String query) {
+        List<String[]> results = new ArrayList<>();
+        if (query == null || query.trim().isEmpty()) {
+            return results;
+        }
+        String q = query.trim().toLowerCase();
+        for (String[] emp : FileHandlerModule.getAllEmployees()) {
+            if (emp == null || emp.length < 3) {
+                continue;
+            }
+            String id = emp[ID] == null ? "" : emp[ID].trim();
+            String first = emp[FIRST_NAME] == null ? "" : emp[FIRST_NAME].trim().toLowerCase();
+            String last = emp[LAST_NAME] == null ? "" : emp[LAST_NAME].trim().toLowerCase();
+            String full = (first + " " + last).trim();
+            if (id.equals(q) || id.contains(q) || first.contains(q) || last.contains(q) || full.contains(q)) {
+                results.add(emp);
+            }
+        }
+        return results;
     }
 }

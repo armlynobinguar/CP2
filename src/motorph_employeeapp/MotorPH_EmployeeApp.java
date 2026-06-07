@@ -17,23 +17,64 @@ package motorph_employeeapp;
  */
 public class MotorPH_EmployeeApp {
 
-    /** Username accepted for employee role login. */
-    static final String AUTH_VAL_1 = "employee";
+    enum UserRole {
+        EMPLOYEE,
+        HR
+    }
 
-    /** Username accepted for payroll staff role login. */
-    static final String AUTH_VAL_2 = "payroll_staff";
+    static final String EMPLOYEE_USERNAME = "employee";
+    static final String EMPLOYEE_PASSWORD = "12345";
+    static final String HR_USERNAME = "hr";
+    static final String HR_PASSWORD = "hr12345";
+    static final String HR_USERNAME_LEGACY = "payroll_staff";
+    static final String HR_PASSWORD_LEGACY = "password123";
 
-    /** Password accepted for employee role login. */
-    static final String AUTH_VAL_3 = "12345";
+    /** Demo employee portal account maps to this CSV employee record. */
+    static final String EMPLOYEE_DEMO_ID = "10024";
 
-    /** Password accepted for payroll staff role login. */
-    static final String AUTH_VAL_4 = "password123";
+    /** Resolves the employee record ID linked to a portal login username. */
+    static String getLinkedEmployeeId(String username) {
+        if (username == null) {
+            return null;
+        }
+        if (EMPLOYEE_USERNAME.equals(username.trim())) {
+            return EMPLOYEE_DEMO_ID;
+        }
+        return null;
+    }
 
-    /**
-     * Shared login state flag set to true only after valid username/password pair.
-     * Read by main() after the modal login dialog closes.
-     */
+    /** @deprecated Use {@link #EMPLOYEE_USERNAME} */
+    @Deprecated
+    static final String AUTH_VAL_1 = EMPLOYEE_USERNAME;
+
+    /** @deprecated Use {@link #HR_USERNAME} */
+    @Deprecated
+    static final String AUTH_VAL_2 = HR_USERNAME;
+
+    /** @deprecated Use {@link #EMPLOYEE_PASSWORD} */
+    @Deprecated
+    static final String AUTH_VAL_3 = EMPLOYEE_PASSWORD;
+
+    /** @deprecated Use {@link #HR_PASSWORD} */
+    @Deprecated
+    static final String AUTH_VAL_4 = HR_PASSWORD;
+
     static boolean loginSuccessful = false;
+    static UserRole loggedInRole = null;
+
+    static boolean authenticate(String username, String password) {
+        if (EMPLOYEE_USERNAME.equals(username) && EMPLOYEE_PASSWORD.equals(password)) {
+            loggedInRole = UserRole.EMPLOYEE;
+            return true;
+        }
+        if ((HR_USERNAME.equals(username) && HR_PASSWORD.equals(password))
+                || (HR_USERNAME_LEGACY.equals(username) && HR_PASSWORD_LEGACY.equals(password))) {
+            loggedInRole = UserRole.HR;
+            return true;
+        }
+        loggedInRole = null;
+        return false;
+    }
 
     /**
      * Application bootstrap method invoked by the JVM.
