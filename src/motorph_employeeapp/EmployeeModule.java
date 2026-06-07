@@ -30,6 +30,21 @@ public class EmployeeModule {
     /** CSV column index: employee birthday (display format from CSV). */
     public static final int BIRTHDAY = 3;
 
+    /** CSV column index: SSS membership number. */
+    public static final int SSS = 6;
+
+    /** CSV column index: PhilHealth membership number. */
+    public static final int PHILHEALTH = 7;
+
+    /** CSV column index: BIR Tax Identification Number. */
+    public static final int TIN = 8;
+
+    /** CSV column index: Pag-IBIG membership number. */
+    public static final int PAGIBIG = 9;
+
+    /** Total number of columns in the Employee Details CSV. */
+    public static final int COLUMN_COUNT = 19;
+
     /** CSV column index: employment status (Regular, Probationary, etc.). */
     public static final int STATUS = 10;
 
