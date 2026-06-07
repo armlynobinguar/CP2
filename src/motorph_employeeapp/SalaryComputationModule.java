@@ -21,6 +21,15 @@ import java.util.List;
  */
 public class SalaryComputationModule {
 
+    /** Last computed total gross pay (both cutoffs), for GUI summary display. */
+    public static double summaryGross = 0;
+
+    /** Last computed total deductions (2nd cutoff), for GUI summary display. */
+    public static double summaryDeductions = 0;
+
+    /** Last computed total net pay (both cutoffs), for GUI summary display. */
+    public static double summaryNet = 0;
+
     /**
      * Main payroll routine: aggregates attendance, computes gross per cutoff, applies deductions,
      * and renders a formatted payslip into the GUI text area.
@@ -36,6 +45,9 @@ public class SalaryComputationModule {
             return;
 
         output.setText("");
+        summaryGross = 0;
+        summaryDeductions = 0;
+        summaryNet = 0;
 
         String id = emp[EmployeeModule.ID];
         double hourlyRate = EmployeeModule.getHourlyRate(emp);
@@ -79,10 +91,9 @@ public class SalaryComputationModule {
                         hoursSecondCutoff += shift;
                     }
                 }
-            } catch (Exception e) {
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
                 // Log bad rows to console for debugging without stopping payroll
                 System.out.println("Skipped unparseable row: " + line + " due to: " + e.getMessage());
-                continue;
             }
         }
 
@@ -122,6 +133,10 @@ public class SalaryComputationModule {
         output.append("\n    - Withholding Tax: " + "PHP " + String.format("%,.2f", tax));
         output.append("\n Total Deductions: " + "PHP " + String.format("%,.2f", totalDeduc));
         output.append("\n Net Salary: " + "PHP " + String.format("%,.2f", netSalary2));
+
+        summaryGross = grossFirstCutoff + grossSecondCutoff;
+        summaryDeductions = totalDeduc;
+        summaryNet = netSalary1 + netSalary2;
     }
 
     /**
@@ -159,7 +174,7 @@ public class SalaryComputationModule {
 
             // Subtract 60 minutes for lunch; convert total minutes to hours
             return Math.max(0, (endMins - startMins - 60) / 60.0);
-        } catch (Exception e) {
+        } catch (java.time.format.DateTimeParseException e) {
             return 0.0;
         }
     }
@@ -270,7 +285,7 @@ public class SalaryComputationModule {
                 case 12: return "December";
                 default: return "Month " + month;
             }
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return "Invalid Month";
         }
     }
@@ -302,8 +317,7 @@ public class SalaryComputationModule {
                     if (!workingPeriods.contains(monthYear)) {
                         workingPeriods.add(monthYear);
                     }
-                } catch (Exception e) {
-                    continue;
+                } catch (NumberFormatException e) {
                 }
             }
         }

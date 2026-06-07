@@ -145,6 +145,28 @@ public class FileHandlerModule {
     }
 
     /**
+     * Reads all attendance rows from the attendance CSV (skipping header) and
+     * returns them split into columns using {@link #smartSplit}.
+     *
+     * @return list of split attendance rows; empty on read failure
+     */
+    public static List<String[]> getAllAttendanceRecords() {
+        List<String[]> records = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(resolveDataFile(ATTENDANCE_FILE)))) {
+            br.readLine(); // Skip header
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    records.add(smartSplit(line));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading Attendance file: " + e.getMessage());
+        }
+        return records;
+    }
+
+    /**
      * Appends a newly validated employee record line to the CSV file.
      *
      * Opens the file in append mode, writes a newline, then the raw CSV line.
@@ -163,6 +185,211 @@ public class FileHandlerModule {
             System.out.println("Error saving employee details to file: " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Reads the header line from the Employee Details CSV.
+     *
+     * @return header row text, or a default header if the file cannot be read
+     */
+    public static String getEmployeeFileHeader() {
+        String filePath = resolveDataFile(EMPLOYEE_FILE);
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String header = br.readLine();
+            if (header != null && !header.trim().isEmpty()) {
+                return header;
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading employee header: " + e.getMessage());
+        }
+        return "Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,Status,Position,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate";
+    }
+
+    /**
+     * Rewrites the entire Employee Details CSV from an in-memory list of rows.
+     *
+     * @param employees ordered employee rows (each row must match CSV column count)
+     * @return true when the file is written successfully
+     */
+    public static boolean rewriteEmployeeFile(List<String[]> employees) {
+        String filePath = resolveDataFile(EMPLOYEE_FILE);
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(filePath)))) {
+            out.println(getEmployeeFileHeader());
+            for (String[] row : employees) {
+                out.println(joinCsvLine(row));
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error rewriting employee file: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Replaces one employee row in the CSV by employee ID.
+     *
+     * @param id         employee number to update
+     * @param updatedRow complete replacement row
+     * @return true when the record exists and the file is saved
+     */
+    public static boolean updateEmployeeRecord(String id, String[] updatedRow) {
+        if (id == null || updatedRow == null || updatedRow.length == 0) {
+            return false;
+        }
+        List<String[]> all = getAllEmployees();
+        boolean found = false;
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).length > 0 && all.get(i)[0].trim().equals(id.trim())) {
+                all.set(i, updatedRow);
+                found = true;
+                break;
+            }
+        }
+        return found && rewriteEmployeeFile(all);
+    }
+
+    /**
+     * Removes one employee row from the CSV by employee ID.
+     *
+     * @param id employee number to delete
+     * @return true when the record exists and the file is saved
+     */
+    public static boolean deleteEmployeeRecord(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return false;
+        }
+        List<String[]> all = getAllEmployees();
+        boolean removed = all.removeIf(row -> row.length > 0 && row[0].trim().equals(id.trim()));
+        return removed && rewriteEmployeeFile(all);
+    }
+
+    /**
+     * Serializes one CSV row, quoting fields that contain commas or quotes.
+     *
+     * @param columns split employee row
+     * @return comma-separated line suitable for writing to the CSV file
+     */
+    public static String joinCsvLine(String[] columns) {
+        if (columns == null || columns.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            String value = columns[i] == null ? "" : columns[i];
+            if (value.contains(",") || value.contains("\"")) {
+                sb.append('"').append(value.replace("\"", "\"\"")).append('"');
+            } else {
+                sb.append(value);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Loads application notifications from a simple text file (one notification per line).
+     * The file is stored under {@code resources/notifications.txt} so it travels with the project.
+     * If the file does not exist an empty list is returned.
+     *
+     * @return list of notification lines (may be empty)
+     */
+    public static List<String> loadNotifications() {
+        List<String> items = new ArrayList<>();
+        String path = resolveDataFile("resources/notifications.txt");
+        File f = new File(path);
+        if (!f.isFile()) return items;
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) items.add(line);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading notifications: " + e.getMessage());
+        }
+        return items;
+    }
+
+    /**
+     * Saves the current notifications list to disk overwriting the previous file.
+     * This is a simple persistence mechanism used by the GUI to remember dismissed
+     * or marked notifications between runs.
+     *
+     * @param items ordered list of notification lines
+     * @return true on success
+     */
+    public static boolean saveNotifications(List<String> items) {
+        String path = resolveDataFile("resources/notifications.txt");
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (String s : items) {
+                out.println(s == null ? "" : s);
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Structured notification load/save using NotificationModule.Notification */
+    public static java.util.List<NotificationModule.Notification> loadStructuredNotifications() {
+        java.util.List<NotificationModule.Notification> list = new ArrayList<>();
+        String path = resolveDataFile("resources/notifications.txt");
+        File f = new File(path);
+        if (!f.isFile()) return list;
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                NotificationModule.Notification n = NotificationModule.Notification.parseLine(line);
+                if (n != null) list.add(n);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading structured notifications: " + e.getMessage());
+        }
+        return list;
+    }
+
+    public static boolean saveStructuredNotifications(java.util.List<NotificationModule.Notification> items) {
+        String path = resolveDataFile("resources/notifications.txt");
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (NotificationModule.Notification n : items) {
+                out.println(n == null ? "" : n.serializeLine());
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving structured notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Export structured notifications to an explicit relative path. */
+    public static boolean exportStructuredNotifications(java.util.List<NotificationModule.Notification> items, String relativePath) {
+        String path = resolveDataFile(relativePath);
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+            for (NotificationModule.Notification n : items) out.println(n == null ? "" : n.serializeLine());
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error exporting notifications: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Load structured notifications from an explicit file path. */
+    public static java.util.List<NotificationModule.Notification> loadStructuredNotificationsFromPath(String filePath) {
+        java.util.List<NotificationModule.Notification> list = new ArrayList<>();
+        File f = new File(filePath);
+        if (!f.isFile()) return list;
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                NotificationModule.Notification n = NotificationModule.Notification.parseLine(line);
+                if (n != null) list.add(n);
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading notifications from path: " + e.getMessage());
+        }
+        return list;
     }
 
     /**
@@ -192,6 +419,7 @@ public class FileHandlerModule {
         }
         // Add the final column after the last comma (or entire line if no commas)
         results.add(tempText.toString().trim());
-        return results.toArray(new String[0]);
+        String[] out = new String[results.size()];
+        return results.toArray(out);
     }
 }
