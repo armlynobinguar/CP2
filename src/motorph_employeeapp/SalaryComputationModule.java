@@ -21,6 +21,15 @@ import java.util.List;
  */
 public class SalaryComputationModule {
 
+    /** Last computed total gross pay (both cutoffs), for GUI summary display. */
+    public static double summaryGross = 0;
+
+    /** Last computed total deductions (2nd cutoff), for GUI summary display. */
+    public static double summaryDeductions = 0;
+
+    /** Last computed total net pay (both cutoffs), for GUI summary display. */
+    public static double summaryNet = 0;
+
     /**
      * Main payroll routine: aggregates attendance, computes gross per cutoff, applies deductions,
      * and renders a formatted payslip into the GUI text area.
@@ -36,6 +45,9 @@ public class SalaryComputationModule {
             return;
 
         output.setText("");
+        summaryGross = 0;
+        summaryDeductions = 0;
+        summaryNet = 0;
 
         String id = emp[EmployeeModule.ID];
         double hourlyRate = EmployeeModule.getHourlyRate(emp);
@@ -121,6 +133,10 @@ public class SalaryComputationModule {
         output.append("\n    - Withholding Tax: " + "PHP " + String.format("%,.2f", tax));
         output.append("\n Total Deductions: " + "PHP " + String.format("%,.2f", totalDeduc));
         output.append("\n Net Salary: " + "PHP " + String.format("%,.2f", netSalary2));
+
+        summaryGross = grossFirstCutoff + grossSecondCutoff;
+        summaryDeductions = totalDeduc;
+        summaryNet = netSalary1 + netSalary2;
     }
 
     /**
