@@ -1,4 +1,4 @@
-# MotorPH Employee App
+# MotorPH-Employee-App
 
 **MO-IT103 Computer Programming 2**
 **Group 3 | Section H1101**
