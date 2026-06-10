@@ -1159,145 +1159,101 @@ public class MotorPH_GUI {
     /**
      * Builds the Self-Service profile dashboard exclusively for logged-in Employees.
      */
+    /**
+     * Builds the Self-Service profile dashboard exclusively for logged-in Employees.
+     * Modified to feature a direct CSV lookup layout with an uneditable Employee Name field.
+     */
     public static void showEmployeeSelfServiceDashboard() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
-        frame.setSize(870, 600);
+        // Sized appropriately for a clean, table-less input card layout with 4 fields
+        frame.setSize(550, 460);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
-        addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 870);
+        addColoredHeaderStrip("EMPLOYEE PROFILE SELF-SERVICE DASHBOARD", 550);
 
-        String[] columnHeaders = { "Employee ID", "Last Name", "First Name", "Current Address", "Phone Number" };
-
-        tableModel = new javax.swing.table.DefaultTableModel(columnHeaders, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false; 
-            }
-        };
-
-        profileTable = new javax.swing.JTable(tableModel);
-        profileTable.setFont(APP_FONT_PLAIN);
-        profileTable.setRowHeight(28);
-        profileTable.getTableHeader().setFont(APP_FONT_BOLD);
-        profileTable.getTableHeader().setReorderingAllowed(false);
-
-        List<String[]> allRecords = FileHandlerModule.getAllEmployees();
-        for (String[] row : allRecords) {
-            if (row.length > 5) {
-                Object[] displayRow = {
-                        safeColumn(row, EmployeeModule.ID),
-                        safeColumn(row, EmployeeModule.LAST_NAME),
-                        safeColumn(row, EmployeeModule.FIRST_NAME),
-                        safeColumn(row, EmployeeModule.ADDRESS),
-                        safeColumn(row, EmployeeModule.PHONE_NUMBER)
-                };
-                tableModel.addRow(displayRow);
-            }
-        }
-
-        JScrollPane tableScrollPane = new JScrollPane(profileTable);
-        tableScrollPane.setBounds(40, 75, 790, 200);
-        frame.add(tableScrollPane);
-
-        int formY = 290; 
+        int formY = 75; 
         int fieldHeight = 30;
-        int fieldXPosition = 250;   
-        // Shortened field length down to 350px so it cuts off cleanly exactly where you drew the line
-        int uniformFieldWidth = 350; 
+        int fieldXPosition = 180;   
+        int uniformFieldWidth = 320; 
 
-        JLabel lblFormTitle = createStyledLabel("Profile:");
-        lblFormTitle.setBounds(40, formY, 200, 25);
+        JLabel lblFormTitle = createStyledLabel("Profile Information:");
+        lblFormTitle.setBounds(30, formY, 200, 25);
         frame.add(lblFormTitle);
 
         // Row 1: Target Employee ID Input
         JLabel lblEditId = createStyledLabel("Employee ID:");
-        lblEditId.setBounds(40, formY + 30, 200, fieldHeight);
+        lblEditId.setBounds(30, formY + 30, 140, fieldHeight);
         frame.add(lblEditId);
 
         final JTextField txtEditId = createStyledTextField(true);
         txtEditId.setBounds(fieldXPosition, formY + 30, uniformFieldWidth, fieldHeight);
         frame.add(txtEditId);
 
-        // Row 2: Editable Home Address Field
+        // Row 2: Read-Only Employee Name Field
+        JLabel lblEmpName = createStyledLabel("Employee Name:");
+        lblEmpName.setBounds(30, formY + 70, 140, fieldHeight);
+        frame.add(lblEmpName);
+
+        final JTextField txtEmpName = createStyledTextField(false); // setEditable(false) handled inside helper
+        txtEmpName.setBounds(fieldXPosition, formY + 70, uniformFieldWidth, fieldHeight);
+        frame.add(txtEmpName);
+
+        // Row 3: Editable Home Address Field
         JLabel lblEditAddress = createStyledLabel("Home Address:");
-        lblEditAddress.setBounds(40, formY + 70, 200, fieldHeight);
+        lblEditAddress.setBounds(30, formY + 110, 140, fieldHeight);
         frame.add(lblEditAddress);
 
         final JTextField txtEditAddress = createStyledTextField(true);
-        txtEditAddress.setBounds(fieldXPosition, formY + 70, uniformFieldWidth, fieldHeight);
+        txtEditAddress.setBounds(fieldXPosition, formY + 110, uniformFieldWidth, fieldHeight);
         frame.add(txtEditAddress);
 
-        // Row 3: Editable Contact Phone Number Field
+        // Row 4: Editable Contact Phone Number Field
         JLabel lblEditPhone = createStyledLabel("Phone Number:");
-        lblEditPhone.setBounds(40, formY + 110, 200, fieldHeight);
+        lblEditPhone.setBounds(30, formY + 150, 140, fieldHeight);
         frame.add(lblEditPhone);
 
         final JTextField txtEditPhone = createStyledTextField(true);
-        txtEditPhone.setBounds(fieldXPosition, formY + 110, uniformFieldWidth, fieldHeight);
+        txtEditPhone.setBounds(fieldXPosition, formY + 150, uniformFieldWidth, fieldHeight);
         frame.add(txtEditPhone);
 
-        // --- TABLE ROW CLICK LISTENER ---
-        profileTable.addMouseListener(new MouseAdapter() {
+        // --- DIRECT CSV LIVE SEARCH KEY LISTENER ---
+        txtEditId.addKeyListener(new java.awt.event.KeyAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                int selectedRowIdx = profileTable.getSelectedRow();
-                if (selectedRowIdx != -1) {
-                    String idValue = tableModel.getValueAt(selectedRowIdx, 0).toString();
-                    String addressValue = tableModel.getValueAt(selectedRowIdx, 3).toString();
-                    String phoneValue = tableModel.getValueAt(selectedRowIdx, 4).toString();
-                    
-                    txtEditId.setText(idValue);
-                    txtEditAddress.setText(addressValue);
-                    txtEditPhone.setText(phoneValue);
-                    
-                    resetFieldBorder(txtEditId);
-                }
-            }
-        });
-
-        // --- LIVE SEARCH KEY LISTENER ---
-        txtEditId.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyReleased(KeyEvent e) {
+            public void keyReleased(java.awt.event.KeyEvent e) {
                 String inputIdStr = txtEditId.getText().trim();
                 resetFieldBorder(txtEditId);
 
                 if (inputIdStr.isEmpty()) {
+                    txtEmpName.setText("");
                     txtEditAddress.setText("");
                     txtEditPhone.setText("");
-                    profileTable.clearSelection();
                     return;
                 }
 
-                boolean recordMatchFound = false;
-                for (int rowIdx = 0; rowIdx < tableModel.getRowCount(); rowIdx++) {
-                    String tableId = tableModel.getValueAt(rowIdx, 0).toString().trim();
+                // Query CSV data layer directly on key release
+                if (FileHandlerModule.employeeExists(inputIdStr)) {
+                    String data = FileHandlerModule.findEmployeeData(inputIdStr);
+                    String[] emp = FileHandlerModule.smartSplit(data);
                     
-                    if (tableId.equals(inputIdStr)) {
-                        txtEditAddress.setText(tableModel.getValueAt(rowIdx, 3).toString());
-                        txtEditPhone.setText(tableModel.getValueAt(rowIdx, 4).toString());
-                        profileTable.setRowSelectionInterval(rowIdx, rowIdx);
-                        recordMatchFound = true;
-                        break;
-                    }
-                }
-
-                if (!recordMatchFound) {
+                    txtEmpName.setText(EmployeeModule.fullName(emp));
+                    txtEditAddress.setText(safeColumn(emp, EmployeeModule.ADDRESS));
+                    txtEditPhone.setText(safeColumn(emp, EmployeeModule.PHONE_NUMBER));
+                } else {
+                    txtEmpName.setText("");
                     txtEditAddress.setText("");
                     txtEditPhone.setText("");
-                    profileTable.clearSelection();
                 }
             }
         });
 
-        // --- RE-CENTERED CONTROL BUTTONS ---
-        int dashboardButtonWidth = 180;
+        // --- CONTROL BUTTONS CONFIGURATION ---
+        int dashboardButtonWidth = 160;
         int dashboardButtonHeight = 40;
-        int actionButtonsY = formY + 165; 
+        int actionButtonsY = formY + 215; 
 
         JButton btnSaveChanges = new JButton("Save Changes");
-        btnSaveChanges.setBounds(245, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
+        btnSaveChanges.setBounds(95, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
         guiStyleAccentButton(btnSaveChanges);
         btnSaveChanges.addActionListener(new ActionListener() {
             @Override
@@ -1308,7 +1264,7 @@ public class MotorPH_GUI {
 
                 if (targetId.isEmpty() || !targetId.matches("\\d+")) {
                     setFieldError(txtEditId);
-                    JOptionPane.showMessageDialog(frame, "Please provide or select a valid Employee ID first.", 
+                    JOptionPane.showMessageDialog(frame, "Please provide a valid numeric Employee ID first.", 
                             "Input Validation Failure", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
@@ -1320,25 +1276,18 @@ public class MotorPH_GUI {
                     return;
                 }
 
+                // Commit direct record modifications back to data stream
                 boolean writeStatusSuccess = FileHandlerModule.updateEmployeeContactInfo(targetId, newAddressValue, newPhoneValue);
 
                 if (writeStatusSuccess) {
-                    for (int i = 0; i < tableModel.getRowCount(); i++) {
-                        if (tableModel.getValueAt(i, 0).toString().trim().equals(targetId)) {
-                            tableModel.setValueAt(newAddressValue, i, 3);
-                            tableModel.setValueAt(newPhoneValue, i, 4);
-                            break;
-                        }
-                    }
-                    
                     JOptionPane.showMessageDialog(frame, "Successfully updated records for Employee #" + targetId + "!", 
                             "Database Saved", JOptionPane.INFORMATION_MESSAGE);
                     
                     txtEditId.setText("");
+                    txtEmpName.setText("");
                     txtEditAddress.setText("");
                     txtEditPhone.setText("");
                     resetFieldBorder(txtEditId);
-                    profileTable.clearSelection();
                 } else {
                     JOptionPane.showMessageDialog(frame, "Critical failure: Could not update the CSV disk file data records.", 
                             "Error", JOptionPane.ERROR_MESSAGE);
@@ -1348,7 +1297,7 @@ public class MotorPH_GUI {
         frame.add(btnSaveChanges);
 
         JButton btnBackToMenu = new JButton("Back to Main Menu");
-        btnBackToMenu.setBounds(445, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
+        btnBackToMenu.setBounds(275, actionButtonsY, dashboardButtonWidth, dashboardButtonHeight);
         styleStandardButton(btnBackToMenu);
         btnBackToMenu.addActionListener(new ActionListener() {
             @Override
@@ -1358,7 +1307,7 @@ public class MotorPH_GUI {
         });
         frame.add(btnBackToMenu);
 
-        addLoggedInFooter(870, 570, 40);
+        addLoggedInFooter(550, 430, 30);
         updateDisplay();
     }
 }
