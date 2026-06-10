@@ -1,65 +1,69 @@
+package motorph_employeeapp; // Declares this file as part of the motorph_employeeapp package
 
-
-package motorph_employeeapp;
-
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.swing.AbstractAction;
-import javax.swing.ActionMap;
-import javax.swing.BorderFactory;
-import javax.swing.DefaultListModel;
-import javax.swing.Icon;
-import javax.swing.InputMap;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JDialog;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.JTable;
-import javax.swing.KeyStroke;
-import javax.swing.ListCellRenderer;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
-import javax.swing.event.ListSelectionListener;
-import javax.swing.ListSelectionModel;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableRowSorter;
+// Java AWT imports — core graphics, layout, and event handling (From Lesson: Frames, Panels)
+import java.awt.Color;               // Used for custom background and foreground colors
+import java.awt.Component;          // Base class for all visual elements
+import java.awt.Cursor;             // Used to set HAND_CURSOR on buttons for better UX
+import java.awt.Dimension;          // Used to set preferred sizes on components
+import java.awt.Font;               // Used to define font styles (bold, plain, size)
+// Event handling imports (From Lesson: ActionListener, KeyListener, MouseListener)
+import java.awt.event.ActionEvent;   // Passed to ActionListener.actionPerformed()
+import java.awt.event.ActionListener; // Interface for button click events
+import java.awt.event.ComponentAdapter; // Adapter for window resize events
+import java.awt.event.ComponentEvent;  // Event fired when window is resized
+import java.awt.event.FocusEvent;    // Event fired when a field gains or loses focus
+import java.awt.event.FocusListener; // Interface for focus gained/lost callbacks
+import java.awt.event.InputEvent;    // Used for keyboard shortcut modifier keys (e.g. CTRL)
+import java.awt.event.KeyEvent;      // Used to detect specific key presses (e.g. ENTER, ESC)
+import java.awt.event.KeyListener;   // Interface for keyTyped, keyPressed, keyReleased
+import java.awt.event.MouseEvent;    // Event fired on mouse actions (click, enter, exit)
+import java.awt.event.MouseListener; // Interface for mouse hover/click feedback on buttons
+// File I/O imports — used for payslip export to disk
+import java.io.File;                 // Represents a file path on disk
+import java.io.FileWriter;           // Writes text content to a file
+import java.io.IOException;          // Handles file read/write errors
+// Java Time imports — used for pay period logic and calendar display
+import java.time.LocalDate;          // Provides today's date for payslip and notifications
+// Java Collections imports — used for dynamic lists throughout the app
+import java.util.ArrayList;          // Resizable list for error messages, table rows, notifications
+import java.util.HashMap;            // Key-value map for calendar birthday and attendance lookups
+import java.util.HashSet;            // Used for tracking read notification keys without duplicates
+import java.util.LinkedList;         // Used for calendar event lists per day
+import java.util.List;               // Generic list interface used across all data collections
+import java.util.Map;                // Generic map interface for calendar event lookups
+import java.util.Set;                // Generic set interface for deduplication
+// Swing imports — all GUI component classes (From Lesson: Frames, Panels, Buttons, Labels, TextFields)
+import javax.swing.AbstractAction;   // Used for global keyboard shortcut actions (CTRL+F, ESC)
+import javax.swing.ActionMap;        // Maps action keys to AbstractAction instances
+import javax.swing.BorderFactory;    // Creates compound and line borders for panels and fields
+import javax.swing.DefaultListModel; // Backing model for JList (notifications, FAQ list)
+import javax.swing.Icon;             // Interface for custom icon rendering (notification badges)
+import javax.swing.InputMap;         // Maps KeyStrokes to action keys for global shortcuts
+import javax.swing.JButton;          // (From Lesson: Buttons) Clickable button component
+import javax.swing.JCheckBox;        // Used for Show Password toggle on login screen
+import javax.swing.JComboBox;        // (From Lesson: Dropdowns) Dropdown selector for pay months
+import javax.swing.JComponent;       // Base class for Swing components, used for shortcut binding
+import javax.swing.JDialog;          // Modal dialog window used for login and employee details
+import javax.swing.JFileChooser;     // Opens a file save dialog for payslip export
+import javax.swing.JFrame;           // (From Lesson: Frames) Main application window container
+import javax.swing.JLabel;           // (From Lesson: Labels) Non-editable text display component
+import javax.swing.JList;            // Scrollable list component used in notifications and FAQ
+import javax.swing.JOptionPane;      // (From Lesson: JOptionPane) Standard dialog boxes for errors and confirmations
+import javax.swing.JPanel;           // (From Lesson: Panels) Container for grouping components
+import javax.swing.JPasswordField;   // (From Lesson: TextFields) Masked input field for passwords
+import javax.swing.JScrollPane;      // Wraps components to add scroll bars when content overflows
+import javax.swing.JTextArea;        // Multi-line text display for payslip output and lookup results
+import javax.swing.JTextField;       // (From Lesson: TextFields) Single-line text input field
+import javax.swing.JTable;           // Table component for displaying employee records grid
+import javax.swing.KeyStroke;        // Represents a key combination for global shortcuts
+import javax.swing.ListCellRenderer; // Custom renderer for notification list items
+import javax.swing.SwingConstants;   // Constants for alignment (CENTER, LEFT, RIGHT)
+import javax.swing.SwingUtilities;   // Utility for running code on the Event Dispatch Thread
+import javax.swing.event.ListSelectionListener; // Fires when a JTable row is selected
+import javax.swing.ListSelectionModel; // Controls single vs multi row selection in JTable
+import javax.swing.table.DefaultTableModel; // Backing data model for JTable rows and columns
+import javax.swing.table.TableColumn;       // Configures individual column widths in JTable
+import javax.swing.table.TableRowSorter;    // Enables click-to-sort on JTable column headers
 
 /**
  * MotorPH_GUI
@@ -131,39 +135,39 @@ public class MotorPH_GUI {
 
     // --- Employee records management (Feature 1 / Chantal CRUD) ---
 
-    static JTable employeeTable;
-    static DefaultTableModel employeeTableModel;
-    static JTextField txtRecEmpNo;
-    static JTextField txtRecLastName;
-    static JTextField txtRecFirstName;
-    static JTextField txtRecBirthday;
-    static JTextField txtRecAddress;
-    static JTextField txtRecPhone;
-    static JTextField txtRecSSS;
-    static JTextField txtRecPhilHealth;
-    static JTextField txtRecTIN;
-    static JTextField txtRecPagIBIG;
-    static JTextField txtRecStatus;
-    static JTextField txtRecPosition;
-    static JTextField txtRecSupervisor;
-    static JTextField txtRecBasicSalary;
-    static JTextField txtRecHourlyRate;
-    static JButton btnRecUpdate;
-    static JButton btnRecDelete;
-    static JButton btnRecComputePayroll;
-    static JLabel lblRecFormHint;
-    static JTextField txtRecSearch;
-    static final List<Object[]> employeeTableAllRows = new ArrayList<>();
-    static String recordFormBaseline = "";
-    static int lastSelectedEmployeeRow = -1;
-    static String selectedEmployeeId = null;
-    static String pendingPayrollEmployeeId = null;
-    static String currentView = "Dashboard";
-    static JLabel statusToastLbl;
-    static javax.swing.Timer toastTimer;
-    static final Set<String> readNotificationKeys = new HashSet<>();
-    static boolean resizeHandlerInstalled = false;
-    static boolean reloadingLayout = false;
+    static JTable employeeTable;              // JTable that displays all employee records from CSV
+    static DefaultTableModel employeeTableModel; // Data model backing the employee JTable
+    static JTextField txtRecEmpNo;         // Employee Number input in the Record Details form
+    static JTextField txtRecLastName;      // Last Name input in the Record Details form
+    static JTextField txtRecFirstName;     // First Name input in the Record Details form
+    static JTextField txtRecBirthday;      // Birthday input in the Record Details form
+    static JTextField txtRecAddress;       // Address input in the Record Details form
+    static JTextField txtRecPhone;         // Phone number input in the Record Details form
+    static JTextField txtRecSSS;           // SSS Number input in the Record Details form
+    static JTextField txtRecPhilHealth;    // PhilHealth Number input in the Record Details form
+    static JTextField txtRecTIN;           // TIN Number input in the Record Details form
+    static JTextField txtRecPagIBIG;       // Pag-IBIG Number input in the Record Details form
+    static JTextField txtRecStatus;        // Employment Status input in the Record Details form
+    static JTextField txtRecPosition;      // Job Position input in the Record Details form
+    static JTextField txtRecSupervisor;    // Immediate Supervisor input in the Record Details form
+    static JTextField txtRecBasicSalary;   // Basic Salary input in the Record Details form
+    static JTextField txtRecHourlyRate;    // Hourly Rate input in the Record Details form
+    static JButton btnRecUpdate;           // Update button — saves edits to the selected employee record
+    static JButton btnRecDelete;           // Delete button — removes selected employee from CSV after confirmation
+    static JButton btnRecComputePayroll;   // Compute Salary button — navigates to payroll for selected employee
+    static JLabel lblRecFormHint;          // Hint text below form title showing current edit state
+    static JTextField txtRecSearch;        // Live search box above JTable — filters rows by name or ID
+    static final List<Object[]> employeeTableAllRows = new ArrayList<>(); // Master row cache — used to restore table after search filter is cleared
+    static String recordFormBaseline = ""; // Serialized form snapshot — compared on navigation to detect unsaved changes
+    static int lastSelectedEmployeeRow = -1; // Last selected JTable view row — used to restore selection on unsaved-change cancel
+    static String selectedEmployeeId = null; // Employee ID currently loaded in the Record Details form
+    static String pendingPayrollEmployeeId = null; // Passed from Records screen to pre-fill Employee ID on Payroll screen
+    static String currentView = "Dashboard"; // Tracks active screen name — used by resize handler to reload correct view
+    static JLabel statusToastLbl;          // Toast notification label in the status bar
+    static javax.swing.Timer toastTimer;   // Auto-dismiss timer for the toast message (4.5 seconds)
+    static final Set<String> readNotificationKeys = new HashSet<>(); // Tracks which notifications have been marked as read
+    static boolean resizeHandlerInstalled = false; // Guards against installing the resize listener multiple times
+    static boolean reloadingLayout = false; // Prevents recursive reloads when window resize triggers a screen rebuild
 
     /** Summary strip above the payslip output on the payroll screen. */
     static JLabel lblPayrollSummary;
@@ -172,8 +176,8 @@ public class MotorPH_GUI {
 
     static final Font APP_FONT_BOLD = new Font("Segoe UI", Font.BOLD, 14);
     static final Font APP_FONT_PLAIN = new Font("Segoe UI", Font.PLAIN, 13);
-    static final int APP_FRAME_WIDTH = 1200;
-    static final int APP_FRAME_HEIGHT = 800;
+    static final int APP_FRAME_WIDTH = 1200;  // Default application window width in pixels
+    static final int APP_FRAME_HEIGHT = 800;  // Default application window height in pixels
     /** Monospace font for aligned payslip columns in the result area. */
     static final Font RECEIPT_FONT = new Font("Consolas", Font.PLAIN, 13);
 
@@ -235,13 +239,13 @@ public class MotorPH_GUI {
     static final Font STATUS_FONT = new Font("Segoe UI", Font.PLAIN, 12);
 
     /** Shared layout rhythm for all post-login screens. */
-    static final int PAGE_HEADER_H = 72;
-    static final int PAGE_TOP = PAGE_HEADER_H + 20;
-    static final int CONTENT_PAD = 24;
-    static final int SIDEBAR_NAV_BTN_H = 42;
-    static final int SIDEBAR_NAV_GAP = 4;
-    static final int RECORDS_ACTION_BAR_H = 92;
-    static final int DASHBOARD_CAL_W = 300;
+    static final int PAGE_HEADER_H = 72;  // Height of the white top bar on every main screen
+    static final int PAGE_TOP = PAGE_HEADER_H + 20; // Y offset where page content begins below header
+    static final int CONTENT_PAD = 24;    // Horizontal padding between sidebar and page content
+    static final int SIDEBAR_NAV_BTN_H = 42; // Height of each sidebar navigation button row
+    static final int SIDEBAR_NAV_GAP = 4;    // Vertical gap between sidebar navigation buttons
+    static final int RECORDS_ACTION_BAR_H = 92; // Height of the CRUD action bar below the employee record form
+    static final int DASHBOARD_CAL_W = 300;  // Width of the calendar panel on the right side of dashboard
 
     /** HR sidebar / screen label (replaces legacy "Lookup"). */
     static final String HR_DIRECTORY_NAV = "Directory";
@@ -257,16 +261,18 @@ public class MotorPH_GUI {
     static final int DASH_CARD_TEXT_GAP = 12;
     static final String DASH_SUBTITLE_BOTTOM_KEY = "dashboard.subtitleBottom";
 
+    // Returns the usable visible height of the frame minus the status bar
     private static int getVisibleHeight() {
-        if (frame == null) {
+        if (frame == null) { // Fallback if frame hasn't been created yet
             return APP_FRAME_HEIGHT - STATUS_BAR_H;
         }
         java.awt.Insets ins = frame.getInsets();
         return frame.getHeight() - ins.top - ins.bottom - STATUS_BAR_H;
     }
 
+    // Returns the usable visible width of the frame accounting for window insets
     private static int getVisibleWidth() {
-        if (frame == null) {
+        if (frame == null) { // Fallback default width before frame is initialized
             return APP_FRAME_WIDTH;
         }
         java.awt.Insets ins = frame.getInsets();
@@ -282,15 +288,17 @@ public class MotorPH_GUI {
         return new java.awt.Rectangle(x, y, Math.max(480, w), Math.max(320, h));
     }
 
+    // Creates a standard 1px card border — reused on all panels and scroll panes
     private static javax.swing.border.Border cardBorder() {
-        return BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1);
+        return BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1); // Subtle gray border matching the app palette
     }
 
+    // Applies consistent styling to all scroll panes in the app
     private static void styleScrollPane(JScrollPane sp) {
-        sp.setBorder(cardBorder());
-        sp.getViewport().setBackground(PALETTE_WHITE);
-        sp.getVerticalScrollBar().setUnitIncrement(16);
-        sp.getHorizontalScrollBar().setUnitIncrement(24);
+        sp.setBorder(cardBorder());                          // Match card border style
+        sp.getViewport().setBackground(PALETTE_WHITE);       // White content background
+        sp.getVerticalScrollBar().setUnitIncrement(16);      // Smooth vertical scroll speed
+        sp.getHorizontalScrollBar().setUnitIncrement(24);    // Wider horizontal scroll step for table
     }
 
     private static void applyModernTableStyle(JTable table) {
@@ -326,8 +334,9 @@ public class MotorPH_GUI {
         table.setRowSorter(sorter);
     }
 
+    // Shows a green success toast message in the status bar (auto-dismisses after 4.5s)
     private static void showToast(String message) {
-        showToast(message, new Color(34, 160, 90));
+        showToast(message, new Color(34, 160, 90)); // Default green color for success messages
     }
 
     private static void showToast(String message, Color color) {
@@ -541,15 +550,17 @@ public class MotorPH_GUI {
         return false;
     }
 
+    // Filters the employee JTable rows based on the current search box text
     private static void applyEmployeeTableFilter() {
         if (employeeTableModel == null) {
-            return;
+            return; // Table not yet initialized — skip
         }
+        // Read search query and convert to lowercase for case-insensitive matching
         String q = txtRecSearch != null ? txtRecSearch.getText().trim().toLowerCase() : "";
-        employeeTableModel.setRowCount(0);
+        employeeTableModel.setRowCount(0); // Clear all visible rows before re-adding matches
         for (Object[] row : employeeTableAllRows) {
             if (rowMatchesEmployeeSearch(row, q)) {
-                employeeTableModel.addRow(row);
+                employeeTableModel.addRow(row); // Only add rows that match the search query
             }
         }
     }
@@ -567,22 +578,26 @@ public class MotorPH_GUI {
         return v == null ? "" : v.trim();
     }
 
+    // Snapshots the current form values as a baseline for dirty-check comparison
     private static void captureRecordFormBaseline() {
-        recordFormBaseline = serializeRecordForm();
+        recordFormBaseline = serializeRecordForm(); // Serialize all field values into one string
     }
 
+    // Returns true if any form field has changed since the baseline was captured
     private static boolean isRecordFormDirty() {
-        return !serializeRecordForm().equals(recordFormBaseline);
+        return !serializeRecordForm().equals(recordFormBaseline); // Compare current vs snapshot
     }
 
+    // Prompts the user to confirm if they want to discard unsaved form changes
     private static boolean confirmDiscardRecordChanges() {
         if (!isRecordFormDirty()) {
-            return true;
+            return true; // No changes — safe to proceed without asking
         }
+        // Show a YES/NO confirmation dialog before discarding edits
         int choice = JOptionPane.showConfirmDialog(frame,
                 "You have unsaved changes in the form. Discard them?",
                 "Unsaved Changes", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-        return choice == JOptionPane.YES_OPTION;
+        return choice == JOptionPane.YES_OPTION; // Returns true only if user confirms discard
     }
 
     private static int addRecordFormSection(JPanel panel, int fy, int fieldX, int fieldW,
@@ -603,11 +618,34 @@ public class MotorPH_GUI {
             @Override public void focusGained(FocusEvent e) {
                 field.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(ACCENT_BLUE, 2),
-                        BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)));
             }
 
             @Override public void focusLost(FocusEvent e) {
                 resetFieldBorder(field);
+            }
+        });
+    }
+
+    /**
+     * Login-specific focus highlight — always keeps 12px left padding
+     * so typed text never sits flush against the field border.
+     */
+    private static void attachLoginFocusHighlight(JTextField field) {
+        if (field == null) return;
+        field.addFocusListener(new FocusListener() {
+            @Override public void focusGained(FocusEvent e) {
+                // Blue accent border on focus, 12px left padding preserved
+                field.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(ACCENT_BLUE, 2),
+                        BorderFactory.createEmptyBorder(8, 12, 8, 12)));
+            }
+
+            @Override public void focusLost(FocusEvent e) {
+                // Restore resting border with same 12px left padding
+                field.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(BORDER_BLUE, 1),
+                        BorderFactory.createEmptyBorder(8, 12, 8, 12)));
             }
         });
     }
@@ -831,10 +869,11 @@ public class MotorPH_GUI {
         field.setBackground(INPUT_BG);
         field.setForeground(TEXT_DARK_NAVY);
         field.setCaretColor(TEXT_DARK_NAVY);
+        // Consistent 12px left padding — matches resting, focused, and reset states
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
+                BorderFactory.createLineBorder(BORDER_BLUE, 1),
                 BorderFactory.createEmptyBorder(8, 12, 8, 12)));
-        attachFocusHighlight(field);
+        attachLoginFocusHighlight(field);
     }
 
     /**
@@ -947,14 +986,15 @@ public class MotorPH_GUI {
         showDashboard();
     }
 
+    // Logs out the current user and returns to the login screen
     private static void performLogout() {
         if (frame != null) {
-            frame.dispose();
-            frame = null;
+            frame.dispose(); // Close the main window
+            frame = null;    // Release the reference so garbage collection can reclaim it
         }
-        loggedInUser = "";
-        MotorPH_EmployeeApp.loggedInRole = null;
-        MotorPH_EmployeeApp.loginSuccessful = false;
+        loggedInUser = "";                              // Clear the logged-in username
+        MotorPH_EmployeeApp.loggedInRole = null;        // Clear the role (HR or Employee)
+        MotorPH_EmployeeApp.loginSuccessful = false;    // Reset authentication flag
         showCustomLoginDialog();
         if (MotorPH_EmployeeApp.loginSuccessful) {
             initialize();
@@ -1336,7 +1376,7 @@ public class MotorPH_GUI {
         frame.add(topBar);
     }
 
-    static final int STATUS_BAR_H = 24;
+    static final int STATUS_BAR_H = 24;      // Height of the bottom status bar showing time and toast messages
 
     private static void addStatusBar() {
         if (statusBarTimer != null && statusBarTimer.isRunning()) statusBarTimer.stop();
@@ -1783,7 +1823,9 @@ public class MotorPH_GUI {
 
         JPanel formPanel = new JPanel(null);
         formPanel.setBackground(PALETTE_WHITE);
-        formPanel.setBounds(payrollX, 24, payrollWidth, 280);
+        // HR gets extra height for the Bulk Compute All button row
+        int formPanelH = isHrUser() ? 320 : 280;
+        formPanel.setBounds(payrollX, 24, payrollWidth, formPanelH);
 
         // Form columns: label x=30 width=230 (ends x=260),
         //               field x=260 width=260 (ends x=520)  matches scroll pane edge.
@@ -1801,14 +1843,16 @@ public class MotorPH_GUI {
 
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    validateEmployeeNumberField(true);
-                }
+                // Enter key no longer triggers lookup — only Process Payroll button does
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
-                updateEmployeeNameFromId(false);
+                // Clear name field if employee number is erased
+                if (txtEmployeeNo.getText().trim().isEmpty()) {
+                    txtEmployeeName.setText("");
+                    resetFieldBorder(txtEmployeeNo);
+                }
             }
         });
 
@@ -1840,15 +1884,17 @@ public class MotorPH_GUI {
         txtYear.setText("2024");
 
         // Core Trigger Processing Action Switches (Lesson: Buttons)
-        // Two equal-width buttons spanning x=30 to x=520 with a 20px gap between them.
-        int halfBtn = (payrollWidth - 70) / 2;
-        JButton btnProcess = new JButton(isHrUser() ? "Compute Salaries" : "View Payslip");
-        btnProcess.setBounds(30, 220, halfBtn, BTN_HEIGHT);
+        // Row 1: Process Payroll (single) + Back to Dashboard
+        // Row 2: Bulk Compute All (HR only) — only month/year required
+        int thirdBtn = (payrollWidth - 80) / 2;
+
+        JButton btnProcess = new JButton("Process Payroll");
+        btnProcess.setBounds(30, 220, thirdBtn, BTN_HEIGHT);
         guiStyleAccentButton(btnProcess);
         btnProcess.addActionListener(e -> runPayrollCalculation());
 
         JButton btnBack = new JButton("Back to Dashboard");
-        btnBack.setBounds(40 + halfBtn, 220, halfBtn, BTN_HEIGHT);
+        btnBack.setBounds(40 + thirdBtn, 220, thirdBtn, BTN_HEIGHT);
         styleStandardButton(btnBack);
         btnBack.addActionListener(e -> showDashboard());
 
@@ -1862,6 +1908,32 @@ public class MotorPH_GUI {
         formPanel.add(txtYear);
         formPanel.add(btnProcess);
         formPanel.add(btnBack);
+
+        // HR-only: Bulk Compute All button on its own row below
+        if (isHrUser()) {
+            JButton btnBulk = new JButton("⚡ Bulk Compute All Employees");
+            btnBulk.setBounds(30, 265, payrollWidth - 60, BTN_HEIGHT);
+            styleStandardButton(btnBulk);
+            btnBulk.setBackground(new Color(232, 242, 255));
+            btnBulk.setForeground(ACCENT_BLUE);
+            btnBulk.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnBulk.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(ACCENT_BLUE, 1),
+                    BorderFactory.createEmptyBorder(6, 14, 6, 14)));
+            btnBulk.addActionListener(e -> runBulkSalaryComputation());
+            btnBulk.addMouseListener(new MouseListener() {
+                @Override public void mouseEntered(MouseEvent e) {
+                    btnBulk.setBackground(new Color(210, 230, 255));
+                }
+                @Override public void mouseExited(MouseEvent e) {
+                    btnBulk.setBackground(new Color(232, 242, 255));
+                }
+                @Override public void mouseClicked(MouseEvent e) {}
+                @Override public void mousePressed(MouseEvent e) {}
+                @Override public void mouseReleased(MouseEvent e) {}
+            });
+            formPanel.add(btnBulk);
+        }
 
         if (pendingPayrollEmployeeId != null && !pendingPayrollEmployeeId.isEmpty()) {
             txtEmployeeNo.setText(pendingPayrollEmployeeId);
@@ -2376,15 +2448,17 @@ public class MotorPH_GUI {
         return field;
     }
 
+    // Reloads the employee JTable from the CSV file and re-applies any active search filter
     private static void refreshEmployeeTable() {
         if (employeeTableModel == null) {
-            return;
+            return; // Table not yet built — skip refresh
         }
-        employeeTableAllRows.clear();
+        employeeTableAllRows.clear(); // Wipe the master row cache before reloading
+        // Re-read all employees from the CSV file and convert each to a table row
         for (String[] emp : FileHandlerModule.getAllEmployees()) {
             employeeTableAllRows.add(EmployeeRecordsModule.toTableRow(emp));
         }
-        applyEmployeeTableFilter();
+        applyEmployeeTableFilter(); // Re-apply search filter so visible rows stay consistent
     }
 
     private static EmployeeRecordsModule.RecordFormData readEmployeeRecordForm() {
@@ -2488,14 +2562,15 @@ public class MotorPH_GUI {
         }
     }
 
+    // Validates the form and appends a new employee record to the CSV file
     private static void runAddEmployeeRecord() {
-        resetEmployeeRecordFieldBorders();
-        EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm();
-        List<String> errors = EmployeeRecordsModule.validateForm(form, false, null);
+        resetEmployeeRecordFieldBorders(); // Clear any previous red error borders
+        EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm(); // Read all form fields into a DTO
+        List<String> errors = EmployeeRecordsModule.validateForm(form, false, null); // Validate — false = Add mode (not update)
         if (!errors.isEmpty()) {
-            markEmployeeRecordFieldErrors(errors);
-            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
-            return;
+            markEmployeeRecordFieldErrors(errors); // Highlight invalid fields in red
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE); // Show all errors in one dialog
+            return; // Stop — do not write to file if there are validation errors
         }
 
         String[] row = EmployeeRecordsModule.createNewRow(form);
@@ -2513,12 +2588,14 @@ public class MotorPH_GUI {
         showToast("Employee #" + newId + " added successfully.");
     }
 
+    // Validates the form and saves edits to the selected employee record in the CSV
     private static void runUpdateEmployeeRecord() {
+        // Guard: an employee must be selected in the table before updating
         if (selectedEmployeeId == null || selectedEmployeeId.trim().isEmpty()) {
             JOptionPane.showMessageDialog(frame,
                     "Select a record from the table before updating.",
                     "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
+            return; // Stop — cannot update without a selected employee
         }
 
         resetEmployeeRecordFieldBorders();
@@ -2558,18 +2635,21 @@ public class MotorPH_GUI {
         showToast("Employee #" + savedId + " updated successfully.");
     }
 
+    // Confirms and deletes the selected employee record from the CSV file
     private static void runDeleteEmployeeRecord() {
+        // Guard: an employee must be selected in the table before deleting
         if (selectedEmployeeId == null || selectedEmployeeId.trim().isEmpty()) {
             JOptionPane.showMessageDialog(frame,
                     "Select a record from the table before deleting.",
                     "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
+            return; // Stop — cannot delete without a selection
         }
 
+        // Show a YES/NO confirmation dialog before permanently removing the record
         int confirm = JOptionPane.showConfirmDialog(frame,
                 "Delete employee #" + selectedEmployeeId + "? This cannot be undone.",
                 "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-        if (confirm != JOptionPane.YES_OPTION) return;
+        if (confirm != JOptionPane.YES_OPTION) return; // User cancelled — do not delete
 
         if (!FileHandlerModule.deleteEmployeeRecord(selectedEmployeeId)) {
             JOptionPane.showMessageDialog(frame,
@@ -3364,17 +3444,107 @@ public class MotorPH_GUI {
      * and year (required, numeric, must be 2024). Errors are listed in the result
      * area and shown in an HTML bullet-list dialog.
      */
-    static void runPayrollCalculation() {
+    /**
+     * Feature 3 - Bulk salary computation for HR users.
+     * Reads month/year from the payroll form, validates inputs,
+     * then calls SalaryComputationModule.computeAllSalaries() for all employees.
+     * Optionally saves computed gross pay back to the CSV.
+     */
+    static void runBulkSalaryComputation() {
+        // Guard: Employee ID field must be empty — bulk runs for ALL employees, not one
+        if (txtEmployeeNo != null && !txtEmployeeNo.getText().trim().isEmpty()) {
+            setFieldError(txtEmployeeNo); // Highlight Employee Number field in red
+            JOptionPane.showMessageDialog(frame,
+                    "<html><b>Please clear the Employee Number field first.</b><br><br>"
+                    + "Bulk computation runs for <b>all employees</b> and does not use a specific ID.<br>"
+                    + "Clear the Employee Number field and try again.</html>",
+                    "Clear Employee Number First",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         txtResultArea.setText("");
-
-        String id = txtEmployeeNo.getText().trim();
-        String year = txtYear.getText().trim();
-
         resetPayrollFieldBorders();
 
+        String year = txtYear.getText().trim();
         List<String> errors = new ArrayList<>();
 
-        collectEmployeeNumberErrors(id, errors);
+        if (monthCombo.getSelectedIndex() == 0) {
+            setFieldError(monthCombo);
+            errors.add("Pay Coverage Month is required.");
+        }
+
+        if (year.isEmpty()) {
+            setFieldError(txtYear);
+            errors.add("Pay Coverage Year is required.");
+        } else if (!year.matches("\\d+")) {
+            setFieldError(txtYear);
+            errors.add("Pay Coverage Year must be numeric.");
+        } else if (!year.equals("2024")) {
+            setFieldError(txtYear);
+            errors.add("Only year 2024 is currently supported.");
+        }
+
+        if (!errors.isEmpty()) {
+            txtResultArea.setText(formatPlainBulletList(errors));
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String actualMonth = String.valueOf(MONTH_NUMBERS[monthCombo.getSelectedIndex()]);
+
+        SalaryComputationModule.SalaryBatch batch =
+                SalaryComputationModule.computeAllSalaries(actualMonth, year, txtResultArea);
+
+        if (batch == null) {
+            JOptionPane.showMessageDialog(frame,
+                    "No employee records found or computation failed.",
+                    "Computation Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (lblPayrollSummary != null) {
+            lblPayrollSummary.setText(String.format(
+                    "Total Gross: PHP %,.2f    Total Deductions: PHP %,.2f    Total Net: PHP %,.2f",
+                    SalaryComputationModule.summaryGross,
+                    SalaryComputationModule.summaryDeductions,
+                    SalaryComputationModule.summaryNet));
+        }
+
+        int save = JOptionPane.showConfirmDialog(frame,
+                "Salary computation complete for " + batch.ids.length + " employees.\n\n"
+                + "Save computed gross pay values back to the employee CSV file?",
+                "Save Results",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (save == JOptionPane.YES_OPTION) {
+            boolean saved = SalaryComputationModule.saveSalaryBatchToCSV(batch);
+            if (saved) {
+                showToast("Salary results saved to employee CSV successfully.");
+                refreshEmployeeTable();
+            } else {
+                JOptionPane.showMessageDialog(frame,
+                        "Could not save results to CSV. Check file permissions.",
+                        "Save Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            showToast("Salary computation complete. " + batch.ids.length + " employees processed.");
+        }
+    }
+
+    // Validates payroll form inputs and computes payslip for a single employee
+    static void runPayrollCalculation() {
+        txtResultArea.setText(""); // Clear any previous payslip or error output
+
+        String id = txtEmployeeNo.getText().trim();   // Read Employee Number from form
+        String year = txtYear.getText().trim();        // Read Pay Coverage Year from form
+
+        resetPayrollFieldBorders(); // Reset any red borders from previous validation run
+
+        List<String> errors = new ArrayList<>(); // Collect all validation errors before showing
+
+        collectEmployeeNumberErrors(id, errors); // Check Employee Number: required, numeric, exists in CSV
 
         if (monthCombo.getSelectedIndex() == 0) {
             setFieldError(monthCombo);
@@ -3463,19 +3633,20 @@ public class MotorPH_GUI {
     /**
      * Adds employee-number validation messages to the list (checks Employee Details CSV).
      */
+    // Adds employee number validation errors to the list — checks required, numeric, and CSV existence
     private static void collectEmployeeNumberErrors(String id, List<String> errors) {
         if (id == null || id.isEmpty()) {
-            setFieldError(txtEmployeeNo);
-            errors.add("Employee Number is required.");
-            return;
+            setFieldError(txtEmployeeNo);                          // Highlight field red
+            errors.add("Employee Number is required.");           // Add missing-field error
+            return;                                                // Stop — no point checking further
         }
         if (!id.matches("\\d+")) {
-            setFieldError(txtEmployeeNo);
-            errors.add("Employee Number must be numeric (e.g. 10001).");
-            return;
+            setFieldError(txtEmployeeNo);                          // Highlight field red
+            errors.add("Employee Number must be numeric (e.g. 10001)."); // Non-numeric input error
+            return;                                                // Stop — cannot look up non-numeric ID
         }
         if (!FileHandlerModule.employeeExists(id)) {
-            setFieldError(txtEmployeeNo);
+            setFieldError(txtEmployeeNo);                          // Highlight field red
             errors.add("Employee Number \"" + id + "\" was not found in the employee records (CSV).");
         }
     }
@@ -3518,17 +3689,19 @@ public class MotorPH_GUI {
         validateEmployeeNumberField(showDialog);
     }
 
+    // Shows a styled HTML bullet-list error dialog listing all validation failures at once
     private static void showBulletErrorDialog(Component parent, List<String> items,
             String title, int messageType) {
+        // Build an HTML string with each error as a bullet point
         StringBuilder html = new StringBuilder(
                 "<html><body style='width:320px;font-family:Segoe UI;font-size:13px;color:rgb(28,57,112);'>");
         html.append("<b>Please fix the following:</b>");
-        html.append("<ul style='margin-top:8px;margin-bottom:0;padding-left:22px;'>");
+        html.append("<ul style='margin-top:8px;margin-bottom:0;padding-left:22px;'>"); // Unordered list
         for (String item : items) {
-            html.append("<li>").append(escapeHtml(item)).append("</li>");
+            html.append("<li>").append(escapeHtml(item)).append("</li>"); // One bullet per error
         }
         html.append("</ul></body></html>");
-        JOptionPane.showMessageDialog(parent, html.toString(), title, messageType);
+        JOptionPane.showMessageDialog(parent, html.toString(), title, messageType); // Show the dialog
     }
 
     private static String formatPlainBulletList(List<String> items) {
@@ -3730,9 +3903,10 @@ public class MotorPH_GUI {
         });
     }
 
+    // Forces the frame to re-layout and repaint all components after a screen change
     static void updateDisplay() {
-        frame.revalidate();
-        frame.repaint();
-        frame.setVisible(true); // Always refreshed at the end to force accurate UI updates
+        frame.revalidate();     // Recalculates layout for all components in the frame
+        frame.repaint();        // Redraws all visible components on screen
+        frame.setVisible(true); // Ensures the window stays visible after content swap
     }
 }

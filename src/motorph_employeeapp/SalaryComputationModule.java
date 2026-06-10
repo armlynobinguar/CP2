@@ -1,4 +1,3 @@
-
 package motorph_employeeapp;
 
 import java.time.LocalTime;
@@ -322,5 +321,235 @@ public class SalaryComputationModule {
             }
         }
         return workingPeriods;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FEATURE 3 — MODULAR SALARY COMPUTATION METHODS (array-based)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Computes gross pay for each employee given parallel arrays of days worked and rate per day.
+     *
+     * @param daysWorked  array of total days worked per employee
+     * @param ratePerDay  array of daily pay rates per employee
+     * @return array of gross pay values (daysWorked[i] × ratePerDay[i])
+     */
+    public static double[] computeGrossPay(double[] daysWorked, double[] ratePerDay) {
+        double[] gross = new double[daysWorked.length];
+        for (int i = 0; i < daysWorked.length; i++) {
+            gross[i] = daysWorked[i] * ratePerDay[i];
+        }
+        return gross;
+    }
+
+    /**
+     * Sums all statutory deductions (SSS + PhilHealth + Pag-IBIG + withholding tax)
+     * for each employee into a single total deductions array.
+     *
+     * @param grossPay array of monthly gross pay per employee
+     * @return array of total deductions per employee
+     */
+    public static double[] computeDeductions(double[] grossPay) {
+        double[] deductions = new double[grossPay.length];
+        for (int i = 0; i < grossPay.length; i++) {
+            double sss      = computeSSS(grossPay[i]);
+            double ph       = computePhilHealth(grossPay[i]);
+            double pi       = computePagIBIG(grossPay[i]);
+            double taxable  = grossPay[i] - (sss + ph + pi);
+            double tax      = calculateWithholdingTax(taxable);
+            deductions[i]   = sss + ph + pi + tax;
+        }
+        return deductions;
+    }
+
+    /**
+     * Computes net pay for each employee by subtracting total deductions from gross pay.
+     *
+     * @param grossPay   array of gross pay per employee
+     * @param deductions array of total deductions per employee
+     * @return array of net pay values (grossPay[i] - deductions[i])
+     */
+    public static double[] computeNetPay(double[] grossPay, double[] deductions) {
+        double[] net = new double[grossPay.length];
+        for (int i = 0; i < grossPay.length; i++) {
+            net[i] = grossPay[i] - deductions[i];
+        }
+        return net;
+    }
+
+    /**
+     * Bulk payroll engine: processes all employees in the CSV for a given month/year.
+     *
+     * Steps:
+     *   1. Loads all employee records from the CSV.
+     *   2. Aggregates attendance hours per employee for the target period.
+     *   3. Computes gross pay, deductions, and net pay using modular methods.
+     *   4. Writes results to the output JTextArea.
+     *   5. Returns a SalaryBatch summary for optional CSV export.
+     *
+     * @param month  numeric month string (e.g. "6")
+     * @param year   pay year string (e.g. "2024")
+     * @param output JTextArea to render the salary report into
+     * @return SalaryBatch containing per-employee arrays and totals
+     */
+    public static SalaryBatch computeAllSalaries(String month, String year, javax.swing.JTextArea output) {
+        output.setText("");
+
+        java.util.List<String[]> employees = FileHandlerModule.getAllEmployees();
+        int n = employees.size();
+
+        if (n == 0) {
+            output.append("No employee records found.");
+            return null;
+        }
+
+        // Parallel arrays indexed by employee position in the list
+        String[] ids          = new String[n];
+        String[] names        = new String[n];
+        double[] daysWorked   = new double[n];
+        double[] ratePerDay   = new double[n];
+        double[] grossPay     = new double[n];
+        double[] deductions   = new double[n];
+        double[] netPay       = new double[n];
+
+        int inputMonth = 0;
+        int inputYear  = 0;
+        try {
+            inputMonth = Integer.parseInt(month.trim());
+            inputYear  = Integer.parseInt(year.trim());
+        } catch (NumberFormatException e) {
+            output.append("Invalid month or year format.");
+            return null;
+        }
+
+        // Step 1 & 2: Load each employee and aggregate their hours for the period
+        for (int i = 0; i < n; i++) {
+            String[] emp = employees.get(i);
+            ids[i]       = emp.length > EmployeeModule.ID ? emp[EmployeeModule.ID].trim() : "";
+            names[i]     = EmployeeModule.fullName(emp);
+
+            // Hourly rate from CSV column 18; convert to daily (8-hour day)
+            double hourlyRate = EmployeeModule.getHourlyRate(emp);
+            ratePerDay[i]    = hourlyRate * 8;
+
+            // Sum attendance hours for this employee in the target month/year
+            double totalHours = 0;
+            java.util.List<String> records = FileHandlerModule.findAttendanceData(ids[i]);
+            for (String line : records) {
+                String[] row = FileHandlerModule.smartSplit(line);
+                if (row.length < 6) continue;
+                String[] dateParts = row[3].split("/");
+                if (dateParts.length < 3) continue;
+                try {
+                    int csvMonth = Integer.parseInt(dateParts[0].trim());
+                    int csvYear  = Integer.parseInt(dateParts[2].trim());
+                    if (csvMonth == inputMonth && csvYear == inputYear) {
+                        totalHours += calculateShift(row[4].trim(), row[5].trim());
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            // Convert hours to days (8-hour workday)
+            daysWorked[i] = totalHours / 8.0;
+        }
+
+        // Step 3: Compute gross, deductions, net using modular methods
+        // grossPay = daysWorked × ratePerDay
+        grossPay   = computeGrossPay(daysWorked, ratePerDay);
+        deductions = computeDeductions(grossPay);
+        netPay     = computeNetPay(grossPay, deductions);
+
+        // Step 4: Render results into GUI text area
+        String mName = monthName(month);
+        output.append("============================================================\n");
+        output.append("   MOTORPH PAYROLL REPORT — " + mName.toUpperCase() + " " + year + "\n");
+        output.append("============================================================\n");
+        output.append(String.format("%-8s %-25s %12s %12s %12s%n",
+                "EMP #", "NAME", "GROSS PAY", "DEDUCTIONS", "NET PAY"));
+        output.append("------------------------------------------------------------\n");
+
+        double totalGross = 0, totalDeduc = 0, totalNet = 0;
+        for (int i = 0; i < n; i++) {
+            output.append(String.format("%-8s %-25s %12s %12s %12s%n",
+                    ids[i],
+                    names[i].length() > 24 ? names[i].substring(0, 24) : names[i],
+                    String.format("PHP %,.2f", grossPay[i]),
+                    String.format("PHP %,.2f", deductions[i]),
+                    String.format("PHP %,.2f", netPay[i])));
+            totalGross  += grossPay[i];
+            totalDeduc  += deductions[i];
+            totalNet    += netPay[i];
+        }
+
+        output.append("------------------------------------------------------------\n");
+        output.append(String.format("%-34s %12s %12s %12s%n",
+                "TOTALS (" + n + " employees)",
+                String.format("PHP %,.2f", totalGross),
+                String.format("PHP %,.2f", totalDeduc),
+                String.format("PHP %,.2f", totalNet)));
+        output.append("============================================================\n");
+        output.append("Report generated for: " + mName + " " + year + "\n");
+
+        // Update summary fields for the GUI summary bar
+        summaryGross      = totalGross;
+        summaryDeductions = totalDeduc;
+        summaryNet        = totalNet;
+
+        return new SalaryBatch(ids, names, daysWorked, ratePerDay, grossPay, deductions, netPay, month, year);
+    }
+
+    /**
+     * Writes computed salary results back into the Employee Details CSV
+     * by updating the Basic Salary column (index 13) with the computed gross pay.
+     *
+     * @param batch SalaryBatch produced by {@link #computeAllSalaries}
+     * @return true if the file was successfully rewritten
+     */
+    public static boolean saveSalaryBatchToCSV(SalaryBatch batch) {
+        if (batch == null) return false;
+        java.util.List<String[]> all = FileHandlerModule.getAllEmployees();
+        for (int i = 0; i < batch.ids.length; i++) {
+            final String empId = batch.ids[i];
+            final double gross = batch.grossPay[i];
+            for (String[] row : all) {
+                if (row.length > EmployeeModule.ID && row[EmployeeModule.ID].trim().equals(empId)) {
+                    // Update Basic Salary column with computed gross pay
+                    if (row.length > EmployeeModule.BASIC_SALARY) {
+                        row[EmployeeModule.BASIC_SALARY] = String.format("%.2f", gross);
+                    }
+                    break;
+                }
+            }
+        }
+        return FileHandlerModule.rewriteEmployeeFile(all);
+    }
+
+    /**
+     * Data transfer object holding the result arrays from a bulk salary computation run.
+     */
+    public static class SalaryBatch {
+        public final String[] ids;
+        public final String[] names;
+        public final double[] daysWorked;
+        public final double[] ratePerDay;
+        public final double[] grossPay;
+        public final double[] deductions;
+        public final double[] netPay;
+        public final String month;
+        public final String year;
+
+        public SalaryBatch(String[] ids, String[] names, double[] daysWorked,
+                           double[] ratePerDay, double[] grossPay,
+                           double[] deductions, double[] netPay,
+                           String month, String year) {
+            this.ids        = ids;
+            this.names      = names;
+            this.daysWorked = daysWorked;
+            this.ratePerDay = ratePerDay;
+            this.grossPay   = grossPay;
+            this.deductions = deductions;
+            this.netPay     = netPay;
+            this.month      = month;
+            this.year       = year;
+        }
     }
 }
