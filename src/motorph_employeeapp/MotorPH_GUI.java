@@ -1159,10 +1159,6 @@ public class MotorPH_GUI {
     /**
      * Builds the Self-Service profile dashboard exclusively for logged-in Employees.
      */
-    /**
-     * Builds the Self-Service profile dashboard exclusively for logged-in Employees.
-     * Modified to feature a direct CSV lookup layout with an uneditable Employee Name field.
-     */
     public static void showEmployeeSelfServiceDashboard() {
         frame.getContentPane().removeAll();
         frame.setLayout(null);
