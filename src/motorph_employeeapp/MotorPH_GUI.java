@@ -1385,11 +1385,10 @@ public class MotorPH_GUI {
     public static void initialize() {
         frame = new JFrame();
         frame.setTitle(isHrUser() ? "MotorPH HR Management System" : "MotorPH Employee Portal");
-        frame.setSize(APP_FRAME_WIDTH, APP_FRAME_HEIGHT);
         frame.setMinimumSize(new Dimension(1024, 680));
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(true);
-        frame.setLocationRelativeTo(null);
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         installWindowResizeHandler();
         installGlobalShortcuts();
         showDashboard();
@@ -2459,20 +2458,19 @@ public class MotorPH_GUI {
     @SuppressWarnings("unused")
     static void showMainMenu() {
         frame.getContentPane().removeAll();
-        frame.setLayout(null); // Setting layout to null to use setBounds explicitly
-        frame.setSize(APP_FRAME_WIDTH, APP_FRAME_HEIGHT);
+        frame.setLayout(null);
         frame.getContentPane().setBackground(new Color(212, 228, 252));
 
         // Branded blue header strip replaces the prior plain title label
-        addColoredHeaderStrip("MAIN MENU", APP_FRAME_WIDTH);
+        addColoredHeaderStrip("MAIN MENU", getVisibleWidth());
         setBreadcrumb("Main Menu");
 
-        // Container Panel (Lesson: Panels)  shifted just below the header strip.
-        // x = (frameWidth 520 - cardWidth 400) / 2 = 60, so left and right margins both equal 60.
+        int mw = getVisibleWidth();
+        int menuPanelX = (mw - 400) / 2;
         JPanel menuPanel = new JPanel();
         menuPanel.setBackground(Color.white);
-        menuPanel.setLayout(null); // Using null layout within the panel container
-        menuPanel.setBounds(30, 70, 400, 380);
+        menuPanel.setLayout(null);
+        menuPanel.setBounds(menuPanelX, 70, 400, 380);
         menuPanel.setBorder(BorderFactory.createLineBorder(new Color(163, 196, 243), 1));
 
         // Navigation Menu Interactive Buttons (Lesson: Buttons)
@@ -2496,7 +2494,7 @@ public class MotorPH_GUI {
         menuPanel.add(btnLogout);
 
         frame.add(menuPanel);
-        addLoggedInFooter(APP_FRAME_WIDTH, APP_FRAME_HEIGHT - 20, 770); // Align with menu panel right edge
+        addLoggedInFooter(getVisibleWidth(), getVisibleHeight() - 20, 770);
         updateDisplay();
     }
 
