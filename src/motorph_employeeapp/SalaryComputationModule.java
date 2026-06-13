@@ -30,6 +30,27 @@ public class SalaryComputationModule {
     /** Last computed total net pay (both cutoffs), for GUI summary display. */
     public static double summaryNet = 0;
 
+    /** True when the last calculatePayroll call found actual attendance data. */
+    public static boolean lastCalculationSucceeded = false;
+
+    // Per-calculation snapshot used by the PDF payslip exporter
+    public static String lastEmpId = "";
+    public static String lastEmpName = "";
+    public static String lastEmpBirthday = "";
+    public static String lastMonthName = "";
+    public static String lastYear = "";
+    public static double lastHoursFirst = 0;
+    public static double lastHoursSecond = 0;
+    public static double lastGrossFirst = 0;
+    public static double lastGrossSecond = 0;
+    public static double lastNetFirst = 0;
+    public static double lastNetSecond = 0;
+    public static double lastSss = 0;
+    public static double lastPhilHealth = 0;
+    public static double lastPagIbig = 0;
+    public static double lastTax = 0;
+    public static double lastTotalDeductions = 0;
+
     /**
      * Main payroll routine: aggregates attendance, computes gross per cutoff, applies deductions,
      * and renders a formatted payslip into the GUI text area.
@@ -48,6 +69,7 @@ public class SalaryComputationModule {
         summaryGross = 0;
         summaryDeductions = 0;
         summaryNet = 0;
+        lastCalculationSucceeded = false;
 
         String id = emp[EmployeeModule.ID];
         double hourlyRate = EmployeeModule.getHourlyRate(emp);
@@ -56,6 +78,7 @@ public class SalaryComputationModule {
         // Accumulators for semi-monthly cutoffs
         double hoursFirstCutoff = 0;
         double hoursSecondCutoff = 0;
+        int matchedCount = 0;
 
         // Load every attendance row for this employee; filter by month/year below
         List<String> records = FileHandlerModule.findAttendanceData(id);
@@ -79,6 +102,7 @@ public class SalaryComputationModule {
 
                 // Only count attendance within the selected pay period
                 if (csvMonth == inputMonth && csvYear == inputYear) {
+                    matchedCount++;
                     int day = Integer.parseInt(dateParts[1].trim());
 
                     // Columns 4 and 5 hold login and logout times (H:mm format)
@@ -95,6 +119,19 @@ public class SalaryComputationModule {
                 // Log bad rows to console for debugging without stopping payroll
                 System.out.println("Skipped unparseable row: " + line + " due to: " + e.getMessage());
             }
+        }
+
+        // No attendance records found for the selected period — abort with clear message
+        if (matchedCount == 0) {
+            output.setText(
+                "\n ⚠  No attendance data available for " + mName + " " + year + ".\n\n" +
+                " Payslip data is not available or retrievable for this period.\n\n" +
+                " Please verify that:\n" +
+                "   - The selected month and year are correct.\n" +
+                "   - Attendance records exist for Employee #" + id + "\n" +
+                "     in the selected pay period.\n\n" +
+                " Only periods with recorded attendance can generate a payslip.");
+            return;
         }
 
         // Gross pay = total hours in cutoff × hourly rate from employee master file
@@ -137,6 +174,24 @@ public class SalaryComputationModule {
         summaryGross = grossFirstCutoff + grossSecondCutoff;
         summaryDeductions = totalDeduc;
         summaryNet = netSalary1 + netSalary2;
+        lastCalculationSucceeded = true;
+
+        lastEmpId          = id;
+        lastEmpName        = EmployeeModule.fullName(emp);
+        lastEmpBirthday    = emp[EmployeeModule.BIRTHDAY];
+        lastMonthName      = mName;
+        lastYear           = year;
+        lastHoursFirst     = hoursFirstCutoff;
+        lastHoursSecond    = hoursSecondCutoff;
+        lastGrossFirst     = grossFirstCutoff;
+        lastGrossSecond    = grossSecondCutoff;
+        lastNetFirst       = netSalary1;
+        lastNetSecond      = netSalary2;
+        lastSss            = sss;
+        lastPhilHealth     = ph;
+        lastPagIbig        = pi;
+        lastTax            = tax;
+        lastTotalDeductions = totalDeduc;
     }
 
     /**
