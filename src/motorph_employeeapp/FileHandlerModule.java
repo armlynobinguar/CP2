@@ -417,4 +417,42 @@ public class FileHandlerModule {
         String[] out = new String[results.size()];
         return results.toArray(out);
     }
+
+    /**
+     * Updates only the home address and phone number for a specific employee ID.
+     * Accessible by Employee Self-Service profile edits.
+     *
+     * @param employeeId the ID of the employee to update
+     * @param newAddress the updated home address string
+     * @param newPhone the updated phone number string
+     * @return true if found and rewritten successfully, false otherwise
+     */
+    public static boolean updateEmployeeContactInfo(String employeeId, String newAddress, String newPhone) {
+        List<String[]> allEmployees = getAllEmployees();
+        boolean found = false;
+
+        // Column indexes based on your MotorPH Employee Master schema:
+        // ID = 0, LastName = 1, FirstName = 2, Birthday = 3, Address = 4, Phone = 5
+        final int ADDRESS_INDEX = 4;
+        final int PHONE_INDEX = 5;
+
+        for (int i = 0; i < allEmployees.size(); i++) {
+            String[] row = allEmployees.get(i);
+            if (row.length > PHONE_INDEX && row[0].trim().equals(employeeId.trim())) {
+                row[ADDRESS_INDEX] = newAddress;
+                row[PHONE_INDEX] = newPhone;
+                allEmployees.set(i, row); // Replace with the updated row array
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            System.out.println("DEBUG: Employee ID " + employeeId + " not found for contact update.");
+            return false;
+        }
+
+        // Rewrite the updated array collection back to the master CSV file
+        return rewriteEmployeeFile(allEmployees);
+    }
 }

@@ -2558,12 +2558,10 @@ public class MotorPH_GUI {
             }
         });
 
-        // Run initial data fetch if field populated
-        if (!txtEditId.getText().isEmpty()) {
-            fetchCsvData.run();
-        }
+        // ✅ FIX 1: Explicitly run the fetch right now since KeyListener won't trigger automatically on disabled fields
+        fetchCsvData.run();
 
-        // --- CONTROL BUTTONS CONFIGURATION ---
+// --- CONTROL BUTTONS CONFIGURATION ---
         int buttonW = 180;
         int actionButtonsY = currentY + FIELD_HEIGHT + 30;
         int btnGap = 20;
@@ -2595,9 +2593,15 @@ public class MotorPH_GUI {
                     return;
                 }
 
+                // 🔍 ADD THE DEBUG LINES HERE:
+                System.out.println("DEBUG: Sending ID: [" + targetId + "], Address: [" + newAddressValue + "], Phone: [" + newPhoneValue + "]");
+
                 // Commit direct record modifications back to data stream via your I/O routine
                 boolean writeStatusSuccess = FileHandlerModule.updateEmployeeContactInfo(targetId, newAddressValue,
                         newPhoneValue);
+
+                // 🔍 ADD THE SECOND DEBUG LINE HERE:
+                System.out.println("DEBUG: Server write status return code: " + writeStatusSuccess);
 
                 if (writeStatusSuccess) {
                     JOptionPane.showMessageDialog(frame, "Successfully updated records for Employee #" + targetId + "!",
@@ -2605,8 +2609,9 @@ public class MotorPH_GUI {
 
                     showToast("Profile changes committed directly to records file.");
 
-                    // Re-render dashboard rather than manually clearing
-                    showDashboard();
+                    SwingUtilities.invokeLater(() -> {
+                        showDashboard();
+                    });
                 } else {
                     JOptionPane.showMessageDialog(frame,
                             "Critical failure: Could not update the CSV disk file data records.",
