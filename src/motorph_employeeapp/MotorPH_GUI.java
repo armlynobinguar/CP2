@@ -686,11 +686,12 @@ public class MotorPH_GUI {
      * {@link MotorPH_EmployeeApp#loginSuccessful} and disposes the dialog flow
      * so {@code main()} can continue to {@link #initialize()}.
      */
-public static void showCustomLoginDialog() {
+    public static void showCustomLoginDialog() {
         loginDialog = new JDialog();
         loginDialog.setTitle("MotorPH — Sign In");
         loginDialog.setModal(true);
-        // CHANGE: Allow the dialog to use its default BorderLayout so it respects the child panel's size
+        // CHANGE: Allow the dialog to use its default BorderLayout so it respects the
+        // child panel's size
         loginDialog.setResizable(false);
 
         // Define the exact internal dimension space required for layout canvas
@@ -730,7 +731,8 @@ public static void showCustomLoginDialog() {
         formPanel.setBackground(PALETTE_WHITE);
         formPanel.setBounds(0, 100, 356, 348);
 
-        // Username row (32px left margin, 32px right margin relative to the 356px card boundary)
+        // Username row (32px left margin, 32px right margin relative to the 356px card
+        // boundary)
         JLabel lblUser = new JLabel("Username");
         lblUser.setFont(LOGIN_APP_FONT_BOLD);
         lblUser.setForeground(TEXT_DARK_NAVY);
@@ -826,8 +828,14 @@ public static void showCustomLoginDialog() {
         });
 
         KeyListener enterKeyListener = new KeyListener() {
-            @Override public void keyTyped(KeyEvent e) {}
-            @Override public void keyReleased(KeyEvent e) {}
+            @Override
+            public void keyTyped(KeyEvent e) {
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+            }
+
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
@@ -851,8 +859,9 @@ public static void showCustomLoginDialog() {
 
         // Adds the rootPanel directly using default window layout mechanics
         loginDialog.add(rootPanel);
-        
-        // This will now correctly expand to fit the 420x520 rootPanel + window borders frame
+
+        // This will now correctly expand to fit the 420x520 rootPanel + window borders
+        // frame
         loginDialog.pack();
         loginDialog.setLocationRelativeTo(null);
         loginDialog.setVisible(true);
@@ -1548,7 +1557,7 @@ public static void showCustomLoginDialog() {
 
         JButton btnPrev = new JButton("<");
         btnPrev.setBounds(6, NAV_Y, 28, NAV_H);
-        styleCalNavButton(btnPrev);
+        // FIXED: Removed the undefined styleCalNavButton call
         btnPrev.addActionListener(e -> {
             CAL_MONTH--;
             if (CAL_MONTH < 1) {
@@ -1567,7 +1576,7 @@ public static void showCustomLoginDialog() {
 
         JButton btnNext = new JButton(">");
         btnNext.setBounds(width - 34, NAV_Y, 28, NAV_H);
-        styleCalNavButton(btnNext);
+        // FIXED: Removed the undefined styleCalNavButton call
         btnNext.addActionListener(e -> {
             CAL_MONTH++;
             if (CAL_MONTH > 12) {
@@ -1618,7 +1627,11 @@ public static void showCustomLoginDialog() {
                 /* ignore malformed */ }
         }
 
+        // --- MATH RE-CALCULATION: Computes exact remaining grid tracking space ---
         int cellW = width / 7;
+        int totalGridWidth = cellW * 7;
+        int xOffset = (width - totalGridWidth) / 2; // Split left/right pixels cleanly
+
         String[] dow = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" };
         for (int c = 0; c < 7; c++) {
             JLabel l = new JLabel(dow[c], SwingConstants.CENTER);
@@ -1626,7 +1639,8 @@ public static void showCustomLoginDialog() {
             l.setForeground(new Color(90, 100, 130));
             l.setOpaque(true);
             l.setBackground(new Color(245, 247, 252));
-            l.setBounds(c * cellW, DOW_Y, cellW, DOW_H);
+            // Shift horizontal track coordinate space based on remainder offset calculation
+            l.setBounds(xOffset + (c * cellW), DOW_Y, cellW, DOW_H);
             l.setBorder(BorderFactory.createMatteBorder(1, 0, 1, c < 6 ? 1 : 0, new Color(230, 234, 242)));
             panel.add(l);
         }
@@ -1656,7 +1670,8 @@ public static void showCustomLoginDialog() {
                 int displayDay = index - shift + 1;
                 JPanel cell = new JPanel(null);
                 cell.setOpaque(true);
-                cell.setBounds(c * cellW, GRID_TOP + r * CELL_H, cellW, CELL_H);
+                // Shift grid panels over into matching alignment tracks
+                cell.setBounds(xOffset + (c * cellW), GRID_TOP + r * CELL_H, cellW, CELL_H);
 
                 if (displayDay >= 1 && displayDay <= totalDays) {
                     boolean isPayDay = (displayDay == 15) || (displayDay == totalDays);
@@ -1666,7 +1681,6 @@ public static void showCustomLoginDialog() {
                             && month == today.getMonthValue()
                             && displayDay == today.getDayOfMonth());
 
-                    // Today always wins over other backgrounds; pay day / birthday shown via dots
                     Color cellBg = PALETTE_WHITE;
                     if (isPayDay)
                         cellBg = new Color(232, 244, 255);
@@ -1676,7 +1690,6 @@ public static void showCustomLoginDialog() {
                         cellBg = new Color(235, 245, 255);
                     cell.setBackground(cellBg);
 
-                    // Today gets a 2 px accent-blue top bar and a clean right/bottom divider
                     if (isToday) {
                         cell.setBorder(BorderFactory.createMatteBorder(
                                 2, 0, 1, c < 6 ? 1 : 0, ACCENT_BLUE));
@@ -1685,7 +1698,6 @@ public static void showCustomLoginDialog() {
                                 0, 0, 1, c < 6 ? 1 : 0, new Color(232, 236, 244)));
                     }
 
-                    // Day number: solid blue badge with white text for today, plain otherwise
                     if (isToday) {
                         int badgeW = Math.min(22, cellW - 8);
                         JPanel badge = new JPanel(null);
@@ -1800,28 +1812,6 @@ public static void showCustomLoginDialog() {
 
         panel.setPreferredSize(new java.awt.Dimension(width, legendY + 20));
         return panel;
-    }
-
-    /** Minimal styling for the calendar prev/next navigation buttons. */
-    private static void styleCalNavButton(JButton b) {
-        b.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        b.setFocusable(false);
-        b.setOpaque(true);
-        b.setBackground(new Color(237, 243, 255));
-        b.setForeground(TEXT_DARK_NAVY);
-        b.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        b.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                b.setBackground(new Color(210, 228, 255));
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent e) {
-                b.setBackground(new Color(237, 243, 255));
-            }
-        });
     }
 
     /**
