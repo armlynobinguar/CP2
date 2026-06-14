@@ -686,20 +686,25 @@ public class MotorPH_GUI {
      * {@link MotorPH_EmployeeApp#loginSuccessful} and disposes the dialog flow
      * so {@code main()} can continue to {@link #initialize()}.
      */
-    public static void showCustomLoginDialog() {
+public static void showCustomLoginDialog() {
         loginDialog = new JDialog();
         loginDialog.setTitle("MotorPH — Sign In");
-        loginDialog.setSize(420, 520);
         loginDialog.setModal(true);
-        loginDialog.setLayout(null);
-        loginDialog.setLocationRelativeTo(null);
+        // CHANGE: Allow the dialog to use its default BorderLayout so it respects the child panel's size
         loginDialog.setResizable(false);
 
+        // Define the exact internal dimension space required for layout canvas
+        int contentWidth = 420;
+        int contentHeight = 520;
+
+        // This panel acts as our true canvas container using absolute positioning
         JPanel rootPanel = new JPanel(null);
         rootPanel.setBackground(APP_BG);
-        rootPanel.setBounds(0, 0, 420, 520);
+        rootPanel.setPreferredSize(new Dimension(contentWidth, contentHeight));
+        rootPanel.setBounds(0, 0, contentWidth, contentHeight);
 
-        // Single elevated card — header band + form in one surface
+        // Single elevated card container (32px left margin, 32px right margin)
+        // Math check: 420 canvas width - (32px left + 356px width) = 32px right padding
         JPanel loginCard = new JPanel(null);
         loginCard.setBackground(PALETTE_WHITE);
         loginCard.setBounds(32, 36, 356, 448);
@@ -725,13 +730,7 @@ public class MotorPH_GUI {
         formPanel.setBackground(PALETTE_WHITE);
         formPanel.setBounds(0, 100, 356, 348);
 
-        // Login form vertical rhythm (kept consistent across every row):
-        // labelHeight=20, fieldHeight=38, checkboxHeight=22, buttonHeight=40
-        // gap between a label and its field = 6px
-        // gap between sections (fieldlabel) = 20px
-        // Adjusting any of these values? Update every row below to keep the grid even.
-
-        // Username row
+        // Username row (32px left margin, 32px right margin relative to the 356px card boundary)
         JLabel lblUser = new JLabel("Username");
         lblUser.setFont(LOGIN_APP_FONT_BOLD);
         lblUser.setForeground(TEXT_DARK_NAVY);
@@ -740,11 +739,9 @@ public class MotorPH_GUI {
         usernameField = new JTextField();
         usernameField.setBounds(32, 52, 292, FIELD_HEIGHT);
         styleInputField(usernameField);
-        // Placeholder hint shown only when field is empty and unfocused (From Lesson:
-        // FocusListener)
         attachPlaceholder(usernameField, "Enter username");
 
-        // Password row (89 + 20 section gap = 109)
+        // Password row
         JLabel lblPass = new JLabel("Password");
         lblPass.setFont(LOGIN_APP_FONT_BOLD);
         lblPass.setForeground(TEXT_DARK_NAVY);
@@ -770,7 +767,7 @@ public class MotorPH_GUI {
         chkShowPassword.setCursor(new Cursor(Cursor.HAND_CURSOR));
         chkShowPassword.addActionListener(e -> {
             if (chkShowPassword.isSelected()) {
-                passwordField.setEchoChar((char) 0); // 0 = display characters as-is
+                passwordField.setEchoChar((char) 0);
             } else {
                 passwordField.setEchoChar(PASSWORD_ECHO_CHAR);
             }
@@ -828,21 +825,14 @@ public class MotorPH_GUI {
             }
         });
 
-        // Allow Enter key to trigger login from either field
         KeyListener enterKeyListener = new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-            }
-
+            @Override public void keyTyped(KeyEvent e) {}
+            @Override public void keyReleased(KeyEvent e) {}
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                     btnLogin.doClick();
                 }
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
             }
         };
         usernameField.addKeyListener(enterKeyListener);
@@ -859,7 +849,12 @@ public class MotorPH_GUI {
         loginCard.add(formPanel);
         rootPanel.add(loginCard);
 
+        // Adds the rootPanel directly using default window layout mechanics
         loginDialog.add(rootPanel);
+        
+        // This will now correctly expand to fit the 420x520 rootPanel + window borders frame
+        loginDialog.pack();
+        loginDialog.setLocationRelativeTo(null);
         loginDialog.setVisible(true);
     }
 
@@ -1411,7 +1406,7 @@ public class MotorPH_GUI {
             subLbl.setBounds(CONTENT_PAD, 42, contentW - 280, 20);
             topBar.add(subLbl);
         }
-        
+
         frame.add(topBar);
     }
 
@@ -2558,10 +2553,11 @@ public class MotorPH_GUI {
             }
         });
 
-        // ✅ FIX 1: Explicitly run the fetch right now since KeyListener won't trigger automatically on disabled fields
+        // ✅ FIX 1: Explicitly run the fetch right now since KeyListener won't trigger
+        // automatically on disabled fields
         fetchCsvData.run();
 
-// --- CONTROL BUTTONS CONFIGURATION ---
+        // --- CONTROL BUTTONS CONFIGURATION ---
         int buttonW = 180;
         int actionButtonsY = currentY + FIELD_HEIGHT + 30;
         int btnGap = 20;
@@ -2594,7 +2590,8 @@ public class MotorPH_GUI {
                 }
 
                 // 🔍 ADD THE DEBUG LINES HERE:
-                System.out.println("DEBUG: Sending ID: [" + targetId + "], Address: [" + newAddressValue + "], Phone: [" + newPhoneValue + "]");
+                System.out.println("DEBUG: Sending ID: [" + targetId + "], Address: [" + newAddressValue + "], Phone: ["
+                        + newPhoneValue + "]");
 
                 // Commit direct record modifications back to data stream via your I/O routine
                 boolean writeStatusSuccess = FileHandlerModule.updateEmployeeContactInfo(targetId, newAddressValue,
