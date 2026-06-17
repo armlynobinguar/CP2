@@ -16,8 +16,13 @@ import java.util.List;
  *   Index 1  - Last name
  *   Index 2  - First name
  *   Index 3  - Birthday
- *   ... (columns 4–17 hold address, contact, and employment fields)
- *   Index 18 - Hourly rate (may contain commas, e.g. "535.71")
+ *   Index 10 - Status
+ *   Index 11 - Position
+ *   Index 12 - Department
+ *   Index 13 - Immediate supervisor
+ *   Index 14 - Basic salary
+ *   Indices 15–18 - Allowances and gross semi-monthly rate
+ *   Index 19 - Hourly rate (may contain commas, e.g. "535.71")
  */
 public class EmployeeModule {
 
@@ -52,7 +57,7 @@ public class EmployeeModule {
     public static final int PAGIBIG = 9;
 
     /** Total number of columns in the Employee Details CSV. */
-    public static final int COLUMN_COUNT = 19;
+    public static final int COLUMN_COUNT = 20;
 
     /** CSV column index: employment status (Regular, Probationary, etc.). */
     public static final int STATUS = 10;
@@ -60,17 +65,32 @@ public class EmployeeModule {
     /** CSV column index: job title / position (e.g. Chief Executive Officer). */
     public static final int POSITION = 11;
 
+    /** CSV column index: department (e.g. Human Resources). */
+    public static final int DEPARTMENT = 12;
+
     /** CSV column index: immediate supervisor name (or "N/A"). */
-    public static final int IMMEDIATE_SUPERVISOR = 12;
+    public static final int IMMEDIATE_SUPERVISOR = 13;
 
     /** CSV column index: basic monthly salary (formatted with thousand separators). */
-    public static final int BASIC_SALARY = 13;
+    public static final int BASIC_SALARY = 14;
+
+    /** CSV column index: rice subsidy allowance. */
+    public static final int RICE_SUBSIDY = 15;
+
+    /** CSV column index: phone allowance. */
+    public static final int PHONE_ALLOWANCE = 16;
+
+    /** CSV column index: clothing allowance. */
+    public static final int CLOTHING_ALLOWANCE = 17;
+
+    /** CSV column index: gross semi-monthly rate. */
+    public static final int GROSS_SEMI_MONTHLY = 18;
 
     /**
      * CSV column index: hourly pay rate used in {@link SalaryComputationModule#calculatePayroll}.
      * Must be parsed with comma stripping before numeric conversion.
      */
-    public static final int HOURLY_RATE = 18;
+    public static final int HOURLY_RATE = 19;
 
     /**
      * Builds a display name from parsed employee data.

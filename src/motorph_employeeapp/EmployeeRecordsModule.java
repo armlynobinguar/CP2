@@ -13,7 +13,7 @@ public class EmployeeRecordsModule {
 
     /** Column headers shown in the employee records {@code JTable}. */
     public static final String[] TABLE_COLUMNS = {
-        "Employee #", "Last Name", "First Name", "SSS #", "PhilHealth #", "TIN #", "Pag-IBIG #"
+        "Employee #", "Last Name", "First Name", "Department", "SSS #", "PhilHealth #", "TIN #", "Pag-IBIG #"
     };
 
     /**
@@ -24,6 +24,7 @@ public class EmployeeRecordsModule {
             safe(emp, EmployeeModule.ID),
             safe(emp, EmployeeModule.LAST_NAME),
             safe(emp, EmployeeModule.FIRST_NAME),
+            safe(emp, EmployeeModule.DEPARTMENT),
             safe(emp, EmployeeModule.SSS),
             safe(emp, EmployeeModule.PHILHEALTH),
             safe(emp, EmployeeModule.TIN),
@@ -47,6 +48,7 @@ public class EmployeeRecordsModule {
              + "Pag-IBIG #:            " + safe(emp, EmployeeModule.PAGIBIG) + "\n"
              + "Status:                " + safe(emp, EmployeeModule.STATUS) + "\n"
              + "Position:              " + safe(emp, EmployeeModule.POSITION) + "\n"
+             + "Department:            " + safe(emp, EmployeeModule.DEPARTMENT) + "\n"
              + "Immediate Supervisor:  " + safe(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) + "\n"
              + "Basic Salary:          PHP " + safe(emp, EmployeeModule.BASIC_SALARY) + "\n"
              + "Hourly Rate:           PHP " + safe(emp, EmployeeModule.HOURLY_RATE);
@@ -103,8 +105,20 @@ public class EmployeeRecordsModule {
         row[EmployeeModule.PAGIBIG] = trim(form.pagIbig);
         row[EmployeeModule.STATUS] = defaultIfBlank(form.status, safe(row, EmployeeModule.STATUS));
         row[EmployeeModule.POSITION] = defaultIfBlank(form.position, safe(row, EmployeeModule.POSITION));
-        row[EmployeeModule.IMMEDIATE_SUPERVISOR] = defaultIfBlank(form.supervisor, safe(row, EmployeeModule.IMMEDIATE_SUPERVISOR));
+        row[EmployeeModule.DEPARTMENT] = defaultIfBlank(form.department,
+                DepartmentModule.inferDepartmentFromPosition(form.position));
+        row[EmployeeModule.IMMEDIATE_SUPERVISOR] = defaultIfBlank(form.supervisor,
+                DepartmentModule.resolveSupervisor(row[EmployeeModule.DEPARTMENT], row[EmployeeModule.POSITION]));
         row[EmployeeModule.BASIC_SALARY] = defaultIfBlank(form.basicSalary, safe(row, EmployeeModule.BASIC_SALARY));
+        if (row.length > EmployeeModule.RICE_SUBSIDY) {
+            row[EmployeeModule.RICE_SUBSIDY] = defaultIfBlank(form.riceSubsidy, safe(row, EmployeeModule.RICE_SUBSIDY));
+        }
+        if (row.length > EmployeeModule.PHONE_ALLOWANCE) {
+            row[EmployeeModule.PHONE_ALLOWANCE] = defaultIfBlank(form.phoneAllowance, safe(row, EmployeeModule.PHONE_ALLOWANCE));
+        }
+        if (row.length > EmployeeModule.CLOTHING_ALLOWANCE) {
+            row[EmployeeModule.CLOTHING_ALLOWANCE] = defaultIfBlank(form.clothingAllowance, safe(row, EmployeeModule.CLOTHING_ALLOWANCE));
+        }
         row[EmployeeModule.HOURLY_RATE] = defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE));
         return row;
     }
@@ -126,7 +140,10 @@ public class EmployeeRecordsModule {
         withDefaults.pagIbig = form.pagIbig;
         withDefaults.status = defaultIfBlank(form.status, "Probationary");
         withDefaults.position = defaultIfBlank(form.position, "N/A");
-        withDefaults.supervisor = defaultIfBlank(form.supervisor, "N/A");
+        withDefaults.department = defaultIfBlank(form.department,
+                DepartmentModule.inferDepartmentFromPosition(withDefaults.position));
+        withDefaults.supervisor = defaultIfBlank(form.supervisor,
+                DepartmentModule.resolveSupervisor(withDefaults.department, withDefaults.position));
         withDefaults.basicSalary = defaultIfBlank(form.basicSalary, "0");
         withDefaults.hourlyRate = defaultIfBlank(form.hourlyRate, "0");
         return applyFormToRow(null, withDefaults);
@@ -146,9 +163,122 @@ public class EmployeeRecordsModule {
         public String pagIbig;
         public String status;
         public String position;
+        public String department;
         public String supervisor;
         public String basicSalary;
+        public String riceSubsidy;
+        public String phoneAllowance;
+        public String clothingAllowance;
+        public String grossSemiMonthly;
         public String hourlyRate;
+    }
+
+    /**
+     * Validates all fields on the Add Employee popup before writing to CSV.
+     */
+    public static List<String> validateAddPopup(RecordFormData form) {
+        List<String> errors = new ArrayList<>(validateForm(form, false, null));
+        addExtendedPopupValidation(form, errors);
+        return errors;
+    }
+
+    /**
+     * Validates all fields on the Edit Employee popup before updating CSV.
+     */
+    public static List<String> validateEditPopup(RecordFormData form, String originalId) {
+        List<String> errors = new ArrayList<>(validateForm(form, true, originalId));
+        addExtendedPopupValidation(form, errors);
+        return errors;
+    }
+
+    /**
+     * Returns non-blocking warnings for incomplete or invalid stored employee data (View dialog).
+     */
+    public static List<String> collectViewWarnings(String[] emp) {
+        List<String> warnings = new ArrayList<>();
+        if (emp == null || emp.length == 0) {
+            warnings.add("Employee record is empty or could not be parsed.");
+            return warnings;
+        }
+        if (isBlank(safe(emp, EmployeeModule.ID))) {
+            warnings.add("Employee Number is missing.");
+        } else if (!safe(emp, EmployeeModule.ID).matches("\\d+")) {
+            warnings.add("Employee Number is not numeric.");
+        }
+        if (isBlank(safe(emp, EmployeeModule.LAST_NAME))) warnings.add("Last Name is missing.");
+        if (isBlank(safe(emp, EmployeeModule.FIRST_NAME))) warnings.add("First Name is missing.");
+        if (isBlank(safe(emp, EmployeeModule.SSS))) warnings.add("SSS Number is missing.");
+        if (isBlank(safe(emp, EmployeeModule.PHILHEALTH))) warnings.add("PhilHealth Number is missing.");
+        if (isBlank(safe(emp, EmployeeModule.TIN))) warnings.add("TIN Number is missing.");
+        if (isBlank(safe(emp, EmployeeModule.PAGIBIG))) warnings.add("Pag-IBIG Number is missing.");
+        if (isBlank(safe(emp, EmployeeModule.DEPARTMENT))) warnings.add("Department is missing.");
+        String birthday = safe(emp, EmployeeModule.BIRTHDAY);
+        if (!isBlank(birthday) && !birthday.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            warnings.add("Birthday is not in MM/DD/YYYY format.");
+        }
+        String basic = safe(emp, EmployeeModule.BASIC_SALARY);
+        if (!isBlank(basic) && !isNumeric(basic)) {
+            warnings.add("Basic Salary contains invalid numeric data.");
+        }
+        return warnings;
+    }
+
+    /**
+     * Builds a complete CSV row (19 columns) from popup form values for a new employee.
+     */
+    public static String[] buildFullRowFromForm(RecordFormData form) {
+        String[] row = createNewRow(form);
+        row[EmployeeModule.RICE_SUBSIDY] = defaultIfBlank(form.riceSubsidy, "0");
+        row[EmployeeModule.PHONE_ALLOWANCE] = defaultIfBlank(form.phoneAllowance, "0");
+        row[EmployeeModule.CLOTHING_ALLOWANCE] = defaultIfBlank(form.clothingAllowance, "0");
+        if (!isBlank(form.basicSalary) && isNumeric(form.basicSalary)) {
+            double basic = Double.parseDouble(form.basicSalary.replace(",", "").trim());
+            row[EmployeeModule.GROSS_SEMI_MONTHLY] = String.format("%.2f", basic / 2.0);
+            row[EmployeeModule.HOURLY_RATE] = String.format("%.2f", basic / 168.0);
+        } else {
+            row[EmployeeModule.GROSS_SEMI_MONTHLY] = defaultIfBlank(form.grossSemiMonthly,
+                    safe(row, EmployeeModule.GROSS_SEMI_MONTHLY));
+        }
+        return row;
+    }
+
+    private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
+        if (isBlank(form.birthday)) {
+            errors.add("Birthday is required.");
+        } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            errors.add("Birthday must be in MM/DD/YYYY format.");
+        }
+        if (isBlank(form.address)) errors.add("Address is required.");
+        if (isBlank(form.phone)) errors.add("Phone number is required.");
+        if (isBlank(form.position)) errors.add("Position is required.");
+        if (isBlank(form.department)) errors.add("Department is required.");
+        if (isBlank(form.supervisor)) errors.add("Supervisor is required.");
+        validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
+        validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
+        validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
+        validateRequiredNumeric(form.clothingAllowance, "Clothing Allowance", errors);
+        validateIdFormatComplete(form.sss, "XX-XXXXXXX-X", "SSS Number", errors);
+        validateIdFormatComplete(form.tin, "XXX-XXX-XXX-XXX", "TIN Number", errors);
+    }
+
+    private static void validateRequiredNumeric(String value, String displayName, List<String> errors) {
+        if (isBlank(value)) {
+            errors.add(displayName + " is required.");
+        } else if (!isNumeric(value)) {
+            errors.add(displayName + " must be a valid number.");
+        }
+    }
+
+    private static void validateIdFormatComplete(String value, String pattern, String displayName,
+            List<String> errors) {
+        if (isBlank(value)) {
+            return;
+        }
+        int expectedDigits = pattern.replace("-", "").length();
+        int actualDigits = value.replaceAll("[^0-9]", "").length();
+        if (actualDigits < expectedDigits) {
+            errors.add(displayName + " must follow the format " + pattern + ".");
+        }
     }
 
     private static String[] normalizeRow(String[] existing) {
@@ -161,10 +291,18 @@ public class EmployeeRecordsModule {
         for (int i = 0; i < row.length; i++) {
             if (row[i] == null) row[i] = "";
         }
-        if (row.length > 14) row[14] = row[14].isEmpty() ? "0" : row[14];
-        if (row.length > 15) row[15] = row[15].isEmpty() ? "0" : row[15];
-        if (row.length > 16) row[16] = row[16].isEmpty() ? "0" : row[16];
-        if (row.length > 17) row[17] = row[17].isEmpty() ? "0" : row[17];
+        if (row.length > EmployeeModule.RICE_SUBSIDY && row[EmployeeModule.RICE_SUBSIDY].isEmpty()) {
+            row[EmployeeModule.RICE_SUBSIDY] = "0";
+        }
+        if (row.length > EmployeeModule.PHONE_ALLOWANCE && row[EmployeeModule.PHONE_ALLOWANCE].isEmpty()) {
+            row[EmployeeModule.PHONE_ALLOWANCE] = "0";
+        }
+        if (row.length > EmployeeModule.CLOTHING_ALLOWANCE && row[EmployeeModule.CLOTHING_ALLOWANCE].isEmpty()) {
+            row[EmployeeModule.CLOTHING_ALLOWANCE] = "0";
+        }
+        if (row.length > EmployeeModule.GROSS_SEMI_MONTHLY && row[EmployeeModule.GROSS_SEMI_MONTHLY].isEmpty()) {
+            row[EmployeeModule.GROSS_SEMI_MONTHLY] = "0";
+        }
         return row;
     }
 
