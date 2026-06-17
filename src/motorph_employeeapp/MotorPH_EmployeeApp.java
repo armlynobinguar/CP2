@@ -30,7 +30,7 @@ public class MotorPH_EmployeeApp {
     static final String HR_PASSWORD_LEGACY = "password123";
 
     /** Demo employee portal account maps to this CSV employee record. */
-    static final String EMPLOYEE_DEMO_ID = "10024";
+    static final String EMPLOYEE_DEMO_ID = "10001";
 
     /** Resolves the employee record ID linked to a portal login username. */
     static String getLinkedEmployeeId(String username) {
