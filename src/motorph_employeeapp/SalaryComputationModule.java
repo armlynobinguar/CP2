@@ -3,6 +3,7 @@ package motorph_employeeapp;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -50,6 +51,66 @@ public class SalaryComputationModule {
     public static double lastPagIbig = 0;
     public static double lastTax = 0;
     public static double lastTotalDeductions = 0;
+
+    /** Outcome of validating employee payroll inputs before bulk computation. */
+    public static class PayrollValidationResult {
+        public final List<String> errors;
+        public final List<String> warnings;
+
+        public PayrollValidationResult(List<String> errors, List<String> warnings) {
+            this.errors = errors;
+            this.warnings = warnings == null ? new ArrayList<>() : warnings;
+        }
+
+        public boolean isValid() {
+            return errors == null || errors.isEmpty();
+        }
+    }
+
+    /** Summary row for one employee after bulk salary computation. */
+    public static class EmployeePayrollSummary {
+        public final String employeeId;
+        public final String employeeName;
+        public final double hoursWorked;
+        public final double grossPay;
+        public final double totalDeductions;
+        public final double netPay;
+        public final boolean computed;
+
+        public EmployeePayrollSummary(String employeeId, String employeeName, double hoursWorked,
+                double grossPay, double totalDeductions, double netPay, boolean computed) {
+            this.employeeId = employeeId;
+            this.employeeName = employeeName;
+            this.hoursWorked = hoursWorked;
+            this.grossPay = grossPay;
+            this.totalDeductions = totalDeductions;
+            this.netPay = netPay;
+            this.computed = computed;
+        }
+    }
+
+    /** Result of computing salaries for every employee in the CSV. */
+    public static class BulkPayrollResult {
+        public final boolean savedToFile;
+        public final List<EmployeePayrollSummary> summaries;
+        public final double totalGross;
+        public final double totalDeductions;
+        public final double totalNet;
+        public final int computedCount;
+        public final int skippedCount;
+
+        public BulkPayrollResult(boolean savedToFile, List<EmployeePayrollSummary> summaries,
+                double totalGross, double totalDeductions, double totalNet,
+                int computedCount, int skippedCount) {
+            this.savedToFile = savedToFile;
+            this.summaries = summaries;
+            this.totalGross = totalGross;
+            this.totalDeductions = totalDeductions;
+            this.totalNet = totalNet;
+            this.computedCount = computedCount;
+            this.skippedCount = skippedCount;
+        }
+    }
 
     /**
      * Main payroll routine: aggregates attendance, computes gross per cutoff, applies deductions,
@@ -135,21 +196,22 @@ public class SalaryComputationModule {
         }
 
         // Gross pay = total hours in cutoff × hourly rate from employee master file
-        double grossFirstCutoff = hoursFirstCutoff * hourlyRate;
-        double grossSecondCutoff = hoursSecondCutoff * hourlyRate;
+        double grossFirstCutoff = computeGrossPay(new double[] { hourlyRate }, new double[] { hoursFirstCutoff })[0];
+        double grossSecondCutoff = computeGrossPay(new double[] { hourlyRate }, new double[] { hoursSecondCutoff })[0];
         double totalMonthlyGross = grossFirstCutoff + grossSecondCutoff;
 
         // Statutory deductions computed on full monthly gross, applied on 2nd cutoff net
-        double sss = computeSSS(totalMonthlyGross);
-        double ph = computePhilHealth(totalMonthlyGross);
-        double pi = computePagIBIG(totalMonthlyGross);
+        double sss = computeSSS(new double[] { totalMonthlyGross })[0];
+        double ph = computePhilHealth(new double[] { totalMonthlyGross })[0];
+        double pi = computePagIBIG(new double[] { totalMonthlyGross })[0];
         double taxableIncome = totalMonthlyGross - (sss + ph + pi);
-        double tax = calculateWithholdingTax(taxableIncome);
-        double totalDeduc = sss + ph + pi + tax;
+        double tax = computeWithholdingTax(new double[] { taxableIncome })[0];
+        double totalDeduc = computeDeductions(new double[] { sss }, new double[] { ph },
+                new double[] { pi }, new double[] { tax })[0];
 
         // 1st cutoff: no deductions in this payslip model; 2nd cutoff bears all deductions
         double netSalary1 = grossFirstCutoff;
-        double netSalary2 = grossSecondCutoff - totalDeduc;
+        double netSalary2 = computeNetPay(new double[] { grossSecondCutoff }, new double[] { totalDeduc })[0];
 
         // --- Build payslip text in the GUI result panel ---
         output.append("\n Employee #: " + id);
@@ -235,6 +297,330 @@ public class SalaryComputationModule {
     }
 
     /**
+     * Computes gross pay for each employee using rate × days/hours worked arrays.
+     *
+     * @param ratesPerDay hourly or daily rate values (same length as daysWorked)
+     * @param daysWorked  hours or days worked per employee
+     * @return gross pay per index; 0 when inputs are missing or length mismatch
+     */
+    public static double[] computeGrossPay(double[] ratesPerDay, double[] daysWorked) {
+        if (ratesPerDay == null || daysWorked == null) {
+            return new double[0];
+        }
+        int n = Math.min(ratesPerDay.length, daysWorked.length);
+        double[] gross = new double[n];
+        for (int i = 0; i < n; i++) {
+            if (!Double.isFinite(ratesPerDay[i]) || !Double.isFinite(daysWorked[i])) {
+                gross[i] = 0.0;
+            } else {
+                gross[i] = ratesPerDay[i] * daysWorked[i];
+            }
+        }
+        return gross;
+    }
+
+    /**
+     * Computes SSS contributions for an array of monthly gross salaries.
+     */
+    public static double[] computeSSS(double[] grossPays) {
+        return mapDoubles(grossPays, SalaryComputationModule::computeSSS);
+    }
+
+    /**
+     * Computes PhilHealth contributions for an array of monthly gross salaries.
+     */
+    public static double[] computePhilHealth(double[] grossPays) {
+        return mapDoubles(grossPays, SalaryComputationModule::computePhilHealth);
+    }
+
+    /**
+     * Computes Pag-IBIG contributions for an array of monthly gross salaries.
+     */
+    public static double[] computePagIBIG(double[] grossPays) {
+        return mapDoubles(grossPays, SalaryComputationModule::computePagIBIG);
+    }
+
+    /**
+     * Computes withholding tax for an array of taxable income values.
+     */
+    public static double[] computeWithholdingTax(double[] taxableIncomes) {
+        return mapDoubles(taxableIncomes, SalaryComputationModule::computeWithholdingTax);
+    }
+
+    /**
+     * Sums SSS, PhilHealth, Pag-IBIG, and withholding tax per employee index.
+     */
+    public static double[] computeDeductions(double[] sss, double[] philHealth,
+            double[] pagIbig, double[] withholdingTax) {
+        if (sss == null || philHealth == null || pagIbig == null || withholdingTax == null) {
+            return new double[0];
+        }
+        int n = Math.min(Math.min(sss.length, philHealth.length),
+                Math.min(pagIbig.length, withholdingTax.length));
+        double[] totals = new double[n];
+        for (int i = 0; i < n; i++) {
+            totals[i] = sss[i] + philHealth[i] + pagIbig[i] + withholdingTax[i];
+        }
+        return totals;
+    }
+
+    /**
+     * Computes net pay by subtracting total deductions from gross pay per index.
+     */
+    public static double[] computeNetPay(double[] grossPays, double[] totalDeductions) {
+        if (grossPays == null || totalDeductions == null) {
+            return new double[0];
+        }
+        int n = Math.min(grossPays.length, totalDeductions.length);
+        double[] net = new double[n];
+        for (int i = 0; i < n; i++) {
+            net[i] = grossPays[i] - totalDeductions[i];
+        }
+        return net;
+    }
+
+    /**
+     * Validates numeric payroll inputs for every employee before bulk computation.
+     *
+     * @param employees all employee rows from CSV
+     * @param month     pay coverage month (1–12)
+     * @param year      pay coverage year
+     */
+    public static PayrollValidationResult validatePayrollInputs(List<String[]> employees,
+            String month, String year) {
+        List<String> errors = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+
+        if (month == null || month.trim().isEmpty()) {
+            errors.add("Pay coverage month is required.");
+        } else if (!isValidInteger(month)) {
+            errors.add("Pay coverage month must be a valid number.");
+        } else {
+            int m = Integer.parseInt(month.trim());
+            if (m < 1 || m > 12) {
+                errors.add("Pay coverage month must be between 1 and 12.");
+            }
+        }
+
+        if (year == null || year.trim().isEmpty()) {
+            errors.add("Pay coverage year is required.");
+        } else if (!isValidInteger(year)) {
+            errors.add("Pay coverage year must be a valid number.");
+        }
+
+        if (employees == null || employees.isEmpty()) {
+            errors.add("No employee records were loaded from the CSV file.");
+            return new PayrollValidationResult(errors, warnings);
+        }
+
+        for (String[] emp : employees) {
+            if (emp == null || emp.length == 0 || emp[EmployeeModule.ID] == null
+                    || emp[EmployeeModule.ID].trim().isEmpty()) {
+                errors.add("One or more employee records are missing an Employee Number.");
+                continue;
+            }
+            String id = emp[EmployeeModule.ID].trim();
+            String rateText = emp.length > EmployeeModule.HOURLY_RATE
+                    ? emp[EmployeeModule.HOURLY_RATE] : "";
+            if (rateText == null || rateText.trim().isEmpty()) {
+                errors.add("Employee #" + id + ": Hourly Rate is required.");
+            } else if (!isValidNumber(rateText)) {
+                errors.add("Employee #" + id + ": Hourly Rate must be a valid number.");
+            } else if (EmployeeModule.getHourlyRate(emp) <= 0) {
+                errors.add("Employee #" + id + ": Hourly Rate must be greater than zero.");
+            } else {
+                double hours = sumAttendanceHours(id, month, year);
+                if (hours <= 0) {
+                    warnings.add("Employee #" + id + ": no attendance hours found for the selected period.");
+                }
+            }
+        }
+
+        return new PayrollValidationResult(errors, warnings);
+    }
+
+    /**
+     * Loads all employees, computes salaries for the pay period, updates CSV columns,
+     * and rewrites the employee file.
+     */
+    public static BulkPayrollResult computeAllEmployeeSalaries(String month, String year,
+            javax.swing.JTextArea output) {
+        FileHandlerModule.ensureEmployeeFileSchema();
+        List<String[]> employees = new ArrayList<>(FileHandlerModule.getAllEmployees());
+        PayrollValidationResult validation = validatePayrollInputs(employees, month, year);
+        if (!validation.isValid()) {
+            return new BulkPayrollResult(false, new ArrayList<>(), 0, 0, 0, 0, employees.size());
+        }
+
+        int count = employees.size();
+        double[] rates = new double[count];
+        double[] hoursWorked = new double[count];
+        List<EmployeePayrollSummary> summaries = new ArrayList<>();
+        double runningGross = 0;
+        double runningDeductions = 0;
+        double runningNet = 0;
+        int computedCount = 0;
+        int skippedCount = 0;
+
+        for (int i = 0; i < count; i++) {
+            String[] emp = FileHandlerModule.normalizeEmployeeRow(employees.get(i));
+            employees.set(i, emp);
+            String id = emp[EmployeeModule.ID].trim();
+            rates[i] = EmployeeModule.getHourlyRate(emp);
+            hoursWorked[i] = sumAttendanceHours(id, month, year);
+        }
+
+        double[] grossPays = computeGrossPay(rates, hoursWorked);
+        double[] sss = computeSSS(grossPays);
+        double[] philHealth = computePhilHealth(grossPays);
+        double[] pagIbig = computePagIBIG(grossPays);
+        double[] taxable = new double[count];
+        for (int i = 0; i < count; i++) {
+            taxable[i] = grossPays[i] - (sss[i] + philHealth[i] + pagIbig[i]);
+        }
+        double[] tax = computeWithholdingTax(taxable);
+        double[] totalDeductions = computeDeductions(sss, philHealth, pagIbig, tax);
+        double[] netPays = computeNetPay(grossPays, totalDeductions);
+
+        if (output != null) {
+            output.setText("");
+            output.append("  PAYROLL SUMMARY — " + monthName(month) + " " + year.trim() + "\n");
+            output.append("  All employee salaries computed from attendance hours × hourly rate.\n");
+            output.append("  ────────────────────────────────────────────────────────────────\n\n");
+        }
+
+        for (int i = 0; i < count; i++) {
+            String[] emp = employees.get(i);
+            String id = emp[EmployeeModule.ID].trim();
+            String name = EmployeeModule.fullName(emp);
+            boolean hasHours = hoursWorked[i] > 0;
+            if (hasHours) {
+                emp[EmployeeModule.HOURS_WORKED] = formatAmount(hoursWorked[i]);
+                emp[EmployeeModule.GROSS_PAY] = formatAmount(grossPays[i]);
+                emp[EmployeeModule.TOTAL_DEDUCTIONS] = formatAmount(totalDeductions[i]);
+                emp[EmployeeModule.NET_PAY] = formatAmount(netPays[i]);
+                computedCount++;
+                runningGross += grossPays[i];
+                runningDeductions += totalDeductions[i];
+                runningNet += netPays[i];
+            } else {
+                emp[EmployeeModule.HOURS_WORKED] = "0.00";
+                emp[EmployeeModule.GROSS_PAY] = "0.00";
+                emp[EmployeeModule.TOTAL_DEDUCTIONS] = "0.00";
+                emp[EmployeeModule.NET_PAY] = "0.00";
+                skippedCount++;
+            }
+            summaries.add(new EmployeePayrollSummary(id, name, hoursWorked[i], grossPays[i],
+                    totalDeductions[i], netPays[i], hasHours));
+
+            if (output != null) {
+                output.append(String.format("  #%s  %-28s  Hours %8.2f%n", id, truncate(name, 28), hoursWorked[i]));
+                output.append(String.format("       Gross PHP %,12.2f   Deductions PHP %,12.2f   Net PHP %,12.2f%n%n",
+                        grossPays[i], totalDeductions[i], netPays[i]));
+            }
+        }
+
+        boolean saved = FileHandlerModule.rewriteEmployeeFile(employees);
+        summaryGross = runningGross;
+        summaryDeductions = runningDeductions;
+        summaryNet = runningNet;
+        lastCalculationSucceeded = computedCount > 0;
+
+        if (output != null) {
+            output.append("  ────────────────────────────────────────────────────────────────\n");
+            output.append(String.format("  Processed: %d employee(s) with attendance  •  Skipped: %d%n",
+                    computedCount, skippedCount));
+            output.append(String.format("  Totals — Gross PHP %,.2f  •  Deductions PHP %,.2f  •  Net PHP %,.2f%n",
+                    runningGross, runningDeductions, runningNet));
+            if (saved) {
+                output.append("\n  Employee Details CSV updated with Hours Worked, Gross Pay, "
+                        + "Total Deductions, and Net Pay.");
+            }
+        }
+
+        return new BulkPayrollResult(saved, summaries, runningGross, runningDeductions, runningNet,
+                computedCount, skippedCount);
+    }
+
+    /**
+     * Aggregates billable attendance hours for one employee in a calendar month.
+     */
+    public static double sumAttendanceHours(String employeeId, String month, String year) {
+        if (employeeId == null || employeeId.trim().isEmpty()) {
+            return 0;
+        }
+        double totalHours = 0;
+        List<String> records = FileHandlerModule.findAttendanceData(employeeId.trim());
+        for (String line : records) {
+            String[] row = FileHandlerModule.smartSplit(line);
+            if (row.length < 6) {
+                continue;
+            }
+            String[] dateParts = row[3].split("/");
+            if (dateParts.length < 3) {
+                continue;
+            }
+            try {
+                int inputMonth = Integer.parseInt(month.trim());
+                int inputYear = Integer.parseInt(year.trim());
+                int csvMonth = Integer.parseInt(dateParts[0].trim());
+                int csvYear = Integer.parseInt(dateParts[2].trim());
+                if (csvMonth == inputMonth && csvYear == inputYear) {
+                    totalHours += calculateShift(row[4].trim(), row[5].trim());
+                }
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {
+            }
+        }
+        return totalHours;
+    }
+
+    private static double[] mapDoubles(double[] values, java.util.function.DoubleUnaryOperator fn) {
+        if (values == null) {
+            return new double[0];
+        }
+        double[] mapped = new double[values.length];
+        for (int i = 0; i < values.length; i++) {
+            mapped[i] = fn.applyAsDouble(values[i]);
+        }
+        return mapped;
+    }
+
+    private static boolean isValidNumber(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            Double.parseDouble(value.replace(",", "").trim());
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static boolean isValidInteger(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            Integer.parseInt(value.trim());
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static String formatAmount(double value) {
+        return String.format("%.2f", value);
+    }
+
+    private static String truncate(String text, int maxLen) {
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= maxLen ? text : text.substring(0, maxLen - 1) + "…";
+    }
+
+    /**
      * SSS employee contribution based on monthly salary credit brackets.
      *
      * Uses stepped 500-peso brackets from 3,250 to 24,750 salary credits.
@@ -291,6 +677,13 @@ public class SalaryComputationModule {
         double employeeRate = (salary > 1500) ? 0.02 : 0.01;
         double total = (salary * employeeRate) + (salary * 0.02);
         return Math.min(total, 100.0);
+    }
+
+    /**
+     * BIR withholding tax on taxable income (gross minus SSS, PhilHealth, Pag-IBIG).
+     */
+    public static double computeWithholdingTax(double taxableIncome) {
+        return calculateWithholdingTax(taxableIncome);
     }
 
     /**

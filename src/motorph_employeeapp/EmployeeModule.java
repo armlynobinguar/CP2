@@ -57,7 +57,7 @@ public class EmployeeModule {
     public static final int PAGIBIG = 9;
 
     /** Total number of columns in the Employee Details CSV. */
-    public static final int COLUMN_COUNT = 20;
+    public static final int COLUMN_COUNT = 24;
 
     /** CSV column index: employment status (Regular, Probationary, etc.). */
     public static final int STATUS = 10;
@@ -91,6 +91,18 @@ public class EmployeeModule {
      * Must be parsed with comma stripping before numeric conversion.
      */
     public static final int HOURLY_RATE = 19;
+
+    /** CSV column index: total hours worked for the last computed pay period. */
+    public static final int HOURS_WORKED = 20;
+
+    /** CSV column index: computed gross pay for the last pay period. */
+    public static final int GROSS_PAY = 21;
+
+    /** CSV column index: computed total deductions for the last pay period. */
+    public static final int TOTAL_DEDUCTIONS = 22;
+
+    /** CSV column index: computed net pay for the last pay period. */
+    public static final int NET_PAY = 23;
 
     /**
      * Builds a display name from parsed employee data.

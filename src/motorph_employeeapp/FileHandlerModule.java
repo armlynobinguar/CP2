@@ -168,12 +168,19 @@ public class FileHandlerModule {
     /**
      * Upgrades legacy CSV rows to the current schema and rewrites the file when needed.
      */
+    /** Canonical header row for the Employee Details CSV (24 columns). */
+    public static final String EMPLOYEE_FILE_HEADER =
+            "Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,"
+            + "Status,Position,Department,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,"
+            + "Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate,Hours Worked,Gross Pay,Total Deductions,Net Pay";
+
     public static void ensureEmployeeFileSchema() {
         List<String[]> rawRows = new ArrayList<>();
         boolean needsMigration = false;
         try (BufferedReader br = new BufferedReader(new FileReader(resolveDataFile(EMPLOYEE_FILE)))) {
             String header = br.readLine();
-            if (header == null || !header.toLowerCase().contains("department")) {
+            if (header == null || !header.toLowerCase().contains("department")
+                    || !header.toLowerCase().contains("gross pay")) {
                 needsMigration = true;
             }
             String line;
@@ -215,6 +222,19 @@ public class FileHandlerModule {
             if (normalized[EmployeeModule.DEPARTMENT].isEmpty()) {
                 normalized[EmployeeModule.DEPARTMENT] =
                         DepartmentModule.inferDepartmentFromPosition(normalized[EmployeeModule.POSITION]);
+            }
+            return normalized;
+        }
+        if (row.length > EmployeeModule.HOURLY_RATE) {
+            for (int i = 0; i <= EmployeeModule.HOURLY_RATE; i++) {
+                normalized[i] = row[i] == null ? "" : row[i].trim();
+            }
+            if (normalized[EmployeeModule.DEPARTMENT].isEmpty()) {
+                normalized[EmployeeModule.DEPARTMENT] =
+                        DepartmentModule.inferDepartmentFromPosition(normalized[EmployeeModule.POSITION]);
+            }
+            for (int i = EmployeeModule.HOURS_WORKED; i < EmployeeModule.COLUMN_COUNT; i++) {
+                normalized[i] = "";
             }
             return normalized;
         }
@@ -297,7 +317,7 @@ public class FileHandlerModule {
         } catch (IOException e) {
             System.out.println("Error reading employee header: " + e.getMessage());
         }
-        return "Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,Status,Position,Department,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate";
+        return EMPLOYEE_FILE_HEADER;
     }
 
     /**
@@ -309,7 +329,7 @@ public class FileHandlerModule {
     public static boolean rewriteEmployeeFile(List<String[]> employees) {
         String filePath = resolveDataFile(EMPLOYEE_FILE);
         try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(filePath)))) {
-            out.println("Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,Status,Position,Department,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate");
+            out.println(EMPLOYEE_FILE_HEADER);
             for (String[] row : employees) {
                 out.println(joinCsvLine(normalizeEmployeeRow(row)));
             }

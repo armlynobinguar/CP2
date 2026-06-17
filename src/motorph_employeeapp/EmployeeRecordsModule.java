@@ -51,7 +51,11 @@ public class EmployeeRecordsModule {
              + "Department:            " + safe(emp, EmployeeModule.DEPARTMENT) + "\n"
              + "Immediate Supervisor:  " + safe(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) + "\n"
              + "Basic Salary:          PHP " + safe(emp, EmployeeModule.BASIC_SALARY) + "\n"
-             + "Hourly Rate:           PHP " + safe(emp, EmployeeModule.HOURLY_RATE);
+             + "Hourly Rate:           PHP " + safe(emp, EmployeeModule.HOURLY_RATE) + "\n"
+             + "Hours Worked:          " + safe(emp, EmployeeModule.HOURS_WORKED) + "\n"
+             + "Gross Pay:             PHP " + safe(emp, EmployeeModule.GROSS_PAY) + "\n"
+             + "Total Deductions:      PHP " + safe(emp, EmployeeModule.TOTAL_DEDUCTIONS) + "\n"
+             + "Net Pay:               PHP " + safe(emp, EmployeeModule.NET_PAY);
     }
 
     /**
