@@ -55,6 +55,7 @@ public class BatchPayrollPanel extends JPanel {
     private String searchQuery = "";
     private boolean isBatchMode = true;
     private int hoveredRow = -1;
+    private PayrollResult[] lastComputedResults = null;
 
     private JComboBox<String> cmbMonth;
     private JComboBox<Integer> cmbYear;
@@ -130,6 +131,19 @@ public class BatchPayrollPanel extends JPanel {
         }
     }
 
+    /** Resets selection and button state when the payroll sub-tab changes. */
+    public void onTabChanged() {
+        selectedIds.clear();
+        lastComputedResults = null;
+        if (btnSelectAll != null) {
+            btnSelectAll.setVisible(isBatchMode);
+            btnSelectAll.setText("Select All");
+        }
+        refreshTable();
+        updateSelectionCounter();
+        updateButtonStates();
+    }
+
     private JPanel buildControlsRow() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         panel.setOpaque(false);
@@ -143,6 +157,8 @@ public class BatchPayrollPanel extends JPanel {
 
         cmbMonth = new JComboBox<>(monthOptions());
         cmbMonth.setPreferredSize(new Dimension(160, 40));
+        cmbMonth.setMinimumSize(new Dimension(160, 40));
+        cmbMonth.setMaximumSize(new Dimension(160, 40));
         cmbMonth.addActionListener(e -> reloadEmployees());
 
         cmbYear = new JComboBox<>();
@@ -151,24 +167,30 @@ public class BatchPayrollPanel extends JPanel {
         }
         cmbYear.setSelectedItem(2024);
         cmbYear.setPreferredSize(new Dimension(160, 40));
+        cmbYear.setMinimumSize(new Dimension(160, 40));
+        cmbYear.setMaximumSize(new Dimension(160, 40));
         cmbYear.addActionListener(e -> reloadEmployees());
 
         btnCalculate = new JButton("Calculate Payroll");
         btnCalculate.setBackground(PRIMARY);
         btnCalculate.setForeground(Color.WHITE);
+        btnCalculate.setOpaque(true);
+        btnCalculate.setBorderPainted(false);
         btnCalculate.setPreferredSize(new Dimension(160, 40));
+        btnCalculate.setMinimumSize(new Dimension(160, 40));
         btnCalculate.setFocusPainted(false);
         btnCalculate.setEnabled(false);
-        btnCalculate.addActionListener(e -> handleCalculate());
+        wireCalculateButton();
 
         btnGenerate = new JButton("Generate Payslips");
         btnGenerate.setBackground(Color.WHITE);
         btnGenerate.setForeground(PRIMARY);
         btnGenerate.setBorder(BorderFactory.createLineBorder(PRIMARY));
         btnGenerate.setPreferredSize(new Dimension(160, 40));
+        btnGenerate.setMinimumSize(new Dimension(160, 40));
         btnGenerate.setFocusPainted(false);
         btnGenerate.setEnabled(false);
-        btnGenerate.addActionListener(e -> handleGeneratePayslips());
+        wireGenerateButton();
 
         panel.add(cmbMonth);
         panel.add(cmbYear);
@@ -237,6 +259,8 @@ public class BatchPayrollPanel extends JPanel {
 
         btnSelectAll = new JButton("Select All");
         btnSelectAll.setFocusPainted(false);
+        btnSelectAll.setPreferredSize(new Dimension(100, 40));
+        btnSelectAll.setMinimumSize(new Dimension(100, 40));
         btnSelectAll.setVisible(isBatchMode);
         btnSelectAll.addActionListener(e -> handleSelectAll());
 
@@ -460,6 +484,7 @@ public class BatchPayrollPanel extends JPanel {
     }
 
     private void handleSelectAll() {
+        lastComputedResults = null;
         List<Employee> visible = getVisibleEmployees();
         if (isAllVisibleSelected()) {
             for (Employee employee : visible) {
@@ -478,6 +503,7 @@ public class BatchPayrollPanel extends JPanel {
     }
 
     private void handleToggleRow(String employeeId) {
+        lastComputedResults = null;
         if (selectedIds.contains(employeeId)) {
             selectedIds.remove(employeeId);
         } else {
@@ -490,13 +516,14 @@ public class BatchPayrollPanel extends JPanel {
 
     private void handleClear() {
         selectedIds.clear();
+        lastComputedResults = null;
         searchQuery = "";
         filterDept = "All Departments";
         txtSearch.setText("");
         cmbDepartment.setSelectedIndex(0);
         btnSelectAll.setText("Select All");
         refreshTable();
-        updateSelectionCounter();
+        lblCount.setText(allEmployees.size() + " shown");
         updateButtonStates();
     }
 
@@ -512,7 +539,23 @@ public class BatchPayrollPanel extends JPanel {
     private void updateButtonStates() {
         boolean hasSelection = !selectedIds.isEmpty();
         btnCalculate.setEnabled(hasSelection);
-        btnGenerate.setEnabled(hasSelection);
+        btnGenerate.setEnabled(hasSelection
+                && lastComputedResults != null
+                && lastComputedResults.length > 0);
+    }
+
+    private void wireCalculateButton() {
+        for (java.awt.event.ActionListener listener : btnCalculate.getActionListeners()) {
+            btnCalculate.removeActionListener(listener);
+        }
+        btnCalculate.addActionListener(e -> handleCalculate());
+    }
+
+    private void wireGenerateButton() {
+        for (java.awt.event.ActionListener listener : btnGenerate.getActionListeners()) {
+            btnGenerate.removeActionListener(listener);
+        }
+        btnGenerate.addActionListener(e -> handleGeneratePayslips());
     }
 
     private void handleCalculate() {
@@ -522,41 +565,77 @@ public class BatchPayrollPanel extends JPanel {
                 toCompute.add(employee);
             }
         }
+        if (toCompute.isEmpty()) {
+            JOptionPane.showMessageDialog(owner,
+                    "Please select at least one employee.",
+                    "No Selection",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         Employee[] arr = toCompute.toArray(new Employee[0]);
         List<String> errors = SalaryComputationModule.validateEmployees(arr);
         if (!errors.isEmpty()) {
             JOptionPane.showMessageDialog(owner,
-                    "Cannot compute payroll:\n\n" + String.join("\n", errors),
+                    String.join("\n", errors),
                     "Validation Error",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         PayrollResult[] results = SalaryComputationModule.computeAll(arr);
-        String text = PayrollResultsPanel.buildResultsText(results);
-        double totalNet = 0;
-        for (PayrollResult result : results) {
-            totalNet += result.getNetPay();
-        }
-        resultsPanel.showResults(text, results.length, "✓", PayrollResultsPanel.formatPeso(totalNet));
+        lastComputedResults = results;
+        displayResults(results);
+        updateMetricCards(results);
 
         try {
             CSVHandler.savePayrollResults(java.util.Arrays.asList(results));
             JOptionPane.showMessageDialog(owner,
-                    "Payroll computed and saved successfully for " + results.length + " employees.",
+                    "Payroll computed and saved successfully for "
+                            + results.length + " employees.",
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(owner,
-                    "Payroll computed but could not save to CSV.\nPlease check file permissions.",
+                    "Computed but could not save to CSV.\nCheck file permissions.",
                     "Save Error",
                     JOptionPane.ERROR_MESSAGE);
         }
         updateButtonStates();
     }
 
+    private void displayResults(PayrollResult[] results) {
+        String text = PayrollResultsPanel.buildResultsText(results);
+        double totalNet = 0;
+        for (PayrollResult result : results) {
+            totalNet += result.getNetPay();
+        }
+        resultsPanel.showResults(text, results.length, "✓",
+                PayrollResultsPanel.formatPeso(totalNet));
+        MotorPH_GUI.txtResultArea = resultsPanel.getResultsArea();
+    }
+
+    private void updateMetricCards(PayrollResult[] results) {
+        resultsPanel.updateMetricCards(results);
+    }
+
     private void handleGeneratePayslips() {
-        MotorPH_GUI.runBulkPayrollFromPanel(this);
+        if (lastComputedResults == null || lastComputedResults.length == 0) {
+            JOptionPane.showMessageDialog(owner,
+                    "Please compute payroll first before generating payslips.",
+                    "No Data",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        generatePayslips(lastComputedResults);
+    }
+
+    private void generatePayslips(PayrollResult[] results) {
+        displayResults(results);
+        JOptionPane.showMessageDialog(owner,
+                "Payslips generated for " + results.length + " employee(s).",
+                "Payslips Generated",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void wireExportActions() {

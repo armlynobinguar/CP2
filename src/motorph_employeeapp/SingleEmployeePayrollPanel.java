@@ -84,7 +84,10 @@ public class SingleEmployeePayrollPanel extends JPanel {
         btnCalculate = new JButton("Calculate Payroll");
         btnCalculate.setBackground(BatchPayrollPanel.PRIMARY);
         btnCalculate.setForeground(Color.WHITE);
+        btnCalculate.setOpaque(true);
+        btnCalculate.setBorderPainted(false);
         btnCalculate.setPreferredSize(new Dimension(220, 40));
+        btnCalculate.setMinimumSize(new Dimension(220, 40));
         btnCalculate.setFocusPainted(false);
         btnCalculate.addActionListener(e -> MotorPH_GUI.runPayrollFromSinglePanel(this));
         form.add(btnCalculate, gbc);

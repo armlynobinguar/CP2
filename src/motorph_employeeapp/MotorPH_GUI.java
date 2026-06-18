@@ -3658,22 +3658,20 @@ public class MotorPH_GUI {
         stylePayrollTab(tabSingle, "Single".equals(payrollSubView));
         stylePayrollTab(tabBatch, "Batch".equals(payrollSubView));
 
-        tabSingle.addActionListener(e -> {
-            if (!"Single".equals(payrollSubView)) {
-                payrollSubView = "Single";
-                setupPayrollUI();
-            }
-        });
-        tabBatch.addActionListener(e -> {
-            if (!"Batch".equals(payrollSubView)) {
-                payrollSubView = "Batch";
-                setupPayrollUI();
-            }
-        });
+        tabSingle.addActionListener(e -> switchPayrollSubView("Single"));
+        tabBatch.addActionListener(e -> switchPayrollSubView("Batch"));
 
         tabBar.add(tabSingle);
         tabBar.add(tabBatch);
         return tabBar;
+    }
+
+    private static void switchPayrollSubView(String view) {
+        if (view.equals(payrollSubView)) {
+            return;
+        }
+        payrollSubView = view;
+        setupPayrollUI();
     }
 
     private static void stylePayrollTab(JButton tab, boolean active) {
