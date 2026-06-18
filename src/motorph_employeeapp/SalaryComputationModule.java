@@ -771,4 +771,62 @@ public class SalaryComputationModule {
         }
         return workingPeriods;
     }
+
+    /**
+     * Validates employee payroll inputs before batch computation.
+     */
+    public static List<String> validateEmployees(Employee[] employees) {
+        List<String> errors = new ArrayList<>();
+        if (employees == null) {
+            return errors;
+        }
+        for (Employee employee : employees) {
+            if (employee == null) {
+                continue;
+            }
+            if (employee.getRatePerDay() <= 0) {
+                errors.add("Employee " + employee.getId() + ": ratePerDay must be > 0");
+            }
+            if (employee.getDaysWorked() < 0) {
+                errors.add("Employee " + employee.getId() + ": daysWorked must be >= 0");
+            }
+        }
+        return errors;
+    }
+
+    /**
+     * Computes payroll for each employee using rate × days/hours worked arrays.
+     */
+    public static PayrollResult[] computeAll(Employee[] employees) {
+        if (employees == null || employees.length == 0) {
+            return new PayrollResult[0];
+        }
+        PayrollResult[] results = new PayrollResult[employees.length];
+        double[] rates = new double[employees.length];
+        double[] days = new double[employees.length];
+        for (int i = 0; i < employees.length; i++) {
+            rates[i] = employees[i].getRatePerDay();
+            days[i] = employees[i].getDaysWorked();
+        }
+        double[] grossPays = computeGrossPay(rates, days);
+        double[] sss = computeSSS(grossPays);
+        double[] philHealth = computePhilHealth(grossPays);
+        double[] pagIbig = computePagIBIG(grossPays);
+        double[] taxable = new double[employees.length];
+        for (int i = 0; i < employees.length; i++) {
+            taxable[i] = grossPays[i] - (sss[i] + philHealth[i] + pagIbig[i]);
+        }
+        double[] tax = computeWithholdingTax(taxable);
+        double[] deductions = computeDeductions(sss, philHealth, pagIbig, tax);
+        double[] netPays = computeNetPay(grossPays, deductions);
+
+        for (int i = 0; i < employees.length; i++) {
+            results[i] = new PayrollResult(
+                    employees[i].getId(),
+                    grossPays[i],
+                    deductions[i],
+                    netPays[i]);
+        }
+        return results;
+    }
 }

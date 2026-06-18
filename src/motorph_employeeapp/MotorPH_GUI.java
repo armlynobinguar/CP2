@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -202,6 +203,8 @@ public class MotorPH_GUI {
     static JPanel payrollStatSelectedChip;
     static JPanel payrollStatGeneratedChip;
     static JPanel payrollStatNetChip;
+    static BatchPayrollPanel activeBatchPanel;
+    static SingleEmployeePayrollPanel activeSinglePanel;
 
     // --- Typography: main app screens ---
 
@@ -398,6 +401,88 @@ public class MotorPH_GUI {
     private static final Color PAYROLL_SECTION_BG = new Color(248, 251, 255);
     private static final int PAYROLL_SECTION_GAP = 10;
     private static final int PAYROLL_PAD = 12;
+    private static final int PAYROLL_BAR_INSET = 14;
+    private static final int PAYROLL_LABEL_H = 14;
+    private static final int PAYROLL_FIELD_ROW_GAP = 10;
+    private static final int PAYROLL_SECTION_TITLE_H = 22;
+
+    /** Payroll card with line border only — child positions use {@link #PAYROLL_BAR_INSET}. */
+    private static JPanel createPayrollCard(int width, int height) {
+        JPanel card = new JPanel(null);
+        card.setBackground(PAYROLL_SECTION_BG);
+        card.setBounds(0, 0, width, height);
+        card.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+        return card;
+    }
+
+    /** Inner content width inside a payroll card. */
+    private static int payrollCardInnerW(int cardWidth) {
+        return cardWidth - PAYROLL_BAR_INSET * 2;
+    }
+
+    /**
+     * Computes card height from labeled field rows and optional full-width button rows.
+     */
+    private static int payrollCardHeight(int fieldRows, int buttonRows, boolean withTitle) {
+        int h = PAYROLL_BAR_INSET;
+        if (withTitle) {
+            h += PAYROLL_SECTION_TITLE_H;
+        }
+        if (fieldRows > 0) {
+            h += fieldRows * PAYROLL_LABEL_H + fieldRows * FIELD_HEIGHT;
+            h += Math.max(0, fieldRows - 1) * PAYROLL_FIELD_ROW_GAP;
+        }
+        if (buttonRows > 0) {
+            h += PAYROLL_FIELD_ROW_GAP + buttonRows * FIELD_HEIGHT;
+            if (buttonRows > 1) {
+                h += (buttonRows - 1) * 8;
+            }
+            h += 6;
+        }
+        return h + PAYROLL_BAR_INSET;
+    }
+
+    private static int payrollFieldRowY(int rowIndex, boolean withTitle) {
+        int start = PAYROLL_BAR_INSET + (withTitle ? PAYROLL_SECTION_TITLE_H : 0);
+        return start + rowIndex * (PAYROLL_LABEL_H + FIELD_HEIGHT + PAYROLL_FIELD_ROW_GAP);
+    }
+
+    private static void addPayrollCardTitle(JPanel card, int cardWidth, String title) {
+        JLabel hdr = new JLabel(title);
+        hdr.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        hdr.setForeground(ACCENT_BLUE);
+        hdr.setBounds(PAYROLL_BAR_INSET, PAYROLL_BAR_INSET, cardWidth - PAYROLL_BAR_INSET * 2, 16);
+        card.add(hdr);
+    }
+
+    private static void addPayrollToolbarFieldAt(JPanel bar, int x, int y, String label,
+            JComponent field, int fieldW) {
+        JLabel lbl = createPayrollCaptionLabel(label);
+        lbl.setBounds(x, y, fieldW, PAYROLL_LABEL_H);
+        bar.add(lbl);
+        field.setBounds(x, y + PAYROLL_LABEL_H + 2, fieldW, FIELD_HEIGHT);
+        bar.add(field);
+    }
+
+    private static void addPayrollButtonAt(JPanel bar, JButton button, int x, int y, int width) {
+        preparePayrollActionButton(button);
+        button.setBounds(x, y, Math.max(width, 100), FIELD_HEIGHT);
+        bar.add(button);
+    }
+
+    private static void preparePayrollActionButton(JButton button) {
+        if (button == null) {
+            return;
+        }
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        button.setMargin(new java.awt.Insets(2, 10, 2, 10));
+    }
+
+    private static int payrollButtonMinWidth(String label) {
+        JLabel measure = new JLabel(label);
+        measure.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        return measure.getPreferredSize().width + 28;
+    }
 
     /** Filter/toolbar strip matching the Employee Records screen. */
     private static JPanel createRecordsStyleBar(int width, int height) {
@@ -746,7 +831,7 @@ public class MotorPH_GUI {
         return height;
     }
 
-    /** Employee portal payslip screen — same flat layout as Employee Records. */
+    /** Employee portal payslip screen — card-based layout with correct spacing. */
     private static void setupEmployeePayslipContent() {
         java.awt.Rectangle bounds = getContentBounds();
         int panelW = bounds.width;
@@ -757,39 +842,46 @@ public class MotorPH_GUI {
         panel.setBounds(bounds.x, bounds.y, panelW, panelH);
         panel.setBorder(cardBorder());
 
-        final int filterBarH = 76;
+        final int cardW = panelW - PAYROLL_PAD * 2;
+        final int innerW = payrollCardInnerW(cardW);
+        final int formCardH = payrollCardHeight(2, 1, true);
         int y = PAYROLL_PAD;
 
-        JPanel formBar = createRecordsStyleBar(panelW - PAYROLL_PAD * 2, filterBarH);
-        formBar.setLocation(PAYROLL_PAD, y);
-        panel.add(formBar);
+        JPanel formCard = createPayrollCard(cardW, formCardH);
+        formCard.setLocation(PAYROLL_PAD, y);
+        panel.add(formCard);
+        addPayrollCardTitle(formCard, cardW, "My Payslip");
 
-        int fx = 0;
-        int rowY = 4;
+        int halfW = (innerW - PAYROLL_FIELD_ROW_GAP) / 2;
+        int row1Y = payrollFieldRowY(0, true);
         txtEmployeeNo = createStyledTextField(true);
-        fx = addPayrollToolbarField(formBar, fx, rowY, "Employee #", txtEmployeeNo, 108);
+        addPayrollToolbarFieldAt(formCard, PAYROLL_BAR_INSET, row1Y, "Employee #",
+                txtEmployeeNo, halfW);
         wireEmployeeNumberField(txtEmployeeNo);
 
         txtEmployeeName = createStyledTextField(false);
-        int nameW = Math.max(160, (panelW - PAYROLL_PAD * 2) / 4);
-        fx = addPayrollToolbarField(formBar, fx, rowY, "Full Name", txtEmployeeName, nameW);
+        addPayrollToolbarFieldAt(formCard, PAYROLL_BAR_INSET + halfW + PAYROLL_FIELD_ROW_GAP, row1Y,
+                "Full Name", txtEmployeeName, halfW);
 
+        int row2Y = payrollFieldRowY(1, true);
+        int yearW = 96;
+        int monthW = innerW - yearW - PAYROLL_FIELD_ROW_GAP;
         monthCombo = createPayrollMonthCombo();
-        fx = addPayrollToolbarField(formBar, fx, rowY, "Month", monthCombo, 188);
+        addPayrollToolbarFieldAt(formCard, PAYROLL_BAR_INSET, row2Y, "Month", monthCombo, monthW);
 
         txtYear = createStyledTextField(true);
-        fx = addPayrollToolbarField(formBar, fx, rowY, "Year", txtYear, 80);
+        addPayrollToolbarFieldAt(formCard, PAYROLL_BAR_INSET + monthW + PAYROLL_FIELD_ROW_GAP, row2Y,
+                "Year", txtYear, yearW);
         txtYear.setText("2024");
 
-        int btnW = Math.min(168, formBar.getWidth() - fx - 8);
+        int btnY = payrollFieldRowY(1, true) + PAYROLL_LABEL_H + FIELD_HEIGHT + PAYROLL_FIELD_ROW_GAP + 2;
         JButton btnProcess = new JButton("Generate Payslip");
-        btnProcess.setBounds(Math.max(fx, formBar.getWidth() - btnW), rowY + 16, btnW, FIELD_HEIGHT);
         guiStyleAccentButton(btnProcess);
         btnProcess.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnProcess.addActionListener(e -> runPayrollCalculation());
-        formBar.add(btnProcess);
+        addPayrollButtonAt(formCard, btnProcess, PAYROLL_BAR_INSET, btnY, innerW);
 
-        y += filterBarH + PAYROLL_SECTION_GAP;
+        y += formCardH + PAYROLL_SECTION_GAP;
 
         if (pendingPayrollEmployeeId != null && !pendingPayrollEmployeeId.isEmpty()) {
             txtEmployeeNo.setText(pendingPayrollEmployeeId);
@@ -1446,37 +1538,50 @@ public class MotorPH_GUI {
         });
     }
 
-    private static void exportPayslipToFile() {
-        if (txtResultArea == null || txtResultArea.getText().trim().isEmpty()) {
+    static void exportPayslipToFile() {
+        if (!hasPayrollTextOutput()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Run payroll or generate a payslip before downloading a PDF.",
+                    "No Payroll Output", JOptionPane.WARNING_MESSAGE);
             showToast("Generate a payslip before downloading.", new Color(180, 90, 40));
             return;
         }
-        if (!SalaryComputationModule.lastCalculationSucceeded) {
-            showToast("No payslip data available — select a period with attendance records.", new Color(180, 90, 40));
-            return;
-        }
-        String empId = SalaryComputationModule.lastEmpId;
-        String mName = SalaryComputationModule.lastMonthName;
-        String yr = SalaryComputationModule.lastYear;
-        String defName = "Payslip_" + empId + "_" + mName + "_" + yr + ".pdf";
+
+        boolean useStructuredPayslip = SalaryComputationModule.lastCalculationSucceeded
+                && SalaryComputationModule.lastEmpId != null
+                && !SalaryComputationModule.lastEmpId.trim().isEmpty();
+
+        String empId = useStructuredPayslip ? SalaryComputationModule.lastEmpId : "Payroll";
+        String mName = useStructuredPayslip ? SalaryComputationModule.lastMonthName : "Output";
+        String yr = useStructuredPayslip ? SalaryComputationModule.lastYear : "";
+        String defName = useStructuredPayslip
+                ? "Payslip_" + empId + "_" + mName + "_" + yr + ".pdf"
+                : "Payroll_Output.pdf";
 
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Save Payslip as PDF");
+        chooser.setDialogTitle("Save Payroll as PDF");
         chooser.setSelectedFile(new File(defName));
         chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
-        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION)
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
             return;
+        }
 
         File target = chooser.getSelectedFile();
-        if (!target.getName().toLowerCase().endsWith(".pdf"))
+        if (!target.getName().toLowerCase().endsWith(".pdf")) {
             target = new File(target.getAbsolutePath() + ".pdf");
+        }
 
         try {
-            byte[] pdf = buildPayslipPdf();
+            byte[] pdf = useStructuredPayslip
+                    ? buildPayslipPdf()
+                    : buildPayrollOutputPdf(txtResultArea.getText());
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
                 fos.write(pdf);
             }
-            showToast("Payslip saved: " + target.getName());
+            showToast("PDF saved: " + target.getName());
+            JOptionPane.showMessageDialog(frame,
+                    "Payroll PDF saved successfully.\n" + target.getAbsolutePath(),
+                    "PDF Saved", JOptionPane.INFORMATION_MESSAGE);
             try {
                 java.awt.Desktop.getDesktop().open(target);
             } catch (Exception ignored) {
@@ -1485,7 +1590,49 @@ public class MotorPH_GUI {
             JOptionPane.showMessageDialog(frame,
                     "Could not save PDF: " + ex.getMessage(),
                     "Export Failed", JOptionPane.ERROR_MESSAGE);
+            showToast("PDF export failed.", new Color(200, 60, 60));
         }
+    }
+
+    private static byte[] buildPayrollOutputPdf(String rawText) throws java.io.IOException {
+        String text = sanitizePdfText(rawText == null ? "" : rawText);
+        String[] lines = text.split("\\r?\\n", -1);
+
+        StringBuilder cs = new StringBuilder();
+        cs.append("0.13 0.25 0.55 rg\n50 800 495 42 re\nf\n");
+        cs.append("1 1 1 rg\n");
+        cs.append("BT /F2 21 Tf 247 822 Td (MOTORPH) Tj ET\n");
+        cs.append("BT /F1 9 Tf 201 810 Td (Motor Parts Hub Philippines, Inc.) Tj ET\n");
+        cs.append("BT /F1 8 Tf 209 800 Td (Kalayaan Avenue, Makati City 1200) Tj ET\n");
+        cs.append("0.22 0.42 0.75 rg\n50 784 495 16 re\nf\n");
+        cs.append("1 1 1 rg\n");
+        cs.append("BT /F2 10 Tf 220 789 Td (PAYROLL OUTPUT) Tj ET\n");
+        cs.append("0.13 0.25 0.55 RG\n1 w\n50 781 m 545 781 l S\n0 0 0 RG\n0.5 w\n");
+
+        int y = 766;
+        final int lineHeight = 11;
+        final int minY = 56;
+        final int maxChars = 78;
+        for (String line : lines) {
+            for (String wrapped : wrapPdfLines(line, maxChars)) {
+                if (y < minY) {
+                    break;
+                }
+                cs.append("BT /F1 8.5 Tf 56 ").append(y).append(" Td (")
+                        .append(pdfe(wrapped)).append(") Tj ET\n");
+                y -= lineHeight;
+            }
+        }
+
+        cs.append("0.94 0.95 0.97 rg\n50 40 495 24 re\nf\n");
+        cs.append("0.42 0.44 0.50 rg\n");
+        String genDate = new java.text.SimpleDateFormat("MMMM d, yyyy 'at' h:mm a")
+                .format(new java.util.Date());
+        cs.append("BT /F1 7.5 Tf 56 54 Td (MotorPH Payroll System  |  Generated on ")
+                .append(pdfe(genDate)).append(") Tj ET\n");
+        cs.append("0.13 0.25 0.55 RG\n1 w\n50 40 m 545 40 l 545 842 l 50 842 l h S\n0 0 0 RG\n");
+
+        return assemblePdfBytes(cs.toString());
     }
 
     private static byte[] buildPayslipPdf() throws java.io.IOException {
@@ -1550,15 +1697,15 @@ public class MotorPH_GUI {
 
         // Row 1: Employee # | Pay Period
         cs.append("BT /F2 9 Tf  56 757 Td (Employee No.) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 757 Td (" + pdfe(empId) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf 148 757 Td (" + pdfe(pdfTruncate(empId, 18)) + ") Tj ET\n");
         cs.append("BT /F2 9 Tf 318 757 Td (Pay Period) Tj ET\n");
-        cs.append("BT /F1 9 Tf 398 757 Td (" + pdfe(mName + " " + yr) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf 398 757 Td (" + pdfe(pdfTruncate(mName + " " + yr, 22)) + ") Tj ET\n");
         // Row 2: Full Name
         cs.append("BT /F2 9 Tf  56 743 Td (Full Name) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 743 Td (" + pdfe(empName) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf 148 743 Td (" + pdfe(pdfTruncate(empName, 42)) + ") Tj ET\n");
         // Row 3: Birthday
         cs.append("BT /F2 9 Tf  56 729 Td (Birthday) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 729 Td (" + pdfe(birthday) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf 148 729 Td (" + pdfe(pdfTruncate(birthday, 24)) + ") Tj ET\n");
 
         // Divider
         cs.append("0.78 0.80 0.85 RG\n0.5 w\n50 723 m 545 723 l S\n0 0 0 RG\n");
@@ -1566,7 +1713,7 @@ public class MotorPH_GUI {
         // ── 1ST CUTOFF ──────────────────────────────────────────────────────
         cs.append("0.88 0.92 0.97 rg\n50 710 495 13 re\nf\n");
         cs.append("0.13 0.25 0.55 rg\n");
-        cs.append("BT /F2 8.5 Tf 52 715 Td (1ST CUTOFF   \261   " + pdfe(mName + " 1 - 15, " + yr) + ") Tj ET\n");
+        cs.append("BT /F2 8.5 Tf 52 715 Td (1ST CUTOFF - " + pdfe(mName + " 1 - 15, " + yr) + ") Tj ET\n");
         cs.append("0 0 0 rg\n");
 
         cs.append("BT /F1 9 Tf  56 697 Td (Hours Worked) Tj ET\n");
@@ -1581,7 +1728,7 @@ public class MotorPH_GUI {
         // ── 2ND CUTOFF ──────────────────────────────────────────────────────
         cs.append("0.88 0.92 0.97 rg\n50 646 495 13 re\nf\n");
         cs.append("0.13 0.25 0.55 rg\n");
-        cs.append("BT /F2 8.5 Tf 52 651 Td (2ND CUTOFF   \261   " + pdfe(mName + " 16 - " + lastDay + ", " + yr)
+        cs.append("BT /F2 8.5 Tf 52 651 Td (2ND CUTOFF - " + pdfe(mName + " 16 - " + lastDay + ", " + yr)
                 + ") Tj ET\n");
         cs.append("0 0 0 rg\n");
 
@@ -1643,9 +1790,12 @@ public class MotorPH_GUI {
         // Outer border
         cs.append("0.13 0.25 0.55 RG\n1 w\n50 385 m 545 385 l 545 842 l 50 842 l h S\n0 0 0 RG\n");
 
-        byte[] csBytes = cs.toString().getBytes("ISO-8859-1");
+        return assemblePdfBytes(cs.toString());
+    }
 
-        // Build PDF objects
+    private static byte[] assemblePdfBytes(String contentStream) throws java.io.IOException {
+        byte[] csBytes = contentStream.getBytes("ISO-8859-1");
+
         String s1 = "1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n";
         String s2 = "2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n";
         String s3 = "3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]"
@@ -1683,8 +1833,9 @@ public class MotorPH_GUI {
         int xpos = pos;
 
         StringBuilder xref = new StringBuilder("xref\n0 7\n0000000000 65535 f \n");
-        for (int i = 1; i <= 6; i++)
+        for (int i = 1; i <= 6; i++) {
             xref.append(String.format("%010d 00000 n \n", off[i]));
+        }
         xref.append("trailer\n<</Size 7 /Root 1 0 R>>\nstartxref\n").append(xpos).append("\n%%EOF\n");
 
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
@@ -1701,10 +1852,67 @@ public class MotorPH_GUI {
         return baos.toByteArray();
     }
 
-    private static String pdfe(String s) {
-        if (s == null)
+    private static java.util.List<String> wrapPdfLines(String line, int maxChars) {
+        java.util.List<String> wrapped = new ArrayList<>();
+        if (line == null) {
+            wrapped.add("");
+            return wrapped;
+        }
+        String remaining = line;
+        if (remaining.isEmpty()) {
+            wrapped.add("");
+            return wrapped;
+        }
+        while (remaining.length() > maxChars) {
+            wrapped.add(remaining.substring(0, maxChars));
+            remaining = remaining.substring(maxChars);
+        }
+        wrapped.add(remaining);
+        return wrapped;
+    }
+
+    private static String sanitizePdfText(String value) {
+        if (value == null) {
             return "";
-        return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
+        }
+        return value
+                .replace("═", "=")
+                .replace("—", "-")
+                .replace("–", "-")
+                .replace("•", "-")
+                .replace("…", "...")
+                .replace("\u00B1", "+/-");
+    }
+
+    private static String pdfTruncate(String value, int maxLen) {
+        if (value == null) {
+            return "";
+        }
+        return value.length() <= maxLen ? value : value.substring(0, Math.max(0, maxLen - 3)) + "...";
+    }
+
+    private static String pdfe(String s) {
+        if (s == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder();
+        String cleaned = sanitizePdfText(s);
+        for (int i = 0; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
+            if (c > 255) {
+                continue;
+            }
+            if (c == '\\') {
+                out.append("\\\\");
+            } else if (c == '(') {
+                out.append("\\(");
+            } else if (c == ')') {
+                out.append("\\)");
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     private static String payFmt(double v) {
@@ -1719,19 +1927,33 @@ public class MotorPH_GUI {
         return !text.isEmpty() && !text.startsWith("Results will appear");
     }
 
-    private static void copyPayslipToClipboard() {
+    static void copyPayslipToClipboard() {
         if (!hasPayrollTextOutput()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Run payroll or generate a payslip before copying.",
+                    "Nothing to Copy", JOptionPane.WARNING_MESSAGE);
             showToast("Run payroll or generate a payslip before copying.", new Color(180, 90, 40));
             return;
         }
-        txtResultArea.selectAll();
-        txtResultArea.copy();
-        txtResultArea.setSelectionStart(0);
-        txtResultArea.setSelectionEnd(0);
-        showToast("Payroll output copied to clipboard.");
+        String text = txtResultArea.getText();
+        try {
+            java.awt.datatransfer.StringSelection selection =
+                    new java.awt.datatransfer.StringSelection(text);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(selection, selection);
+            showToast("Payroll output copied to clipboard.");
+            JOptionPane.showMessageDialog(frame,
+                    "Payroll results copied to clipboard.\nYou can paste them into any document or email.",
+                    "Copied to Clipboard", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame,
+                    "Could not copy to clipboard: " + ex.getMessage(),
+                    "Copy Failed", JOptionPane.ERROR_MESSAGE);
+            showToast("Clipboard copy failed.", new Color(200, 60, 60));
+        }
     }
 
-    private static void exportPayrollTextToFile() {
+    static void exportPayrollTextToFile() {
         if (!hasPayrollTextOutput()) {
             showToast("Run payroll or generate a payslip before downloading.", new Color(180, 90, 40));
             return;
@@ -2696,9 +2918,8 @@ public class MotorPH_GUI {
         }
 
         int unread = countUnreadNotifications();
-        String notifLabel = unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
-        addSidebarNavButton(sidebar, notifLabel, 0, btnY, sw, btnH, "Notifications".equals(activePage),
-                e -> showNotificationsUI());
+        addSidebarNavButton(sidebar, "Notifications", 0, btnY, sw, btnH, "Notifications".equals(activePage),
+                e -> showNotificationsUI(), unread);
         btnY += btnH + SIDEBAR_NAV_GAP;
         addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage), e -> showHelpCenterUI());
 
@@ -2743,6 +2964,11 @@ public class MotorPH_GUI {
     /** Left-aligned sidebar nav row with active indicator and hover effect. */
     private static void addSidebarNavButton(JPanel sidebar, String text, int x, int y, int w, int h,
             boolean active, ActionListener action) {
+        addSidebarNavButton(sidebar, text, x, y, w, h, active, action, 0);
+    }
+
+    private static void addSidebarNavButton(JPanel sidebar, String text, int x, int y, int w, int h,
+            boolean active, ActionListener action, int badgeCount) {
         int rowW = w - 16;
         int rowH = h - 2;
         JPanel row = new JPanel(null);
@@ -2752,15 +2978,16 @@ public class MotorPH_GUI {
 
         if (active) {
             JPanel indicator = new JPanel();
-            indicator.setBackground(PALETTE_WHITE);
+            indicator.setBackground(new Color(0x1A56DB));
             indicator.setBounds(0, 8, 3, rowH - 16);
             row.add(indicator);
         }
 
         JButton b = new JButton(text);
-        b.setBounds(0, 0, rowW, rowH);
-        b.setFont(new Font("Segoe UI", active ? Font.BOLD : Font.PLAIN, 13));
-        b.setForeground(active ? PALETTE_WHITE : new Color(175, 200, 240));
+        int textPadRight = badgeCount > 0 ? 34 : 0;
+        b.setBounds(0, 0, rowW - textPadRight, rowH);
+        b.setFont(new Font("SansSerif", active ? Font.BOLD : Font.PLAIN, 14));
+        b.setForeground(active ? PALETTE_WHITE : new Color(0x94A3B8));
         b.setBackground(active ? SIDEBAR_ACTIVE : SIDEBAR_BG);
         b.setOpaque(true);
         b.setFocusPainted(false);
@@ -2768,8 +2995,34 @@ public class MotorPH_GUI {
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
         b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 0));
-        if (action != null)
+        if (action != null) {
             b.addActionListener(action);
+        }
+
+        if (badgeCount > 0) {
+            JLabel badge = new JLabel(String.valueOf(badgeCount), SwingConstants.CENTER) {
+                @Override
+                protected void paintComponent(java.awt.Graphics g) {
+                    java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                    g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0xDC2626));
+                    g2.fillOval(0, 0, getWidth(), getHeight());
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(getFont());
+                    java.awt.FontMetrics fm = g2.getFontMetrics();
+                    String textValue = getText();
+                    int tx = (getWidth() - fm.stringWidth(textValue)) / 2;
+                    int ty = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                    g2.drawString(textValue, tx, ty);
+                    g2.dispose();
+                }
+            };
+            badge.setFont(new Font("SansSerif", Font.BOLD, 10));
+            badge.setBounds(rowW - 28, (rowH - 20) / 2, 20, 20);
+            badge.setOpaque(false);
+            row.add(badge);
+        }
 
         b.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -2786,7 +3039,7 @@ public class MotorPH_GUI {
                 if (!active) {
                     b.setBackground(SIDEBAR_BG);
                     row.setBackground(SIDEBAR_BG);
-                    b.setForeground(new Color(175, 200, 240));
+                    b.setForeground(new Color(0x94A3B8));
                 }
             }
         });
@@ -2860,7 +3113,7 @@ public class MotorPH_GUI {
 
         boolean hasSubtitle = subtitle != null && !subtitle.isEmpty();
         JLabel titleLbl = new JLabel(title);
-        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        titleLbl.setFont(new Font("SansSerif", Font.BOLD, 24));
         titleLbl.setForeground(TEXT_DARK_NAVY);
         titleLbl.setBounds(titleX, hasSubtitle ? 12 : backY + 2, contentW - titleX - CONTENT_PAD, 28);
         topBar.add(titleLbl);
@@ -3374,73 +3627,227 @@ public class MotorPH_GUI {
         outerPanel.setBounds(bounds.x, bounds.y, panelW, panelH);
         outerPanel.setBorder(cardBorder());
 
-        final int actionColW = 108;
-        final int actionPad = 12;
-        final int actionBtnH = 50;
-        final int actionBtnGap = 10;
-        final int actionColTotal = actionColW + actionPad * 2;
-
-        JPanel actionCol = new JPanel(null);
-        actionCol.setBackground(PALETTE_WHITE);
-        actionCol.setBounds(0, 0, actionColTotal, panelH);
-        actionCol.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, CARD_BORDER_COLOR));
-
-        int actionY = 16;
-
-        JButton btnSingle = new JButton("<html><center>Single<br>Employee<br>Payroll</center></html>");
-        btnSingle.setBounds(actionPad, actionY, actionColW, actionBtnH);
-        if ("Single".equals(payrollSubView)) {
-            guiStyleAccentButton(btnSingle);
-        } else {
-            styleStandardButton(btnSingle);
-        }
-        btnSingle.setToolTipText("Compute payroll for a single employee");
-        btnSingle.addActionListener(e -> {
-            payrollSubView = "Single";
-            setupPayrollUI();
-        });
-        actionCol.add(btnSingle);
-
-        actionY += actionBtnH + actionBtnGap;
-
-        JButton btnBatch = new JButton("<html><center>Batch<br>Employee<br>Payroll</center></html>");
-        btnBatch.setBounds(actionPad, actionY, actionColW, actionBtnH);
-        if ("Batch".equals(payrollSubView)) {
-            guiStyleAccentButton(btnBatch);
-        } else {
-            styleStandardButton(btnBatch);
-        }
-        btnBatch.setToolTipText("Compute payroll for multiple employees");
-        btnBatch.addActionListener(e -> {
-            payrollSubView = "Batch";
-            setupPayrollUI();
-        });
-        actionCol.add(btnBatch);
-
-        outerPanel.add(actionCol);
-
-        int contentW = panelW - actionColTotal;
-        JPanel contentPanel = new JPanel(null);
+        JPanel contentPanel = new JPanel(new java.awt.BorderLayout());
         contentPanel.setBackground(PALETTE_WHITE);
-        contentPanel.setBounds(actionColTotal, 0, contentW, panelH);
+        contentPanel.setBounds(0, 0, panelW, panelH);
+        contentPanel.add(buildPayrollTabBar(), java.awt.BorderLayout.NORTH);
 
         if ("Single".equals(payrollSubView)) {
-            setupHrSinglePayrollContent(contentPanel, contentW, panelH);
+            activeSinglePanel = new SingleEmployeePayrollPanel(frame);
+            activeBatchPanel = null;
+            syncGlobalsFromSinglePanel(activeSinglePanel);
+            contentPanel.add(activeSinglePanel, java.awt.BorderLayout.CENTER);
         } else {
-            setupHrBulkPayrollContent(contentPanel, contentW, panelH);
+            activeBatchPanel = new BatchPayrollPanel(frame);
+            activeSinglePanel = null;
+            syncGlobalsFromBatchPanel(activeBatchPanel);
+            contentPanel.add(activeBatchPanel, java.awt.BorderLayout.CENTER);
         }
 
         outerPanel.add(contentPanel);
         frame.add(outerPanel);
     }
 
+    private static JPanel buildPayrollTabBar() {
+        JPanel tabBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        tabBar.setBackground(new Color(0xF3F4F6));
+        tabBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, PayrollResultsPanel.CARD_BORDER));
+
+        JButton tabSingle = new JButton("Single Employee Payroll");
+        JButton tabBatch = new JButton("Batch Employee Payroll");
+        stylePayrollTab(tabSingle, "Single".equals(payrollSubView));
+        stylePayrollTab(tabBatch, "Batch".equals(payrollSubView));
+
+        tabSingle.addActionListener(e -> {
+            if (!"Single".equals(payrollSubView)) {
+                payrollSubView = "Single";
+                setupPayrollUI();
+            }
+        });
+        tabBatch.addActionListener(e -> {
+            if (!"Batch".equals(payrollSubView)) {
+                payrollSubView = "Batch";
+                setupPayrollUI();
+            }
+        });
+
+        tabBar.add(tabSingle);
+        tabBar.add(tabBatch);
+        return tabBar;
+    }
+
+    private static void stylePayrollTab(JButton tab, boolean active) {
+        tab.setFocusPainted(false);
+        tab.setPreferredSize(new Dimension(190, 42));
+        if (active) {
+            tab.setBackground(Color.WHITE);
+            tab.setForeground(new Color(0x1A56DB));
+            tab.setFont(new Font("SansSerif", Font.BOLD, 13));
+            tab.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(0x1A56DB)));
+        } else {
+            tab.setBackground(new Color(0xF3F4F6));
+            tab.setForeground(new Color(0x6B7280));
+            tab.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            tab.setBorder(BorderFactory.createEmptyBorder());
+        }
+    }
+
+    static JTextField createPayrollTextField(boolean editable) {
+        return createStyledTextField(editable);
+    }
+
+    static void wirePayrollEmployeeField(JTextField field) {
+        wireEmployeeNumberField(field);
+    }
+
+    private static void syncGlobalsFromBatchPanel(BatchPayrollPanel panel) {
+        txtResultArea = panel.getResultsPanel().getResultsArea();
+        payrollSelectTable = panel.getEmployeeTable();
+        payrollSelectTableModel = panel.getTableModel();
+    }
+
+    private static void syncGlobalsFromSinglePanel(SingleEmployeePayrollPanel panel) {
+        txtResultArea = panel.getResultsPanel().getResultsArea();
+        txtEmployeeNo = panel.getEmployeeNoField();
+        txtEmployeeName = panel.getEmployeeNameField();
+    }
+
+    static void runBulkPayrollFromPanel(BatchPayrollPanel panel) {
+        if (panel == null || panel.getSelectedIds().isEmpty()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Tick one or more employees in the list, or use Select All.",
+                    "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String actualMonth = String.valueOf(panel.getMonthCombo().getSelectedIndex() + 1);
+        String year = String.valueOf(panel.getYearCombo().getSelectedItem());
+        JTextArea output = panel.getResultsPanel().getResultsArea();
+        output.setText("");
+
+        double totalGross = 0;
+        double totalDed = 0;
+        double totalNet = 0;
+        int processed = 0;
+        int skipped = 0;
+
+        for (String id : panel.getSelectedIds()) {
+            String data = FileHandlerModule.findEmployeeData(id);
+            if (data == null) {
+                skipped++;
+                continue;
+            }
+            String[] emp = FileHandlerModule.smartSplit(data);
+            output.append("\n═══════════════════════════\n");
+            output.append("  EMPLOYEE #" + id + " — " + EmployeeModule.fullName(emp) + "\n");
+            output.append("═══════════════════════════\n");
+            JTextArea chunk = new JTextArea();
+            SalaryComputationModule.calculatePayroll(emp, actualMonth, year, chunk);
+            output.append(chunk.getText());
+            if (SalaryComputationModule.lastCalculationSucceeded) {
+                totalGross += SalaryComputationModule.summaryGross;
+                totalDed += SalaryComputationModule.summaryDeductions;
+                totalNet += SalaryComputationModule.summaryNet;
+                processed++;
+            } else {
+                skipped++;
+            }
+        }
+
+        panel.getResultsPanel().showResults(
+                output.getText(),
+                processed,
+                processed > 0 ? "✓" : "—",
+                processed > 0 ? PayrollResultsPanel.formatPeso(totalNet) : "₱0.00");
+
+        if (processed > 0) {
+            showToast(processed + " payslip(s) generated for selected employees.");
+        } else if (skipped > 0) {
+            JOptionPane.showMessageDialog(frame,
+                    "No attendance data was found for the selected employees in the chosen pay period.",
+                    "No Results", JOptionPane.WARNING_MESSAGE);
+            showToast("No attendance data found for the selected employees.", new Color(180, 90, 40));
+        }
+        txtResultArea = output;
+    }
+
+    static void runPayrollFromSinglePanel(SingleEmployeePayrollPanel panel) {
+        if (panel == null) {
+            return;
+        }
+        txtEmployeeNo = panel.getEmployeeNoField();
+        txtEmployeeName = panel.getEmployeeNameField();
+        txtResultArea = panel.getResultsPanel().getResultsArea();
+        runPayrollCalculationForPeriod(
+                panel.getMonthCombo().getSelectedIndex() + 1,
+                String.valueOf(panel.getYearCombo().getSelectedItem()));
+    }
+
+    private static void runPayrollCalculationForPeriod(int monthNumber, String year) {
+        resetPayrollFieldBorders();
+        List<String> errors = new ArrayList<>();
+        String id = txtEmployeeNo.getText().trim();
+
+        if (id.isEmpty()) {
+            setFieldError(txtEmployeeNo);
+            errors.add("Employee Number is required.");
+        }
+        if (year == null || year.trim().isEmpty()) {
+            errors.add("Pay Coverage Year is required.");
+        } else if (!year.matches("\\d+")) {
+            errors.add("Pay Coverage Year must be numeric.");
+        } else if (!year.equals("2024")) {
+            errors.add("Only year 2024 is currently supported.");
+        }
+        if (!errors.isEmpty()) {
+            if (txtResultArea != null) {
+                txtResultArea.setText(formatPlainBulletList(errors));
+            }
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String actualMonth = String.valueOf(monthNumber);
+        String data = FileHandlerModule.findEmployeeData(id);
+        if (data == null) {
+            List<String> notFound = new ArrayList<>();
+            notFound.add("Employee #" + id + " was not found in the employee records.");
+            if (txtResultArea != null) {
+                txtResultArea.setText(formatPlainBulletList(notFound));
+            }
+            showBulletErrorDialog(frame, notFound, "Employee Not Found", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String[] emp = FileHandlerModule.smartSplit(data);
+        if (txtEmployeeName != null) {
+            txtEmployeeName.setText(EmployeeModule.fullName(emp));
+        }
+        SalaryComputationModule.calculatePayroll(emp, actualMonth, year, txtResultArea);
+
+        if (activeSinglePanel != null) {
+            if (SalaryComputationModule.lastCalculationSucceeded) {
+                activeSinglePanel.getResultsPanel().showResults(
+                        txtResultArea.getText(),
+                        1,
+                        "✓",
+                        PayrollResultsPanel.formatPeso(SalaryComputationModule.summaryNet));
+            } else {
+                activeSinglePanel.getResultsPanel().showResults(
+                        txtResultArea.getText(), 0, "—", "₱0.00");
+            }
+        }
+        if (SalaryComputationModule.lastCalculationSucceeded) {
+            showToast("Payslip generated. Use Copy or Save to export.");
+        }
+    }
+
     /**
-     * HR payroll — flat layout like Employee Records: toolbars, table, results
-     * strip.
+     * HR batch payroll — card-based left column (period, filters, table) and results panel.
      */
     private static void setupHrBulkPayrollContent(JPanel panel, int panelW, int panelH) {
 
-        final int rightW = (int) (panelW * 0.42);
+        final int rightW = Math.max(300, (int) (panelW * 0.40));
         final int leftW = panelW - rightW;
 
         JPanel leftPanel = new JPanel(null);
@@ -3454,92 +3861,101 @@ public class MotorPH_GUI {
         rightPanel.setBounds(leftW, 0, rightW, panelH);
         panel.add(rightPanel);
 
-        final int barW = leftW - PAYROLL_PAD * 2;
-        final int filterBarH = 76;
+        final int cardW = leftW - PAYROLL_PAD * 2;
+        final int innerW = payrollCardInnerW(cardW);
         int y = PAYROLL_PAD;
 
-        JPanel periodBar = createRecordsStyleBar(barW, filterBarH);
-        periodBar.setLocation(PAYROLL_PAD, y);
-        leftPanel.add(periodBar);
+        // ── Pay Period card ──────────────────────────────────────
+        final int periodCardH = payrollCardHeight(1, 2, true);
+        JPanel periodCard = createPayrollCard(cardW, periodCardH);
+        periodCard.setLocation(PAYROLL_PAD, y);
+        leftPanel.add(periodCard);
+        addPayrollCardTitle(periodCard, cardW, "Pay Period");
 
-        int px = 0;
-        int rowY = (filterBarH - 14 - FIELD_HEIGHT) / 2; // = 13
+        int periodRowY = payrollFieldRowY(0, true);
+        int yearW = 88;
+        int monthW = Math.max(120, innerW - yearW - PAYROLL_FIELD_ROW_GAP);
         monthCombo = createPayrollMonthCombo();
-        px = addPayrollToolbarField(periodBar, px, rowY, "Month", monthCombo, 188);
+        addPayrollToolbarFieldAt(periodCard, PAYROLL_BAR_INSET, periodRowY, "Month",
+                monthCombo, monthW);
 
         txtYear = createStyledTextField(true);
-        px = addPayrollToolbarField(periodBar, px, rowY, "Year", txtYear, 80);
+        addPayrollToolbarFieldAt(periodCard, PAYROLL_BAR_INSET + monthW + PAYROLL_FIELD_ROW_GAP,
+                periodRowY, "Year", txtYear, yearW);
         txtYear.setText("2024");
 
-        int btnW = 158;
-        int btnGap = 10;
-        int btnComputeX = periodBar.getWidth() - btnW * 2 - btnGap;
+        int periodBtnY = periodRowY + PAYROLL_LABEL_H + FIELD_HEIGHT + PAYROLL_FIELD_ROW_GAP + 2;
         JButton btnComputeSalaries = new JButton("Calculate Payroll");
-        btnComputeSalaries.setBounds(btnComputeX, rowY + 16, btnW, FIELD_HEIGHT);
         guiStyleAccentButton(btnComputeSalaries);
-        btnComputeSalaries.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnComputeSalaries.addActionListener(e -> runComputeAllSalaries());
-        periodBar.add(btnComputeSalaries);
+        addPayrollButtonAt(periodCard, btnComputeSalaries, PAYROLL_BAR_INSET, periodBtnY, innerW);
 
+        int generateBtnY = periodBtnY + FIELD_HEIGHT + 8;
         JButton btnProcess = new JButton("Generate Payslips");
-        btnProcess.setBounds(btnComputeX + btnW + btnGap, rowY + 16, btnW, FIELD_HEIGHT);
         styleStandardButton(btnProcess);
         btnProcess.addActionListener(e -> runBulkPayrollCalculation());
-        periodBar.add(btnProcess);
+        addPayrollButtonAt(periodCard, btnProcess, PAYROLL_BAR_INSET, generateBtnY, innerW);
 
-        y += filterBarH + 8;
+        y += periodCardH + PAYROLL_SECTION_GAP;
 
-        JPanel filterBar = createRecordsStyleBar(barW, filterBarH);
-        filterBar.setLocation(PAYROLL_PAD, y);
-        leftPanel.add(filterBar);
+        // ── Employee filter card ─────────────────────────────────
+        final int filterCardH = payrollCardHeight(2, 1, true) + 22;
+        JPanel filterCard = createPayrollCard(cardW, filterCardH);
+        filterCard.setLocation(PAYROLL_PAD, y);
+        leftPanel.add(filterCard);
+        addPayrollCardTitle(filterCard, cardW, "Select Employees");
 
-        int filterX = 0;
-        int filterY = (filterBarH - 14 - FIELD_HEIGHT) / 2; // = 13
+        int searchRowY = payrollFieldRowY(0, true);
         txtPayrollEmpSearch = createStyledTextField(true);
         attachPlaceholder(txtPayrollEmpSearch, "Name or employee #");
-        filterX = addPayrollToolbarField(filterBar, filterX, filterY, "Search",
-                txtPayrollEmpSearch, 200);
+        addPayrollToolbarFieldAt(filterCard, PAYROLL_BAR_INSET, searchRowY, "Search",
+                txtPayrollEmpSearch, innerW);
 
+        int deptRowY = payrollFieldRowY(1, true);
         cmbPayrollDeptFilter = new JComboBox<>();
         cmbPayrollDeptFilter.setFont(APP_FONT_PLAIN);
         cmbPayrollDeptFilter.addItem("All Departments");
         for (String dept : DepartmentModule.allDepartments()) {
             cmbPayrollDeptFilter.addItem(dept);
         }
-        int deptW = Math.max(160, filterBar.getWidth() - filterX - 220);
-        filterX = addPayrollToolbarField(filterBar, filterX, filterY, "Department",
-                cmbPayrollDeptFilter, deptW);
+        addPayrollToolbarFieldAt(filterCard, PAYROLL_BAR_INSET, deptRowY, "Department",
+                cmbPayrollDeptFilter, innerW);
 
-        int quickBtnW = 92;
-        int quickX = filterBar.getWidth() - quickBtnW * 2 - 8;
+        int actionRowY = deptRowY + PAYROLL_LABEL_H + FIELD_HEIGHT + PAYROLL_FIELD_ROW_GAP + 2;
+        int quickGap = 10;
+        int selectAllW = Math.max(payrollButtonMinWidth("Select All"),
+                (innerW - quickGap) / 2);
+        int clearW = innerW - selectAllW - quickGap;
+
         JButton btnSelectAll = new JButton("Select All");
-        btnSelectAll.setBounds(quickX, filterY + 16, quickBtnW, FIELD_HEIGHT);
         styleStandardButton(btnSelectAll);
         btnSelectAll.setToolTipText("Select all employees currently shown in the table");
         btnSelectAll.addActionListener(e -> setAllPayrollRowsChecked(true));
-        filterBar.add(btnSelectAll);
+        addPayrollButtonAt(filterCard, btnSelectAll, PAYROLL_BAR_INSET, actionRowY, selectAllW);
 
         JButton btnClearSel = new JButton("Clear");
-        btnClearSel.setBounds(quickX + quickBtnW + 8, filterY + 16, quickBtnW, FIELD_HEIGHT);
         styleStandardButton(btnClearSel);
         btnClearSel.setToolTipText("Clear all checkboxes in the table");
         btnClearSel.addActionListener(e -> setAllPayrollRowsChecked(false));
-        filterBar.add(btnClearSel);
+        addPayrollButtonAt(filterCard, btnClearSel,
+                PAYROLL_BAR_INSET + selectAllW + quickGap, actionRowY, clearW);
 
+        int statusY = actionRowY + FIELD_HEIGHT + 8;
         lblPayrollSelectionCount = new JLabel("0 selected");
         lblPayrollSelectionCount.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPayrollSelectionCount.setForeground(ACCENT_BLUE);
-        lblPayrollSelectionCount.setBounds(Math.max(0, quickX - 104), filterY + 20, 96, 16);
-        filterBar.add(lblPayrollSelectionCount);
+        lblPayrollSelectionCount.setBounds(PAYROLL_BAR_INSET, statusY, 120, 16);
+        filterCard.add(lblPayrollSelectionCount);
 
         lblPayrollVisibleCount = new JLabel("");
         lblPayrollVisibleCount.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPayrollVisibleCount.setForeground(TEXT_MUTED);
-        lblPayrollVisibleCount.setBounds(filterBar.getWidth() - 220, filterY, 208, 14);
+        lblPayrollVisibleCount.setBounds(PAYROLL_BAR_INSET + 120, statusY,
+                innerW - 120, 16);
         lblPayrollVisibleCount.setHorizontalAlignment(SwingConstants.RIGHT);
-        filterBar.add(lblPayrollVisibleCount);
+        filterCard.add(lblPayrollVisibleCount);
 
-        y += filterBarH + 8;
+        y += filterCardH + PAYROLL_SECTION_GAP;
 
         payrollSelectTableModel = new DefaultTableModel(
                 new String[] { "", "Employee #", "Name", "Department", "Status" }, 0) {
@@ -3596,68 +4012,60 @@ public class MotorPH_GUI {
             }
         });
 
-        int tableH = Math.max(160, panelH - y - PAYROLL_PAD);
-        configurePayrollSelectTableColumns(payrollSelectTable, barW);
+        int tableH = Math.max(140, panelH - y - PAYROLL_PAD);
+        configurePayrollSelectTableColumns(payrollSelectTable, cardW);
         JScrollPane empScroll = new JScrollPane(payrollSelectTable);
-        empScroll.setBounds(PAYROLL_PAD, y, barW, tableH);
+        empScroll.setBounds(PAYROLL_PAD, y, cardW, tableH);
         styleEmployeeRecordsScrollPane(empScroll);
         leftPanel.add(empScroll);
-        y += tableH + PAYROLL_SECTION_GAP;
 
         refreshPayrollEmployeeList.run();
 
         addPayrollOutputBlock(rightPanel, 0, rightW, panelH,
-                "Employees", "Computed", "Total Net Pay");
-
+                "Gross Pay", "Total Deductions", "Net Pay");
     }
 
     private static void setupHrSinglePayrollContent(JPanel panel, int panelW, int panelH) {
-        final int rightW = (int) (panelW * 0.60);
+        final int rightW = Math.max(340, (int) (panelW * 0.55));
         final int leftW = panelW - rightW;
-
-        JPanel leftPanel = new JPanel(null);
-        leftPanel.setBackground(PALETTE_WHITE);
-        leftPanel.setBounds(0, 0, leftW, panelH);
-        leftPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, CARD_BORDER_COLOR));
-        panel.add(leftPanel);
 
         JPanel rightPanel = new JPanel(null);
         rightPanel.setBackground(PALETTE_WHITE);
         rightPanel.setBounds(leftW, 0, rightW, panelH);
         panel.add(rightPanel);
 
-        // ── LEFT COLUMN ──────────────────────────────────────────
-        final int lw = leftW - PAYROLL_PAD * 2;
-        final int innerW = lw - PAYROLL_PAD * 2; // accounts for bar's own left+right padding
-        final int barH = 60;
-        final int cardH = 76;
-        int rowY = (barH - 14 - FIELD_HEIGHT) / 2;
+        JPanel leftScrollContent = new JPanel(null);
+        leftScrollContent.setBackground(PALETTE_WHITE);
+
+        final int cardW = leftW - PAYROLL_PAD * 2;
+        final int innerW = payrollCardInnerW(cardW);
         int y = PAYROLL_PAD;
 
-        // Employee # input bar
-        JPanel empBar = createRecordsStyleBar(lw, barH);
-        empBar.setLocation(PAYROLL_PAD, y);
-        JLabel empNoLbl = createPayrollCaptionLabel("Employee #");
-        empNoLbl.setBounds(PAYROLL_PAD, rowY, innerW, 14);
-        empBar.add(empNoLbl);
-        txtEmployeeNo = createStyledTextField(true);
-        txtEmployeeNo.setBounds(PAYROLL_PAD, rowY + 16, innerW, FIELD_HEIGHT);
-        empBar.add(txtEmployeeNo);
-        wireEmployeeNumberField(txtEmployeeNo);
-        leftPanel.add(empBar);
-        y += barH + PAYROLL_SECTION_GAP;
+        // Employee # card
+        final int empCardH = payrollCardHeight(1, 0, true);
+        JPanel empCard = createPayrollCard(cardW, empCardH);
+        empCard.setLocation(PAYROLL_PAD, y);
+        leftScrollContent.add(empCard);
+        addPayrollCardTitle(empCard, cardW, "Employee Lookup");
 
-        // txtEmployeeName is required internally by validateEmployeeNumberField
+        int empRowY = payrollFieldRowY(0, true);
+        txtEmployeeNo = createStyledTextField(true);
+        addPayrollToolbarFieldAt(empCard, PAYROLL_BAR_INSET, empRowY, "Employee #",
+                txtEmployeeNo, innerW);
+        wireEmployeeNumberField(txtEmployeeNo);
+        y += empCardH + PAYROLL_SECTION_GAP;
+
         txtEmployeeName = createStyledTextField(false);
 
-        // Employee info card
-        JPanel empCard = createRecordsStyleBar(lw, cardH);
-        empCard.setLocation(PAYROLL_PAD, y);
+        // Profile summary card
+        final int profileCardH = 84;
+        JPanel profileCard = createPayrollCard(cardW, profileCardH);
+        profileCard.setLocation(PAYROLL_PAD, y);
 
-        final int avatarSize = 44;
+        final int avatarSize = 48;
         JPanel avatarBox = new JPanel(null);
         avatarBox.setBackground(new Color(230, 241, 251));
-        avatarBox.setBounds(PAYROLL_PAD, (cardH - avatarSize) / 2, avatarSize, avatarSize);
+        avatarBox.setBounds(PAYROLL_BAR_INSET, (profileCardH - avatarSize) / 2, avatarSize, avatarSize);
         avatarBox.setBorder(BorderFactory.createLineBorder(new Color(185, 212, 244), 1));
         JLabel avatarLbl = new JLabel("—");
         avatarLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -3665,55 +4073,45 @@ public class MotorPH_GUI {
         avatarLbl.setHorizontalAlignment(SwingConstants.CENTER);
         avatarLbl.setBounds(0, 0, avatarSize, avatarSize);
         avatarBox.add(avatarLbl);
-        empCard.add(avatarBox);
+        profileCard.add(avatarBox);
 
-        int cardTextX = PAYROLL_PAD + avatarSize + 10;
-        int cardTextW = lw - cardTextX - PAYROLL_PAD;
+        int cardTextX = PAYROLL_BAR_INSET + avatarSize + 12;
+        int cardTextW = cardW - cardTextX - PAYROLL_BAR_INSET;
         JLabel lblCardName = new JLabel("Enter an employee number");
         lblCardName.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblCardName.setForeground(TEXT_DARK_NAVY);
-        lblCardName.setBounds(cardTextX, 18, cardTextW, 18);
-        empCard.add(lblCardName);
+        lblCardName.setBounds(cardTextX, 22, cardTextW, 18);
+        profileCard.add(lblCardName);
 
         JLabel lblCardInfo = new JLabel(" ");
         lblCardInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblCardInfo.setForeground(TEXT_MUTED);
-        lblCardInfo.setBounds(cardTextX, 40, cardTextW, 14);
-        empCard.add(lblCardInfo);
+        lblCardInfo.setBounds(cardTextX, 46, cardTextW, 14);
+        profileCard.add(lblCardInfo);
+        leftScrollContent.add(profileCard);
+        y += profileCardH + PAYROLL_SECTION_GAP;
 
-        leftPanel.add(empCard);
-        y += cardH + PAYROLL_SECTION_GAP;
-
-        // Employment section
-        final int empInfoH = 90;
-        JPanel empInfoBar = createRecordsStyleBar(lw, empInfoH);
-        empInfoBar.setLocation(PAYROLL_PAD, y);
-
-        JLabel hdrEmployment = new JLabel("Employment");
-        hdrEmployment.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        hdrEmployment.setForeground(ACCENT_BLUE);
-        hdrEmployment.setBounds(PAYROLL_PAD, 8, lw - PAYROLL_PAD * 2, 14);
-        empInfoBar.add(hdrEmployment);
+        // Employment card
+        final int empInfoH = 98;
+        JPanel empInfoCard = createPayrollCard(cardW, empInfoH);
+        empInfoCard.setLocation(PAYROLL_PAD, y);
+        addPayrollCardTitle(empInfoCard, cardW, "Employment");
 
         JLabel valPosition = new JLabel("—");
         JLabel valSupervisor = new JLabel("—");
         JLabel valDepartment = new JLabel("—");
-        addEmpDetailRow(empInfoBar, PAYROLL_PAD, 26, innerW, "Position", valPosition);
-        addEmpDetailRow(empInfoBar, PAYROLL_PAD, 46, innerW, "Department", valDepartment);
-        addEmpDetailRow(empInfoBar, PAYROLL_PAD, 66, innerW, "Supervisor", valSupervisor);
-        leftPanel.add(empInfoBar);
+        int detailW = innerW;
+        addEmpDetailRow(empInfoCard, PAYROLL_BAR_INSET, 42, detailW, "Position", valPosition);
+        addEmpDetailRow(empInfoCard, PAYROLL_BAR_INSET, 62, detailW, "Department", valDepartment);
+        addEmpDetailRow(empInfoCard, PAYROLL_BAR_INSET, 82, detailW, "Supervisor", valSupervisor);
+        leftScrollContent.add(empInfoCard);
         y += empInfoH + PAYROLL_SECTION_GAP;
 
-        // Compensation section
-        final int compInfoH = 148;
-        JPanel compInfoBar = createRecordsStyleBar(lw, compInfoH);
-        compInfoBar.setLocation(PAYROLL_PAD, y);
-
-        JLabel hdrComp = new JLabel("Compensation");
-        hdrComp.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        hdrComp.setForeground(ACCENT_BLUE);
-        hdrComp.setBounds(PAYROLL_PAD, 8, lw - PAYROLL_PAD * 2, 14);
-        compInfoBar.add(hdrComp);
+        // Compensation card
+        final int compInfoH = 156;
+        JPanel compInfoCard = createPayrollCard(cardW, compInfoH);
+        compInfoCard.setLocation(PAYROLL_PAD, y);
+        addPayrollCardTitle(compInfoCard, cardW, "Compensation");
 
         JLabel valBasicSalary = new JLabel("—");
         JLabel valRiceSubsidy = new JLabel("—");
@@ -3721,16 +4119,15 @@ public class MotorPH_GUI {
         JLabel valClothingAllow = new JLabel("—");
         JLabel valGrossSemiMo = new JLabel("—");
         JLabel valHourlyRate = new JLabel("—");
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 26, innerW, "Basic Salary", valBasicSalary);
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 46, innerW, "Rice Subsidy", valRiceSubsidy);
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 66, innerW, "Phone Allowance", valPhoneAllowance);
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 86, innerW, "Clothing Allowance", valClothingAllow);
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 106, innerW, "Gross Semi-monthly", valGrossSemiMo);
-        addEmpDetailRow(compInfoBar, PAYROLL_PAD, 126, innerW, "Hourly Rate", valHourlyRate);
-        leftPanel.add(compInfoBar);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 42, detailW, "Basic Salary", valBasicSalary);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 62, detailW, "Rice Subsidy", valRiceSubsidy);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 82, detailW, "Phone Allowance", valPhoneAllowance);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 102, detailW, "Clothing Allowance", valClothingAllow);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 122, detailW, "Gross Semi-monthly", valGrossSemiMo);
+        addEmpDetailRow(compInfoCard, PAYROLL_BAR_INSET, 142, detailW, "Hourly Rate", valHourlyRate);
+        leftScrollContent.add(compInfoCard);
         y += compInfoH + PAYROLL_SECTION_GAP;
 
-        // Wire card auto-population on key release
         txtEmployeeNo.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -3789,37 +4186,43 @@ public class MotorPH_GUI {
             }
         });
 
-        // Pay period bar
-        JPanel periodBar = createRecordsStyleBar(lw, barH);
-        periodBar.setLocation(PAYROLL_PAD, y);
-        int monthW = (int) (innerW * 0.62);
-        int yearX = PAYROLL_PAD + monthW + 8;
-        int yearW = innerW - monthW - 8;
-        JLabel monthLbl = createPayrollCaptionLabel("Month");
-        monthLbl.setBounds(PAYROLL_PAD, rowY, monthW, 14);
-        periodBar.add(monthLbl);
-        monthCombo = createPayrollMonthCombo();
-        monthCombo.setBounds(PAYROLL_PAD, rowY + 16, monthW, FIELD_HEIGHT);
-        periodBar.add(monthCombo);
-        JLabel yearLbl = createPayrollCaptionLabel("Year");
-        yearLbl.setBounds(yearX, rowY, yearW, 14);
-        periodBar.add(yearLbl);
-        txtYear = createStyledTextField(true);
-        txtYear.setBounds(yearX, rowY + 16, yearW, FIELD_HEIGHT);
-        txtYear.setText("2024");
-        periodBar.add(txtYear);
-        leftPanel.add(periodBar);
-        y += barH + PAYROLL_SECTION_GAP;
+        // Pay period card
+        final int periodCardH = payrollCardHeight(1, 1, true);
+        JPanel periodCard = createPayrollCard(cardW, periodCardH);
+        periodCard.setLocation(PAYROLL_PAD, y);
+        leftScrollContent.add(periodCard);
+        addPayrollCardTitle(periodCard, cardW, "Pay Period");
 
-        // Calculate Payroll button — full width
+        int periodRowY = payrollFieldRowY(0, true);
+        int yearW = 96;
+        int monthW = innerW - yearW - PAYROLL_FIELD_ROW_GAP;
+        monthCombo = createPayrollMonthCombo();
+        addPayrollToolbarFieldAt(periodCard, PAYROLL_BAR_INSET, periodRowY, "Month",
+                monthCombo, monthW);
+
+        txtYear = createStyledTextField(true);
+        addPayrollToolbarFieldAt(periodCard, PAYROLL_BAR_INSET + monthW + PAYROLL_FIELD_ROW_GAP,
+                periodRowY, "Year", txtYear, yearW);
+        txtYear.setText("2024");
+
+        int periodBtnY = periodRowY + PAYROLL_LABEL_H + FIELD_HEIGHT + PAYROLL_FIELD_ROW_GAP + 2;
         JButton btnProcess = new JButton("Calculate Payroll");
-        btnProcess.setBounds(PAYROLL_PAD, y, lw, 40);
         guiStyleAccentButton(btnProcess);
         btnProcess.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnProcess.addActionListener(e -> runPayrollCalculation());
-        leftPanel.add(btnProcess);
+        addPayrollButtonAt(periodCard, btnProcess, PAYROLL_BAR_INSET, periodBtnY, innerW);
 
-        // ── RIGHT COLUMN ─────────────────────────────────────────
+        y += periodCardH + PAYROLL_PAD;
+        leftScrollContent.setPreferredSize(new Dimension(leftW, y));
+        leftScrollContent.setSize(leftW, y);
+
+        JScrollPane leftScroll = new JScrollPane(leftScrollContent);
+        leftScroll.setBounds(0, 0, leftW, panelH);
+        leftScroll.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, CARD_BORDER_COLOR));
+        leftScroll.getVerticalScrollBar().setUnitIncrement(16);
+        leftScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        panel.add(leftScroll);
+
         addPayrollOutputBlock(rightPanel, 0, rightW, panelH,
                 "Gross Pay", "Deductions", "Net Pay");
     }
@@ -3861,15 +4264,6 @@ public class MotorPH_GUI {
             return;
         }
 
-        int checkedCount = countCheckedPayrollRows();
-        if (checkedCount < 2) {
-            JOptionPane.showMessageDialog(frame,
-                    "Batch payroll requires at least 2 employees selected.\n"
-                            + "Please tick 2 or more employees in the list before computing.",
-                    "Insufficient Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
         resetPayrollFieldBorders();
         List<String> errors = new ArrayList<>();
         String year = txtYear.getText().trim();
@@ -3893,87 +4287,72 @@ public class MotorPH_GUI {
         }
 
         String actualMonth = String.valueOf(MONTH_NUMBERS[monthCombo.getSelectedIndex()]);
-        java.util.List<Integer> selectedRows = getCheckedPayrollModelRows();
-
-        // Build filtered employee list for validation
-        java.util.List<String[]> selectedEmps = new java.util.ArrayList<>();
-        for (int modelRow : selectedRows) {
-            String id = String.valueOf(payrollSelectTableModel.getValueAt(modelRow, 1)).trim();
-            String data = FileHandlerModule.findEmployeeData(id);
-            if (data != null) {
-                selectedEmps.add(FileHandlerModule.smartSplit(data));
-            }
+        FileHandlerModule.ensureEmployeeFileSchema();
+        java.util.List<String[]> allEmployees = new java.util.ArrayList<>(FileHandlerModule.getAllEmployees());
+        if (allEmployees.isEmpty()) {
+            JOptionPane.showMessageDialog(frame,
+                    "No employee records were loaded from the CSV file.",
+                    "Missing Data", JOptionPane.WARNING_MESSAGE);
+            return;
         }
 
         SalaryComputationModule.PayrollValidationResult validation = SalaryComputationModule
-                .validatePayrollInputs(selectedEmps, actualMonth, year);
+                .validatePayrollInputs(allEmployees, actualMonth, year);
         if (!validation.isValid()) {
             showBulletErrorDialog(frame, validation.errors, "Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
         if (!validation.warnings.isEmpty()) {
             int choice = JOptionPane.showConfirmDialog(frame,
-                    "Some selected employees have no attendance for this period.\n"
-                            + "Continue with salary computation for the selected employees?",
+                    "Some employees have no attendance for this period.\n"
+                            + "Continue with salary computation for all employees?",
                     "Attendance Warning", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (choice != JOptionPane.OK_OPTION) {
                 return;
             }
         }
 
-        txtResultArea.setText("");
-        double totalGross = 0, totalDed = 0, totalNet = 0;
-        int processed = 0, skipped = 0;
+        SalaryComputationModule.BulkPayrollResult result = SalaryComputationModule
+                .computeAllEmployeeSalaries(actualMonth, year, txtResultArea);
 
-        for (int modelRow : selectedRows) {
-            String id = String.valueOf(payrollSelectTableModel.getValueAt(modelRow, 1)).trim();
-            String data = FileHandlerModule.findEmployeeData(id);
-            if (data == null) {
-                skipped++;
-                continue;
-            }
-            String[] emp = FileHandlerModule.smartSplit(data);
-            txtResultArea.append("\n═══════════════════════════\n");
-            txtResultArea.append("  EMPLOYEE #" + id + " — " + EmployeeModule.fullName(emp) + "\n");
-            txtResultArea.append("═══════════════════════════\n");
-            javax.swing.JTextArea chunk = new javax.swing.JTextArea();
-            SalaryComputationModule.calculatePayroll(emp, actualMonth, year, chunk);
-            txtResultArea.append(chunk.getText());
-            if (SalaryComputationModule.lastCalculationSucceeded) {
-                totalGross += SalaryComputationModule.summaryGross;
-                totalDed += SalaryComputationModule.summaryDeductions;
-                totalNet += SalaryComputationModule.summaryNet;
-                processed++;
-            } else {
-                skipped++;
-            }
-        }
-
-        setPayrollStatChipValue(payrollStatSelectedChip, String.valueOf(selectedRows.size()));
-        setPayrollStatChipValue(payrollStatGeneratedChip, String.valueOf(processed));
+        setPayrollStatChipValue(payrollStatSelectedChip,
+                result.totalGross > 0 ? String.format("PHP %,.2f", result.totalGross) : "PHP 0.00");
+        setPayrollStatChipValue(payrollStatGeneratedChip,
+                result.totalDeductions > 0 ? String.format("PHP %,.2f", result.totalDeductions) : "PHP 0.00");
         setPayrollStatChipValue(payrollStatNetChip,
-                processed > 0 ? String.format("PHP %,.2f", totalNet) : "PHP 0.00");
+                result.computedCount > 0 ? String.format("PHP %,.2f", result.totalNet) : "PHP 0.00");
 
         if (lblPayrollSummary != null) {
-            if (processed > 0) {
+            if (result.computedCount > 0) {
                 lblPayrollSummary.setForeground(ACCENT_BLUE);
                 lblPayrollSummary.setText(String.format(
-                        "%d of %d selected  •  Gross PHP %,.2f  •  Deductions PHP %,.2f  •  Net PHP %,.2f",
-                        processed, selectedRows.size(), totalGross, totalDed, totalNet));
+                        "%d of %d employee(s) computed  •  Gross PHP %,.2f  •  Deductions PHP %,.2f  •  Net PHP %,.2f",
+                        result.computedCount, allEmployees.size(),
+                        result.totalGross, result.totalDeductions, result.totalNet));
             } else {
                 lblPayrollSummary.setForeground(new Color(200, 60, 60));
                 lblPayrollSummary.setText("No salaries computed — check attendance data for the selected period.");
             }
         }
 
-        if (processed > 0) {
-            showToast(processed + " salary record(s) computed for selected employees.");
+        if (result.savedToFile && result.computedCount > 0) {
+            JOptionPane.showMessageDialog(frame,
+                    "Salary computation complete.\n"
+                            + result.computedCount + " employee record(s) processed and saved.\n"
+                            + "Gross Pay, Total Deductions, and Net Pay were written to the Employee Details CSV.",
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+            showToast(result.computedCount + " salary record(s) computed and saved to CSV.");
+        } else if (!result.savedToFile) {
+            JOptionPane.showMessageDialog(frame,
+                    "Salary computation finished but the CSV file could not be updated.\n"
+                            + "Please check file permissions and try again.",
+                    "Save Error", JOptionPane.ERROR_MESSAGE);
+            showToast("Failed to save results to CSV.", new Color(200, 60, 60));
         } else {
             JOptionPane.showMessageDialog(frame,
-                    "No attendance data was found for the selected employees in the chosen pay period.",
+                    "No attendance data was found for any employee in the chosen pay period.",
                     "No Results", JOptionPane.WARNING_MESSAGE);
             showToast("No attendance data found for the selected period.", new Color(180, 90, 40));
-
         }
     }
 
