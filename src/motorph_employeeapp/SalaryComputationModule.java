@@ -695,18 +695,19 @@ public class SalaryComputationModule {
      * @return withholding tax amount in PHP
      */
     public static double calculateWithholdingTax(double taxableIncome) {
-        if (taxableIncome <= 20832)
+        // 2023 TRAIN law (RA 10963 2nd tranche) monthly brackets
+        if (taxableIncome <= 20833)
             return 0;
-        else if (taxableIncome < 33333)
-            return (taxableIncome - 20833) * 0.20;
-        else if (taxableIncome < 66667)
-            return 2500 + (taxableIncome - 33333) * 0.25;
-        else if (taxableIncome < 166667)
-            return 10833 + (taxableIncome - 66667) * 0.30;
-        else if (taxableIncome < 666667)
-            return 40833.33 + (taxableIncome - 166667) * 0.32;
+        else if (taxableIncome <= 33333)
+            return (taxableIncome - 20833) * 0.15;
+        else if (taxableIncome <= 66667)
+            return 1875 + (taxableIncome - 33333) * 0.20;
+        else if (taxableIncome <= 166667)
+            return 8541.80 + (taxableIncome - 66667) * 0.25;
+        else if (taxableIncome <= 666667)
+            return 33541.80 + (taxableIncome - 166667) * 0.30;
         else
-            return 200833.33 + (taxableIncome - 666667) * 0.35;
+            return 183541.80 + (taxableIncome - 666667) * 0.35;
     }
 
     /**
