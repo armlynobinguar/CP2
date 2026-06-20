@@ -338,7 +338,8 @@ public class MotorPH_GUI {
         int y = PAGE_TOP;
         int w = getVisibleWidth() - SIDEBAR_WIDTH - CONTENT_PAD * 2;
         int h = getVisibleHeight() - PAGE_TOP - CONTENT_PAD;
-        return new java.awt.Rectangle(x, y, Math.max(480, w), Math.max(320, h));
+        // Use actual viewport size so panels (e.g. dashboard calendar) are not placed off-screen.
+        return new java.awt.Rectangle(x, y, Math.max(0, w), Math.max(0, h));
     }
 
     private static javax.swing.border.Border cardBorder() {
@@ -1237,6 +1238,9 @@ public class MotorPH_GUI {
                 setupPayrollUI();
                 break;
             case "My Profile":
+                showEmployeeLookupUI();
+                break;
+            case "Directory":
                 showEmployeeLookupUI();
                 break;
             case "Notifications":
@@ -2404,10 +2408,28 @@ public class MotorPH_GUI {
 
         java.awt.Rectangle bounds = getContentBounds();
         int calGap = 20;
-        int leftW = bounds.width - DASHBOARD_CAL_W - calGap;
-        int colW = (leftW - DASH_CARD_GAP) / 2;
-        int dashRowH = Math.max(DASH_CARD_H, (bounds.height - DASH_CARD_GAP) / 2);
-        int cardY = dashRowH * 2 + DASH_CARD_GAP;
+        int contentW = bounds.width;
+        int availableH = bounds.height;
+        // Side-by-side when cards + calendar fit; stack calendar below on narrower viewports.
+        final int minCardsW = 400;
+        boolean stackCalendar = contentW < DASHBOARD_CAL_W + calGap + minCardsW;
+        int calW = stackCalendar ? contentW : DASHBOARD_CAL_W;
+        int leftW = stackCalendar ? contentW : contentW - calW - calGap;
+
+        int dashRowH;
+        int cardY;
+        int calAreaH;
+        if (stackCalendar) {
+            dashRowH = Math.max(120, Math.min(DASH_CARD_H, (availableH * 2 / 5 - DASH_CARD_GAP) / 2));
+            cardY = dashRowH * 2 + DASH_CARD_GAP;
+            calAreaH = Math.max(240, availableH - cardY - calGap);
+        } else {
+            dashRowH = Math.max(DASH_CARD_H, (availableH - DASH_CARD_GAP) / 2);
+            cardY = dashRowH * 2 + DASH_CARD_GAP;
+            calAreaH = cardY;
+        }
+
+        int colW = Math.max(140, (leftW - DASH_CARD_GAP) / 2);
 
         JPanel cards = new JPanel(null);
         cards.setBackground(APP_BG);
@@ -2428,7 +2450,7 @@ public class MotorPH_GUI {
 
         cards.setPreferredSize(new java.awt.Dimension(leftW, cardY));
 
-        JPanel calPanel = buildCalendarPanel(DASHBOARD_CAL_W, cardY, CAL_MONTH, CAL_YEAR);
+        JPanel calPanel = buildCalendarPanel(calW, calAreaH, CAL_MONTH, CAL_YEAR);
         int calH = calPanel.getPreferredSize().height;
 
         JPanel leftCol = new JPanel(null);
@@ -2440,9 +2462,13 @@ public class MotorPH_GUI {
 
         JPanel calWrapper = new JPanel(null);
         calWrapper.setBackground(PALETTE_WHITE);
-        calWrapper.setBounds(bounds.x + leftW + calGap, bounds.y, DASHBOARD_CAL_W, calH);
+        if (stackCalendar) {
+            calWrapper.setBounds(bounds.x, bounds.y + cardY + calGap, contentW, calH);
+        } else {
+            calWrapper.setBounds(bounds.x + leftW + calGap, bounds.y, calW, Math.max(calH, cardY));
+        }
         calWrapper.setBorder(cardBorder());
-        calPanel.setBounds(0, 0, DASHBOARD_CAL_W, calH);
+        calPanel.setBounds(0, 0, calW, calH);
         calPanel.setBorder(null);
         calWrapper.add(calPanel);
         frame.add(calWrapper);
