@@ -1728,127 +1728,150 @@ public class MotorPH_GUI {
         } catch (Exception ignored) {
         }
 
+        // A4 = 595×842 pts. Content box: x=55..540, center=297.5
+        // Header fills y=795..843 (48 px).  PAYSLIP ribbon: y=779..794 (15 px).
+        // Address baseline at y=800 sits inside the header band (y≥795). ✓
+        // Amount columns: AX9=start for 9pt amounts, AX12=start for 12pt amounts.
+        final int LX   = 55;        // left edge
+        final int RX   = 540;       // right edge
+        final int CW   = RX - LX;  // 485
+        final int AX9  = RX - 74;  // 466 – 9pt PHP amounts left-aligned here
+        final int AX12 = RX - 100; // 440 – 12pt bold amount; "PHP XX,XXX.XX"≈76px→ends at 516 ✓
+        final int HX   = RX - 56;  // 484 – "XX.XX hrs" (9 chars≈45px→ends at 529) ✓
+
         StringBuilder cs = new StringBuilder();
 
-        // ── Deep-blue header bar (y=800–842) ───────────────────────────────
-        cs.append("0.13 0.25 0.55 rg\n50 800 495 42 re\nf\n");
+        // ── Draw outer border FIRST so fills paint over its interior ─────
+        cs.append("0.13 0.25 0.55 RG\n2 w\n");
+        cs.append(LX + " 358 m " + RX + " 358 l " + RX + " 841 l " + LX + " 841 l h S\n");
+        cs.append("0 0 0 RG\n0.5 w\n");
 
-        // White company name + address
+        // ── Header (dark blue): y=793..841, height=48 ───────────────────
+        // Line spacing (baselines): MOTORPH=824, subtitle=810, address=799
+        // Gaps: top→MOTORPH=17, MOTORPH→sub=14, sub→addr=11, addr→bottom=6 ✓
+        cs.append("0.13 0.25 0.55 rg\n" + LX + " 793 " + CW + " 48 re\nf\n");
         cs.append("1 1 1 rg\n");
-        cs.append("BT /F2 21 Tf 247 822 Td (MOTORPH) Tj ET\n");
-        cs.append("BT /F1 9 Tf  201 810 Td (Motor Parts Hub Philippines, Inc.) Tj ET\n");
-        cs.append("BT /F1 8 Tf  209 800 Td (Kalayaan Avenue, Makati City 1200) Tj ET\n");
+        // MOTORPH: Helvetica-Bold 4945u×22pt/1000=108.8px → half=54 → x=297-54=243
+        cs.append("BT /F2 22 Tf 243 824 Td (MOTORPH) Tj ET\n");
+        // Subtitle: Helvetica 14061u×9pt/1000=126.5px → half=63 → x=297-63=234
+        cs.append("BT /F1  9 Tf 234 810 Td (Motor Parts Hub Philippines, Inc.) Tj ET\n");
+        // Address: Helvetica 15786u×8pt/1000=126.3px → half=63 → x=297-63=234
+        cs.append("BT /F1  8 Tf 234 799 Td (Kalayaan Avenue, Makati City 1200) Tj ET\n");
 
-        // ── Accent-blue PAYSLIP ribbon (y=784–799) ─────────────────────────
-        cs.append("0.22 0.42 0.75 rg\n50 784 495 16 re\nf\n");
+        // ── PAYSLIP ribbon: y=775..793, height=18 (seamlessly joins header at 793) ─
+        cs.append("0.22 0.42 0.75 rg\n" + LX + " 775 " + CW + " 18 re\nf\n");
         cs.append("1 1 1 rg\n");
-        cs.append("BT /F2 10 Tf 243 789 Td (P  A  Y  S  L  I  P) Tj ET\n");
+        // PAYSLIP: Helvetica-Bold 7448u×10pt/1000=74.5px → half=37 → x=297-37=260
+        cs.append("BT /F2 10 Tf 260 781 Td (P  A  Y  S  L  I  P) Tj ET\n");
 
-        // Blue accent line
-        cs.append("0.13 0.25 0.55 RG\n2 w\n50 781 m 545 781 l S\n0 0 0 RG\n0.5 w\n");
+        // Accent line below ribbon
+        cs.append("0.13 0.25 0.55 RG\n1.5 w\n" + LX + " 772 m " + RX + " 772 l S\n0 0 0 RG\n0.5 w\n");
 
-        // ── EMPLOYEE INFORMATION ────────────────────────────────────────────
+        // ── EMPLOYEE INFORMATION ─────────────────────────────────────────
         cs.append("0.13 0.25 0.55 rg\n");
-        cs.append("BT /F2 8 Tf 50 773 Td (EMPLOYEE INFORMATION) Tj ET\n");
+        cs.append("BT /F2 8 Tf " + (LX + 4) + " 768 Td (EMPLOYEE INFORMATION) Tj ET\n");
 
-        // light-gray background for employee detail rows
-        cs.append("0.95 0.96 0.98 rg\n50 726 495 44 re\nf\n");
+        // Gray background for info rows (3 rows × 14pt = 42px + padding)
+        cs.append("0.95 0.96 0.98 rg\n" + LX + " 717 " + CW + " 48 re\nf\n");
         cs.append("0 0 0 rg\n");
 
-        // Row 1: Employee # | Pay Period
-        cs.append("BT /F2 9 Tf  56 757 Td (Employee No.) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 757 Td (" + pdfe(empId) + ") Tj ET\n");
-        cs.append("BT /F2 9 Tf 318 757 Td (Pay Period) Tj ET\n");
-        cs.append("BT /F1 9 Tf 398 757 Td (" + pdfe(mName + " " + yr) + ") Tj ET\n");
-        // Row 2: Full Name
-        cs.append("BT /F2 9 Tf  56 743 Td (Full Name) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 743 Td (" + pdfe(empName) + ") Tj ET\n");
-        // Row 3: Birthday
-        cs.append("BT /F2 9 Tf  56 729 Td (Birthday) Tj ET\n");
-        cs.append("BT /F1 9 Tf 148 729 Td (" + pdfe(birthday) + ") Tj ET\n");
+        int midX = LX + CW / 2; // 297
+        // Value column: label indent 6px, value at label+90
+        int VX = LX + 96; // 151
+        cs.append("BT /F2 9 Tf " + (LX + 6) + " 752 Td (Employee No.) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + VX + " 752 Td (" + pdfe(empId) + ") Tj ET\n");
+        cs.append("BT /F2 9 Tf " + (midX + 6) + " 752 Td (Pay Period) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (midX + 74) + " 752 Td (" + pdfe(mName + " " + yr) + ") Tj ET\n");
+        cs.append("BT /F2 9 Tf " + (LX + 6) + " 738 Td (Full Name) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + VX + " 738 Td (" + pdfe(empName) + ") Tj ET\n");
+        cs.append("BT /F2 9 Tf " + (LX + 6) + " 724 Td (Birthday) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + VX + " 724 Td (" + pdfe(birthday) + ") Tj ET\n");
 
-        // Divider
-        cs.append("0.78 0.80 0.85 RG\n0.5 w\n50 723 m 545 723 l S\n0 0 0 RG\n");
+        // Divider below info box
+        cs.append("0.78 0.80 0.85 RG\n0.5 w\n" + LX + " 714 m " + RX + " 714 l S\n0 0 0 RG\n");
 
-        // ── 1ST CUTOFF ──────────────────────────────────────────────────────
-        cs.append("0.88 0.92 0.97 rg\n50 710 495 13 re\nf\n");
+        // ── 1ST CUTOFF ───────────────────────────────────────────────────
+        cs.append("0.88 0.92 0.97 rg\n" + LX + " 701 " + CW + " 13 re\nf\n");
         cs.append("0.13 0.25 0.55 rg\n");
-        cs.append("BT /F2 8.5 Tf 52 715 Td (1ST CUTOFF   \261   " + pdfe(mName + " 1 - 15, " + yr) + ") Tj ET\n");
+        cs.append("BT /F2 8.5 Tf " + (LX + 4) + " 706 Td (1ST CUTOFF   \261   "
+                + pdfe(mName + " 1 - 15, " + yr) + ") Tj ET\n");
         cs.append("0 0 0 rg\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 688 Td (Hours Worked) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + HX  + " 688 Td (" + String.format("%.2f hrs", hrsFirst) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 674 Td (Gross Pay) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + AX9 + " 674 Td (PHP " + payFmt(gFirst) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 660 Td (Net Pay  \\(No Deductions\\)) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + AX9 + " 660 Td (PHP " + payFmt(nFirst) + ") Tj ET\n");
 
-        cs.append("BT /F1 9 Tf  56 697 Td (Hours Worked) Tj ET\n");
-        cs.append("BT /F1 9 Tf 400 697 Td (" + String.format("%.2f hrs", hrsFirst) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  56 683 Td (Gross Pay) Tj ET\n");
-        cs.append("BT /F2 9 Tf 390 683 Td (PHP " + payFmt(gFirst) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  56 669 Td (Net Pay  (No Deductions)) Tj ET\n");
-        cs.append("BT /F2 9 Tf 390 669 Td (PHP " + payFmt(nFirst) + ") Tj ET\n");
+        cs.append("0.78 0.80 0.85 RG\n0.5 w\n" + LX + " 650 m " + RX + " 650 l S\n0 0 0 RG\n");
 
-        cs.append("0.78 0.80 0.85 RG\n0.5 w\n50 659 m 545 659 l S\n0 0 0 RG\n");
-
-        // ── 2ND CUTOFF ──────────────────────────────────────────────────────
-        cs.append("0.88 0.92 0.97 rg\n50 646 495 13 re\nf\n");
+        // ── 2ND CUTOFF ───────────────────────────────────────────────────
+        cs.append("0.88 0.92 0.97 rg\n" + LX + " 637 " + CW + " 13 re\nf\n");
         cs.append("0.13 0.25 0.55 rg\n");
-        cs.append("BT /F2 8.5 Tf 52 651 Td (2ND CUTOFF   \261   " + pdfe(mName + " 16 - " + lastDay + ", " + yr)
-                + ") Tj ET\n");
+        cs.append("BT /F2 8.5 Tf " + (LX + 4) + " 642 Td (2ND CUTOFF   \261   "
+                + pdfe(mName + " 16 - " + lastDay + ", " + yr) + ") Tj ET\n");
         cs.append("0 0 0 rg\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 624 Td (Hours Worked) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + HX  + " 624 Td (" + String.format("%.2f hrs", hrsSecond) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 610 Td (Gross Pay) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + AX9 + " 610 Td (PHP " + payFmt(gSecond) + ") Tj ET\n");
 
-        cs.append("BT /F1 9 Tf  56 633 Td (Hours Worked) Tj ET\n");
-        cs.append("BT /F1 9 Tf 400 633 Td (" + String.format("%.2f hrs", hrsSecond) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  56 619 Td (Gross Pay) Tj ET\n");
-        cs.append("BT /F2 9 Tf 390 619 Td (PHP " + payFmt(gSecond) + ") Tj ET\n");
-
-        // Deductions sub-header
-        cs.append("0.92 0.94 0.98 rg\n50 605 495 13 re\nf\n");
+        // DEDUCTIONS sub-header
+        cs.append("0.92 0.94 0.98 rg\n" + LX + " 596 " + CW + " 13 re\nf\n");
         cs.append("0.30 0.30 0.40 rg\n");
-        cs.append("BT /F2 8 Tf 52 610 Td (DEDUCTIONS) Tj ET\n");
+        cs.append("BT /F2 8 Tf " + (LX + 4) + " 601 Td (DEDUCTIONS) Tj ET\n");
         cs.append("0 0 0 rg\n");
+        cs.append("BT /F1 9 Tf " + (LX + 18) + " 584 Td (SSS Contribution) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 584 Td (PHP " + payFmt(dSss) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 18) + " 570 Td (PhilHealth Premium) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 570 Td (PHP " + payFmt(dPh) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 18) + " 556 Td (Pag-IBIG Contribution) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 556 Td (PHP " + payFmt(dPi) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 18) + " 542 Td (Withholding Tax) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 542 Td (PHP " + payFmt(dTax) + ") Tj ET\n");
 
-        cs.append("BT /F1 9 Tf  66 593 Td (SSS Contribution) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 593 Td (PHP " + payFmt(dSss) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  66 579 Td (PhilHealth Premium) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 579 Td (PHP " + payFmt(dPh) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  66 565 Td (Pag-IBIG Contribution) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 565 Td (PHP " + payFmt(dPi) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  66 551 Td (Withholding Tax) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 551 Td (PHP " + payFmt(dTax) + ") Tj ET\n");
-
-        cs.append("0.60 0.62 0.68 RG\n0.5 w\n50 541 m 545 541 l S\n0 0 0 RG\n");
-        cs.append("BT /F2 9 Tf  56 527 Td (Total Deductions) Tj ET\n");
-        cs.append("BT /F2 9 Tf 390 527 Td (PHP " + payFmt(dTotal) + ") Tj ET\n");
-        cs.append("BT /F2 9 Tf  56 513 Td (Net Pay) Tj ET\n");
-        cs.append("BT /F2 9 Tf 390 513 Td (PHP " + payFmt(nSecond) + ") Tj ET\n");
+        cs.append("0.60 0.62 0.68 RG\n0.5 w\n" + LX + " 532 m " + RX + " 532 l S\n0 0 0 RG\n");
+        cs.append("BT /F2 9 Tf " + (LX + 6) + " 518 Td (Total Deductions) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + AX9 + " 518 Td (PHP " + payFmt(dTotal) + ") Tj ET\n");
+        cs.append("BT /F2 9 Tf " + (LX + 6) + " 504 Td (Net Pay) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + AX9 + " 504 Td (PHP " + payFmt(nSecond) + ") Tj ET\n");
 
         // Heavy blue divider
-        cs.append("0.13 0.25 0.55 RG\n2 w\n50 500 m 545 500 l S\n0 0 0 RG\n0.5 w\n");
+        cs.append("0.13 0.25 0.55 RG\n2 w\n" + LX + " 491 m " + RX + " 491 l S\n0 0 0 RG\n0.5 w\n");
 
-        // ── PAY SUMMARY ────────────────────────────────────────────────────
-        cs.append("0.13 0.25 0.55 rg\n50 487 495 13 re\nf\n");
+        // ── PAY SUMMARY ──────────────────────────────────────────────────
+        cs.append("0.13 0.25 0.55 rg\n" + LX + " 478 " + CW + " 13 re\nf\n");
         cs.append("1 1 1 rg\n");
-        cs.append("BT /F2 9 Tf 52 492 Td (PAY SUMMARY) Tj ET\n");
+        cs.append("BT /F2 9 Tf " + (LX + 4) + " 483 Td (PAY SUMMARY) Tj ET\n");
         cs.append("0 0 0 rg\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 464 Td (Total Gross Pay) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 464 Td (PHP " + payFmt(tGross) + ") Tj ET\n");
+        cs.append("BT /F1 9 Tf " + (LX + 6) + " 450 Td (Total Deductions) Tj ET\n");
+        cs.append("BT /F1 9 Tf " + AX9 + " 450 Td (PHP " + payFmt(dTotal) + ") Tj ET\n");
 
-        cs.append("BT /F1 9 Tf  56 473 Td (Total Gross Pay) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 473 Td (PHP " + payFmt(tGross) + ") Tj ET\n");
-        cs.append("BT /F1 9 Tf  56 459 Td (Total Deductions) Tj ET\n");
-        cs.append("BT /F1 9 Tf 390 459 Td (PHP " + payFmt(dTotal) + ") Tj ET\n");
+        // Thin divider above TOTAL NET PAY
+        cs.append("0.13 0.25 0.55 RG\n1 w\n" + LX + " 440 m " + RX + " 440 l S\n0 0 0 RG\n0.5 w\n");
 
-        cs.append("0.13 0.25 0.55 RG\n1 w\n50 449 m 545 449 l S\n0 0 0 RG\n0.5 w\n");
+        // TOTAL NET PAY row (12pt bold)
+        cs.append("BT /F2 12 Tf " + (LX + 6) + " 423 Td (TOTAL NET PAY) Tj ET\n");
+        // AX12=440: "PHP XX,XXX.XX" ≈ 76px at 12pt bold → ends at ~516 < RX=540 ✓
+        cs.append("BT /F2 12 Tf " + AX12 + " 423 Td (PHP " + payFmt(tNet) + ") Tj ET\n");
 
-        cs.append("BT /F2 12 Tf  56 432 Td (TOTAL NET PAY) Tj ET\n");
-        cs.append("BT /F2 12 Tf 370 432 Td (PHP " + payFmt(tNet) + ") Tj ET\n");
+        // Heavy bottom border of TOTAL NET PAY
+        cs.append("0.13 0.25 0.55 RG\n2 w\n" + LX + " 409 m " + RX + " 409 l S\n0 0 0 RG\n0.5 w\n");
 
-        cs.append("0.13 0.25 0.55 RG\n2 w\n50 419 m 545 419 l S\n0 0 0 RG\n0.5 w\n");
-
-        // ── Footer ─────────────────────────────────────────────────────────
-        cs.append("0.94 0.95 0.97 rg\n50 385 495 30 re\nf\n");
+        // ── Footer ───────────────────────────────────────────────────────
+        // Gray band: y=371..407 (36px), text inside
+        cs.append("0.94 0.95 0.97 rg\n" + LX + " 371 " + CW + " 36 re\nf\n");
         cs.append("0.42 0.44 0.50 rg\n");
         String genDate = new java.text.SimpleDateFormat("MMMM d, yyyy 'at' h:mm a").format(new java.util.Date());
-        cs.append(
-                "BT /F1 7.5 Tf 56 407 Td (This payslip is system-generated and confidential. Intended for the named employee only.) Tj ET\n");
-        cs.append("BT /F1 7.5 Tf 56 396 Td (MotorPH Payroll System  |  Generated on " + pdfe(genDate) + ") Tj ET\n");
+        cs.append("BT /F1 7.5 Tf " + (LX + 8) + " 397 Td (This payslip is system-generated and confidential. Intended for the named employee only.) Tj ET\n");
+        cs.append("BT /F1 7.5 Tf " + (LX + 8) + " 384 Td (MotorPH Payroll System  |  Generated on " + pdfe(genDate) + ") Tj ET\n");
 
-        // Outer border
-        cs.append("0.13 0.25 0.55 RG\n1 w\n50 385 m 545 385 l 545 842 l 50 842 l h S\n0 0 0 RG\n");
+        // Redraw outer border on top for crisp edges over all fills
+        cs.append("0.13 0.25 0.55 RG\n2 w\n");
+        cs.append(LX + " 358 m " + RX + " 358 l " + RX + " 841 l " + LX + " 841 l h S\n");
+        cs.append("0 0 0 RG\n");
 
         byte[] csBytes = cs.toString().getBytes("ISO-8859-1");
 
