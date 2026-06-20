@@ -1741,6 +1741,9 @@ public class MotorPH_GUI {
 
         StringBuilder cs = new StringBuilder();
 
+        // Shift entire payslip down 56pt so top margin = 842-785 = 57pt ≈ 2cm
+        cs.append("1 0 0 1 0 -56 cm\n");
+
         // ── Draw outer border FIRST so fills paint over its interior ─────
         cs.append("0.13 0.25 0.55 RG\n2 w\n");
         cs.append(LX + " 358 m " + RX + " 358 l " + RX + " 841 l " + LX + " 841 l h S\n");
