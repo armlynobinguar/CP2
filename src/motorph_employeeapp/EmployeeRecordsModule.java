@@ -235,15 +235,24 @@ public class EmployeeRecordsModule {
         row[EmployeeModule.RICE_SUBSIDY] = defaultIfBlank(form.riceSubsidy, "0");
         row[EmployeeModule.PHONE_ALLOWANCE] = defaultIfBlank(form.phoneAllowance, "0");
         row[EmployeeModule.CLOTHING_ALLOWANCE] = defaultIfBlank(form.clothingAllowance, "0");
-        if (!isBlank(form.basicSalary) && isNumeric(form.basicSalary)) {
-            double basic = Double.parseDouble(form.basicSalary.replace(",", "").trim());
-            row[EmployeeModule.GROSS_SEMI_MONTHLY] = String.format("%.2f", basic / 2.0);
-            row[EmployeeModule.HOURLY_RATE] = String.format("%.2f", basic / 168.0);
-        } else {
-            row[EmployeeModule.GROSS_SEMI_MONTHLY] = defaultIfBlank(form.grossSemiMonthly,
-                    safe(row, EmployeeModule.GROSS_SEMI_MONTHLY));
-        }
+        row[EmployeeModule.GROSS_SEMI_MONTHLY] = defaultIfBlank(form.grossSemiMonthly,
+                safe(row, EmployeeModule.GROSS_SEMI_MONTHLY));
+        String hourly = computeHourlyRateFromGrossSemiMonthly(form.grossSemiMonthly);
+        row[EmployeeModule.HOURLY_RATE] = hourly.isEmpty()
+                ? defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE))
+                : hourly;
         return row;
+    }
+
+    /**
+     * Hourly rate from gross semi-monthly pay: (semi-monthly x 2) / 168 working hours.
+     */
+    public static String computeHourlyRateFromGrossSemiMonthly(String grossSemiMonthly) {
+        if (isBlank(grossSemiMonthly) || !isNumeric(grossSemiMonthly)) {
+            return "";
+        }
+        double grossSemi = Double.parseDouble(grossSemiMonthly.replace(",", "").trim());
+        return String.format("%.2f", grossSemi * 2.0 / 168.0);
     }
 
     private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
@@ -261,6 +270,7 @@ public class EmployeeRecordsModule {
         validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
         validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
         validateRequiredNumeric(form.clothingAllowance, "Clothing Allowance", errors);
+        validateRequiredNumeric(form.grossSemiMonthly, "Gross Semi-monthly", errors);
         validateIdFormatComplete(form.sss, "XX-XXXXXXX-X", "SSS Number", errors);
         validateIdFormatComplete(form.tin, "XXX-XXX-XXX-XXX", "TIN Number", errors);
     }

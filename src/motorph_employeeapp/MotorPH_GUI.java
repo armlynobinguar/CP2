@@ -5159,6 +5159,32 @@ public class MotorPH_GUI {
         return tf == null ? "" : tf.getText().trim();
     }
 
+    /** Keeps hourly rate in sync as gross semi-monthly pay is edited (monthly gross / 168). */
+    private static void wireGrossSemiMonthlyToHourlyRate(JTextField grossField, JTextField hourlyField) {
+        if (grossField == null || hourlyField == null) {
+            return;
+        }
+        Color computedBg = new Color(235, 240, 250);
+        hourlyField.setEditable(false);
+        hourlyField.setBackground(computedBg);
+        Runnable recomputeHourly = () -> hourlyField.setText(
+                EmployeeRecordsModule.computeHourlyRateFromGrossSemiMonthly(grossField.getText()));
+        grossField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                recomputeHourly.run();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                recomputeHourly.run();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                recomputeHourly.run();
+            }
+        });
+        recomputeHourly.run();
+    }
+
     private static EmployeeRecordsModule.RecordFormData buildRecordFormFromPopup(
             java.util.Map<String, JTextField> fieldMap) {
         EmployeeRecordsModule.RecordFormData form = new EmployeeRecordsModule.RecordFormData();
@@ -5238,6 +5264,8 @@ public class MotorPH_GUI {
                 setPopupFieldError(fieldMap.get("Phone Allowance:"));
             if (err.contains("Clothing Allowance"))
                 setPopupFieldError(fieldMap.get("Clothing Allowance:"));
+            if (err.contains("Gross Semi-monthly"))
+                setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
             if (err.contains("Hourly Rate"))
                 setPopupFieldError(fieldMap.get("Hourly Rate:"));
         }
@@ -5605,47 +5633,10 @@ public class MotorPH_GUI {
         }
         form.setPreferredSize(new java.awt.Dimension(fieldX + fieldW + PAD, fy + 12));
 
-        // Gross Semi-monthly = Basic / 2; Hourly Rate = Basic / 168 — auto-computed,
-        // not editable
-        JTextField tfBasicE = fieldMap.get("Basic Salary:");
-        JTextField tfGrossE = fieldMap.get("Gross Semi-monthly:");
-        JTextField tfHourlyE = fieldMap.get("Hourly Rate:");
-        Color computedBg = new Color(235, 240, 250);
-        if (tfGrossE != null) {
-            tfGrossE.setEditable(false);
-            tfGrossE.setBackground(computedBg);
-        }
-        if (tfHourlyE != null) {
-            tfHourlyE.setEditable(false);
-            tfHourlyE.setBackground(computedBg);
-        }
-        if (tfBasicE != null && tfGrossE != null && tfHourlyE != null) {
-            final JTextField tB = tfBasicE, tG = tfGrossE, tH = tfHourlyE;
-            Runnable recompute = () -> {
-                try {
-                    double basic = Double.parseDouble(tB.getText().replace(",", "").trim());
-                    tG.setText(String.format("%.2f", basic / 2.0));
-                    tH.setText(String.format("%.2f", basic / 168.0));
-                } catch (NumberFormatException ex) {
-                    tG.setText("");
-                    tH.setText("");
-                }
-            };
-            tB.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-                public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-
-                public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-
-                public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-            });
-            recompute.run(); // sync on open
-        }
+        // Hourly Rate = (Gross Semi-monthly x 2) / 168 — updates live as gross pay is edited.
+        wireGrossSemiMonthlyToHourlyRate(
+                fieldMap.get("Gross Semi-monthly:"),
+                fieldMap.get("Hourly Rate:"));
 
         JScrollPane formScroll = new JScrollPane(form);
         formScroll.setBounds(16, 60, 488, 450);
@@ -5746,6 +5737,13 @@ public class MotorPH_GUI {
                         break;
                 }
                 fi++;
+            }
+
+            String hourlyFromGross = EmployeeRecordsModule.computeHourlyRateFromGrossSemiMonthly(
+                    updated.length > EmployeeModule.GROSS_SEMI_MONTHLY
+                            ? updated[EmployeeModule.GROSS_SEMI_MONTHLY] : "");
+            if (!hourlyFromGross.isEmpty()) {
+                updated[EmployeeModule.HOURLY_RATE] = hourlyFromGross;
             }
 
             try {
@@ -5965,46 +5963,10 @@ public class MotorPH_GUI {
                     fieldMap.get("Position:"));
         }
 
-        // Gross Semi-monthly = Basic / 2; Hourly Rate = Basic / 168 — auto-computed,
-        // read-only
-        JTextField tfBasicA = fieldMap.get("Basic Salary:");
-        JTextField tfGrossA = fieldMap.get("Gross Semi-monthly:");
-        JTextField tfHourlyA = fieldMap.get("Hourly Rate:");
-        Color computedBgA = new Color(235, 240, 250);
-        if (tfGrossA != null) {
-            tfGrossA.setEditable(false);
-            tfGrossA.setBackground(computedBgA);
-        }
-        if (tfHourlyA != null) {
-            tfHourlyA.setEditable(false);
-            tfHourlyA.setBackground(computedBgA);
-        }
-        if (tfBasicA != null && tfGrossA != null && tfHourlyA != null) {
-            final JTextField tB = tfBasicA, tG = tfGrossA, tH = tfHourlyA;
-            Runnable recompute = () -> {
-                try {
-                    double basic = Double.parseDouble(tB.getText().replace(",", "").trim());
-                    tG.setText(String.format("%.2f", basic / 2.0));
-                    tH.setText(String.format("%.2f", basic / 168.0));
-                } catch (NumberFormatException ex) {
-                    tG.setText("");
-                    tH.setText("");
-                }
-            };
-            tB.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-                public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-
-                public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-
-                public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                    recompute.run();
-                }
-            });
-        }
+        // Hourly Rate = (Gross Semi-monthly x 2) / 168 — updates live as gross pay is edited.
+        wireGrossSemiMonthlyToHourlyRate(
+                fieldMap.get("Gross Semi-monthly:"),
+                fieldMap.get("Hourly Rate:"));
 
         JScrollPane formScroll = new JScrollPane(form);
         formScroll.setBounds(16, 60, 488, 450);
