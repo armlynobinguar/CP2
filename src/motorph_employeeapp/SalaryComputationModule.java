@@ -34,27 +34,46 @@ public class SalaryComputationModule {
     /** True when the last calculatePayroll call found actual attendance data. */
     public static boolean lastCalculationSucceeded = false;
 
-    // Per-calculation snapshot used by the PDF payslip exporter
+    // ── Per-calculation snapshot used by PDF payslip export and employee document viewer ──
+
+    /** Employee ID from the most recent {@link #calculatePayroll} run. */
     public static String lastEmpId = "";
+    /** Full display name from the most recent payroll run. */
     public static String lastEmpName = "";
+    /** Birthday string from employee CSV for payslip header. */
     public static String lastEmpBirthday = "";
+    /** English month name (e.g. "June") for payslip labels. */
     public static String lastMonthName = "";
+    /** Pay coverage year string (e.g. "2024"). */
     public static String lastYear = "";
+    /** Billable hours in 1st cutoff (days 1–15). */
     public static double lastHoursFirst = 0;
+    /** Billable hours in 2nd cutoff (days 16–31). */
     public static double lastHoursSecond = 0;
+    /** Gross pay for 1st cutoff (no deductions in this model). */
     public static double lastGrossFirst = 0;
+    /** Gross pay for 2nd cutoff before deductions. */
     public static double lastGrossSecond = 0;
+    /** Net pay for 1st cutoff (= gross first in this model). */
     public static double lastNetFirst = 0;
+    /** Net pay for 2nd cutoff after all deductions. */
     public static double lastNetSecond = 0;
+    /** SSS contribution from last calculation. */
     public static double lastSss = 0;
+    /** PhilHealth employee share from last calculation. */
     public static double lastPhilHealth = 0;
+    /** Pag-IBIG contribution from last calculation. */
     public static double lastPagIbig = 0;
+    /** Withholding tax from last calculation. */
     public static double lastTax = 0;
+    /** Sum of all deductions applied on 2nd cutoff. */
     public static double lastTotalDeductions = 0;
 
     /** Outcome of validating employee payroll inputs before bulk computation. */
     public static class PayrollValidationResult {
+        /** Blocking errors that prevent payroll from running. */
         public final List<String> errors;
+        /** Non-blocking issues (e.g. employee with zero attendance hours). */
         public final List<String> warnings;
 
         public PayrollValidationResult(List<String> errors, List<String> warnings) {
@@ -62,6 +81,7 @@ public class SalaryComputationModule {
             this.warnings = warnings == null ? new ArrayList<>() : warnings;
         }
 
+        /** @return {@code true} when {@link #errors} is empty */
         public boolean isValid() {
             return errors == null || errors.isEmpty();
         }
@@ -69,12 +89,19 @@ public class SalaryComputationModule {
 
     /** Summary row for one employee after bulk salary computation. */
     public static class EmployeePayrollSummary {
+        /** Employee number from CSV. */
         public final String employeeId;
+        /** Display name for batch results table. */
         public final String employeeName;
+        /** Total attendance hours in the selected month. */
         public final double hoursWorked;
+        /** Gross pay (hours × hourly rate). */
         public final double grossPay;
+        /** SSS + PhilHealth + Pag-IBIG + tax. */
         public final double totalDeductions;
+        /** Gross minus deductions. */
         public final double netPay;
+        /** {@code false} when employee had no attendance in the period. */
         public final boolean computed;
 
         public EmployeePayrollSummary(String employeeId, String employeeName, double hoursWorked,
@@ -574,6 +601,7 @@ public class SalaryComputationModule {
         return totalHours;
     }
 
+    /** Applies a scalar function to each element of {@code values}. */
     private static double[] mapDoubles(double[] values, java.util.function.DoubleUnaryOperator fn) {
         if (values == null) {
             return new double[0];
@@ -585,6 +613,7 @@ public class SalaryComputationModule {
         return mapped;
     }
 
+    /** True when {@code value} parses as a finite double (comma-safe). */
     private static boolean isValidNumber(String value) {
         if (value == null || value.trim().isEmpty()) {
             return false;
@@ -597,6 +626,7 @@ public class SalaryComputationModule {
         }
     }
 
+    /** True when {@code value} parses as a base-10 integer. */
     private static boolean isValidInteger(String value) {
         if (value == null || value.trim().isEmpty()) {
             return false;
@@ -609,10 +639,12 @@ public class SalaryComputationModule {
         }
     }
 
+    /** Formats monetary amounts as two decimal places for CSV columns. */
     private static String formatAmount(double value) {
         return String.format("%.2f", value);
     }
 
+    /** Truncates long names for fixed-width batch payroll output. */
     private static String truncate(String text, int maxLen) {
         if (text == null) {
             return "";

@@ -6,8 +6,11 @@ import java.util.List;
 /**
  * EmployeeRecordsModule
  * ---------------------
- * Validation and row-building helpers for the Employee Records management screen.
- * Keeps CRUD business rules separate from Swing event handlers in {@link MotorPH_GUI}.
+ * Validation and row-building helpers for the HR Employee Records screen.
+ *
+ * <p>Keeps CRUD business rules separate from Swing event handlers in {@link MotorPH_GUI}:
+ * form validation, NA normalization, hourly-rate derivation from gross semi-monthly pay,
+ * and mapping between popup fields and 24-column CSV rows via {@link EmployeeModule} indices.</p>
  */
 public class EmployeeRecordsModule {
 
@@ -159,27 +162,51 @@ public class EmployeeRecordsModule {
         return applyFormToRow(null, withDefaults);
     }
 
-    /** Simple DTO for employee record form field values. */
+    /**
+     * Plain data holder for HR Add/Edit employee popup fields.
+     * Populated from {@code JTextField} / combo values in {@link MotorPH_GUI}, then passed
+     * to {@link #validateForm}, {@link #applyFormToRow}, and {@link #buildFullRowFromForm}.
+     */
     public static class RecordFormData {
+        /** Employee number (CSV column {@link EmployeeModule#ID}). */
         public String empNo;
+        /** Last name (CSV column {@link EmployeeModule#LAST_NAME}). */
         public String lastName;
+        /** First name (CSV column {@link EmployeeModule#FIRST_NAME}). */
         public String firstName;
+        /** Birthday in MM/DD/YYYY from date picker (CSV column {@link EmployeeModule#BIRTHDAY}). */
         public String birthday;
+        /** Home address (CSV column {@link EmployeeModule#ADDRESS}). */
         public String address;
+        /** Contact phone (CSV column {@link EmployeeModule#PHONE}). */
         public String phone;
+        /** SSS membership number, format XX-XXXXXXX-X (CSV column {@link EmployeeModule#SSS}). */
         public String sss;
+        /** PhilHealth number (CSV column {@link EmployeeModule#PHILHEALTH}). */
         public String philHealth;
+        /** BIR TIN, format XXX-XXX-XXX-XXX (CSV column {@link EmployeeModule#TIN}). */
         public String tin;
+        /** Pag-IBIG number (CSV column {@link EmployeeModule#PAGIBIG}). */
         public String pagIbig;
+        /** Employment status: Regular, Probationary, etc. (CSV column {@link EmployeeModule#STATUS}). */
         public String status;
+        /** Job title (CSV column {@link EmployeeModule#POSITION}). */
         public String position;
+        /** Department name (CSV column {@link EmployeeModule#DEPARTMENT}). */
         public String department;
+        /** Immediate supervisor display name (CSV column {@link EmployeeModule#IMMEDIATE_SUPERVISOR}). */
         public String supervisor;
+        /** Basic monthly salary string (CSV column {@link EmployeeModule#BASIC_SALARY}). */
         public String basicSalary;
+        /** Rice subsidy allowance (CSV column {@link EmployeeModule#RICE_SUBSIDY}). */
         public String riceSubsidy;
+        /** Phone allowance (CSV column {@link EmployeeModule#PHONE_ALLOWANCE}). */
         public String phoneAllowance;
+        /** Clothing allowance (CSV column {@link EmployeeModule#CLOTHING_ALLOWANCE}). */
         public String clothingAllowance;
+        /** Gross semi-monthly pay; hourly rate is derived from this when valid (CSV column {@link EmployeeModule#GROSS_SEMI_MONTHLY}). */
         public String grossSemiMonthly;
+        /** Hourly rate override or auto-computed value (CSV column {@link EmployeeModule#HOURLY_RATE}). */
         public String hourlyRate;
     }
 
@@ -344,6 +371,10 @@ public class EmployeeRecordsModule {
         return String.format("%.2f", grossSemi * 2.0 / 168.0);
     }
 
+    /**
+     * Extra validation rules for Add/Edit popups beyond {@link #validateForm}:
+     * required birthday/address/phone, numeric allowances, and gov-ID format checks.
+     */
     private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
         if (isBlank(form.birthday)) {
             errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
@@ -374,6 +405,7 @@ public class EmployeeRecordsModule {
         validateIdFormatComplete(form.tin, "XXX-XXX-XXX-XXX", "TIN Number", errors);
     }
 
+    /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */
     private static void validateRequiredNumeric(String value, String displayName, List<String> errors) {
         String normalized = normalizeNumericInput(value);
         if (!isNumeric(normalized)) {
@@ -381,6 +413,10 @@ public class EmployeeRecordsModule {
         }
     }
 
+    /**
+     * Validates government ID fields have enough digits for the expected pattern
+     * (e.g. SSS XX-XXXXXXX-X, TIN XXX-XXX-XXX-XXX).
+     */
     private static void validateIdFormatComplete(String value, String pattern, String displayName,
             List<String> errors) {
         if (isBlank(value)) {
@@ -393,6 +429,10 @@ public class EmployeeRecordsModule {
         }
     }
 
+    /**
+     * Pads a CSV row to {@link EmployeeModule#COLUMN_COUNT} and defaults empty allowance
+     * columns to {@code "0"} so downstream payroll math never sees blank strings.
+     */
     private static String[] normalizeRow(String[] existing) {
         String[] row = new String[EmployeeModule.COLUMN_COUNT];
         if (existing != null) {
@@ -418,23 +458,28 @@ public class EmployeeRecordsModule {
         return row;
     }
 
+    /** Reads one CSV cell safely; null row or out-of-range index → empty string. */
     private static String safe(String[] row, int index) {
         if (row == null || index < 0 || index >= row.length) return "";
         return row[index] == null ? "" : row[index].trim();
     }
 
+    /** True when null or whitespace-only. */
     private static boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
     }
 
+    /** Null-safe {@link String#trim()}. */
     private static String trim(String s) {
         return s == null ? "" : s.trim();
     }
 
+    /** Returns {@code fallback} when {@code value} is blank after trim. */
     private static String defaultIfBlank(String value, String fallback) {
         return isBlank(value) ? fallback : value.trim();
     }
 
+    /** True for valid doubles or {@link #isNaPlaceholder} values treated as zero. */
     private static boolean isNumeric(String value) {
         if (isNaPlaceholder(value)) {
             return true;

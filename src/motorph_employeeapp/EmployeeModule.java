@@ -132,6 +132,10 @@ public class EmployeeModule {
 
     /**
      * Finds employees whose ID, first name, last name, or full name matches the query.
+     * Used by HR directory search and employee lookup screens.
+     *
+     * @param query free-text search term (case-insensitive substring match)
+     * @return matching CSV rows; empty list when query is blank or no matches
      */
     public static List<String[]> searchByNameOrId(String query) {
         List<String[]> results = new ArrayList<>();
@@ -143,10 +147,12 @@ public class EmployeeModule {
             if (emp == null || emp.length < 3) {
                 continue;
             }
+            // Build comparable strings from ID and name columns
             String id = emp[ID] == null ? "" : emp[ID].trim();
             String first = emp[FIRST_NAME] == null ? "" : emp[FIRST_NAME].trim().toLowerCase();
             String last = emp[LAST_NAME] == null ? "" : emp[LAST_NAME].trim().toLowerCase();
             String full = (first + " " + last).trim();
+            // Match exact ID or partial match on any name field
             if (id.equals(q) || id.contains(q) || first.contains(q) || last.contains(q) || full.contains(q)) {
                 results.add(emp);
             }

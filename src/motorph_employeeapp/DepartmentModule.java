@@ -8,10 +8,15 @@ import java.util.Map;
 /**
  * DepartmentModule
  * ----------------
- * Department lists, position mappings, and supervisor resolution for HR forms.
+ * Canonical department and position lists for HR Add/Edit employee forms, plus logic to
+ * infer department from legacy job titles and resolve immediate supervisor display names.
+ *
+ * <p>Supervisor names are looked up from live CSV data when possible; hard-coded fallbacks
+ * match the MotorPH sample dataset when a position holder is not found.</p>
  */
 public class DepartmentModule {
 
+    /** All selectable departments in HR employee record forms (insertion order preserved). */
     public static final String[] DEPARTMENTS = {
         "Executive",
         "IT",
@@ -23,9 +28,14 @@ public class DepartmentModule {
         "Customer Service"
     };
 
+    /**
+     * Maps each department name to valid job titles in that department.
+     * Initialized once in the static block below.
+     */
     private static final Map<String, String[]> POSITIONS_BY_DEPARTMENT = new LinkedHashMap<>();
 
     static {
+        // Executive leadership titles
         POSITIONS_BY_DEPARTMENT.put("Executive", new String[] {
             "Chief Executive Officer",
             "Chief Operating Officer",
@@ -62,10 +72,19 @@ public class DepartmentModule {
         });
     }
 
+    /**
+     * @return immutable-style list of all department names for combo boxes
+     */
     public static List<String> allDepartments() {
         return Arrays.asList(DEPARTMENTS);
     }
 
+    /**
+     * Returns job titles valid for the given department.
+     *
+     * @param department selected department name
+     * @return cloned array of positions, or {@code {"N/A"}} when department is unknown
+     */
     public static String[] positionsForDepartment(String department) {
         if (department == null) {
             return new String[0];
@@ -75,7 +94,11 @@ public class DepartmentModule {
     }
 
     /**
-     * Infers a department from a job title when legacy CSV rows have no department column.
+     * Infers a department from a job title when older CSV rows have no department column filled.
+     * Uses keyword matching first, then exact title lookup in {@link #POSITIONS_BY_DEPARTMENT}.
+     *
+     * @param position job title from form or CSV
+     * @return inferred department name, or {@code "General"} when no rule matches
      */
     public static String inferDepartmentFromPosition(String position) {
         if (position == null || position.trim().isEmpty()) {
@@ -108,6 +131,7 @@ public class DepartmentModule {
         if (p.contains("customer service")) {
             return "Customer Service";
         }
+        // Exact title match against the position map
         for (Map.Entry<String, String[]> entry : POSITIONS_BY_DEPARTMENT.entrySet()) {
             for (String title : entry.getValue()) {
                 if (title.equalsIgnoreCase(position.trim())) {
@@ -119,7 +143,12 @@ public class DepartmentModule {
     }
 
     /**
-     * Resolves the immediate supervisor display name ("Last, First") from department and position.
+     * Resolves the immediate supervisor display name ({@code "Last, First"}) from department
+     * and position using org-chart rules and CSV lookup.
+     *
+     * @param department employee department
+     * @param position   employee job title
+     * @return supervisor name for the form, or {@code "N/A"} at top of hierarchy
      */
     public static String resolveSupervisor(String department, String position) {
         List<String[]> employees = FileHandlerModule.getAllEmployees();
@@ -178,6 +207,9 @@ public class DepartmentModule {
         return findDepartmentHead(employees, dept);
     }
 
+    /**
+     * Finds any manager/head/chief in the same department when no explicit rule exists.
+     */
     private static String findDepartmentHead(List<String[]> employees, String department) {
         for (String[] emp : employees) {
             if (emp == null || emp.length <= EmployeeModule.DEPARTMENT) {
@@ -192,6 +224,9 @@ public class DepartmentModule {
         return "N/A";
     }
 
+    /**
+     * Looks up an employee by exact position title; returns {@code fallback} when not found.
+     */
     private static String supervisorNameForPosition(List<String[]> employees, String targetPosition,
             String fallback) {
         for (String[] emp : employees) {
@@ -203,6 +238,12 @@ public class DepartmentModule {
         return fallback;
     }
 
+    /**
+     * Formats CSV first/last name as supervisor label {@code "Last, First"}.
+     *
+     * @param emp employee row from CSV
+     * @return formatted name or {@code "N/A"}
+     */
     public static String formatSupervisorName(String[] emp) {
         if (emp == null || emp.length <= EmployeeModule.FIRST_NAME) {
             return "N/A";
@@ -210,6 +251,7 @@ public class DepartmentModule {
         return safe(emp, EmployeeModule.LAST_NAME) + ", " + safe(emp, EmployeeModule.FIRST_NAME);
     }
 
+    /** Safe CSV cell read with trim; empty string when index out of range or null. */
     private static String safe(String[] row, int index) {
         if (row == null || index < 0 || index >= row.length || row[index] == null) {
             return "";

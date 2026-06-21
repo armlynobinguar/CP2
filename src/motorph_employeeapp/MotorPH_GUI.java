@@ -72,28 +72,40 @@ import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableRowSorter;
 
-/**
- * MotorPH_GUI
- * -----------
- * Swing-based presentation layer for the MotorPH Employee Payroll System.
- *
- * This class builds and navigates all screens:
- * - Login dialog (modal authentication gate)
- * - Main menu (payroll, employee lookup, logout)
- * - Pay coverage / payroll processing form (MPHCRO1)
- * - Employee information lookup view
- *
- * Layout uses null layout ({@code setLayout(null)}) with explicit
- * {@code setBounds}
- * positioning, following BroCode Java Swing tutorial patterns for frames,
- * panels,
- * labels, text fields, buttons, and event listeners.
- *
- * Business logic is delegated to {@link FileHandlerModule},
- * {@link EmployeeModule},
- * and {@link SalaryComputationModule}; this class handles validation, styling,
- * navigation, and user feedback (dialogs and error borders, result text areas).
- */
+    /**
+     * MotorPH_GUI
+     * -----------
+     * Swing presentation layer for the MotorPH Employee Payroll System (~10,000 lines).
+     *
+     * <p>Two role-based portals share this class:</p>
+     * <ul>
+     *   <li><b>Employee</b> — dashboard, PDF-style My Payslip (period navigation + filter),
+     *       profile, notifications, help</li>
+     *   <li><b>HR</b> — employee records CRUD, revision history, single/batch payroll,
+     *       attendance view, notifications</li>
+     * </ul>
+     *
+     * <p>Layout uses null layout ({@code setBounds}) with responsive breakpoints via
+     * {@link #getContentBounds()}. Business logic is delegated to {@link FileHandlerModule},
+     * {@link EmployeeModule}, {@link SalaryComputationModule}, and {@link EmployeeRecordsModule}.</p>
+     *
+     * <p><b>Major code sections (approximate line ranges):</b></p>
+     * <ul>
+     *   <li>99–318 — static fields: frame, payroll widgets, employee payslip state, theme constants</li>
+     *   <li>399–1195 — table styling, HR batch payroll selection UI, export helpers</li>
+     *   <li>1196–2230 — employee payslip PDF viewer, cut-off navigation, filter dialog, bulk PDF export</li>
+     *   <li>2237–2680 — toasts, notifications seeding, view reload, live search filters</li>
+     *   <li>2681–3310 — payslip PDF rendering, CSV undo/redo snapshot helpers</li>
+     *   <li>3315–3688 — login dialog and {@link #initialize()} bootstrap</li>
+     *   <li>3689–4290 — dashboards (employee + HR cards, calendar, sidebar)</li>
+     *   <li>4291–5050 — page headers, breadcrumbs, shared layout helpers</li>
+     *   <li>5051–6045 — HR payroll (single + batch), employee payslip entry via {@link #setupPayrollUI()}</li>
+     *   <li>6047–6420 — employee lookup, My Profile</li>
+     *   <li>6424–8205 — HR Employee Records CRUD, add/edit popups, date picker, attendance dialog</li>
+     *   <li>8733–9530 — Help Center and Notifications screens</li>
+     *   <li>9530–10177 — payroll calculation runners, validation dialogs, display refresh</li>
+     * </ul>
+     */
 public class MotorPH_GUI {
 
     // --- Main application window and shared payroll controls ---
@@ -1716,7 +1728,11 @@ public class MotorPH_GUI {
         return height;
     }
 
-    /** Employee portal payslip — cut-off navigator + scrollable full-width document. */
+    /**
+     * Employee portal payslip screen: period header (Older/Newer + filter funnel),
+     * auto-loaded PDF-style document, and action bar (Copy, Download PDF/txt, Report Issue).
+     * HR users never reach this method — they use {@link #setupHrPayrollWithSubMenu()} instead.
+     */
     private static void setupEmployeePayslipContent() {
         java.awt.Rectangle bounds = getContentBounds();
         int panelW = bounds.width;
@@ -6012,6 +6028,10 @@ public class MotorPH_GUI {
         return processed;
     }
 
+    /**
+     * Routes to HR payroll (single/batch) or employee My Payslip based on {@link #isHrUser()}.
+     * Entry point from sidebar, dashboard cards, and deep links such as {@link #openPayrollForEmployee}.
+     */
     static void setupPayrollUI() {
         currentView = "Payroll";
         frame.getContentPane().removeAll();

@@ -165,15 +165,16 @@ public class FileHandlerModule {
         return String.valueOf(max + 1);
     }
 
-    /**
-     * Upgrades legacy CSV rows to the current schema and rewrites the file when needed.
-     */
     /** Canonical header row for the Employee Details CSV (24 columns). */
     public static final String EMPLOYEE_FILE_HEADER =
             "Employee #,Last Name,First Name,Birthday,Address,Phone Number,SSS #,Philhealth #,TIN #,Pag-ibig #,"
             + "Status,Position,Department,Immediate Supervisor,Basic Salary,Rice Subsidy,Phone Allowance,"
             + "Clothing Allowance,Gross Semi-monthly Rate,Hourly Rate,Hours Worked,Gross Pay,Total Deductions,Net Pay";
 
+    /**
+     * Upgrades legacy CSV rows to the current 24-column schema and rewrites the file when needed.
+     * Called at startup and before bulk payroll to ensure {@link EmployeeModule#COLUMN_COUNT} columns exist.
+     */
     public static void ensureEmployeeFileSchema() {
         List<String[]> rawRows = new ArrayList<>();
         boolean needsMigration = false;
@@ -447,7 +448,11 @@ public class FileHandlerModule {
         }
     }
 
-    /** Structured notification load/save using NotificationModule.Notification */
+    /**
+     * Loads notifications from {@code resources/notifications.txt} as structured objects.
+     *
+     * @return parsed list; empty when file is missing or every line is malformed
+     */
     public static java.util.List<NotificationModule.Notification> loadStructuredNotifications() {
         java.util.List<NotificationModule.Notification> list = new ArrayList<>();
         String path = resolveDataFile("resources/notifications.txt");
@@ -465,6 +470,12 @@ public class FileHandlerModule {
         return list;
     }
 
+    /**
+     * Overwrites {@code resources/notifications.txt} with serialized notification lines.
+     *
+     * @param items current in-memory notification list from the GUI
+     * @return {@code true} on successful write
+     */
     public static boolean saveStructuredNotifications(java.util.List<NotificationModule.Notification> items) {
         String path = resolveDataFile("resources/notifications.txt");
         try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
@@ -552,6 +563,7 @@ public class FileHandlerModule {
         }
     }
 
+    /** Sanitizes one field before writing a payslip issue log line (strips newlines and delimiter chars). */
     private static String sanitizeIssueField(String value) {
         if (value == null) {
             return "";
