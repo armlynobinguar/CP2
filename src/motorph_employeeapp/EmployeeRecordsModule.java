@@ -123,7 +123,12 @@ public class EmployeeRecordsModule {
         if (row.length > EmployeeModule.CLOTHING_ALLOWANCE) {
             row[EmployeeModule.CLOTHING_ALLOWANCE] = defaultIfBlank(form.clothingAllowance, safe(row, EmployeeModule.CLOTHING_ALLOWANCE));
         }
-        row[EmployeeModule.HOURLY_RATE] = defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE));
+        row[EmployeeModule.GROSS_SEMI_MONTHLY] = defaultIfBlank(form.grossSemiMonthly,
+                safe(row, EmployeeModule.GROSS_SEMI_MONTHLY));
+        String hourly = computeHourlyRateFromGrossSemiMonthly(form.grossSemiMonthly);
+        row[EmployeeModule.HOURLY_RATE] = hourly.isEmpty()
+                ? defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE))
+                : hourly;
         return row;
     }
 
@@ -149,6 +154,7 @@ public class EmployeeRecordsModule {
         withDefaults.supervisor = defaultIfBlank(form.supervisor,
                 DepartmentModule.resolveSupervisor(withDefaults.department, withDefaults.position));
         withDefaults.basicSalary = defaultIfBlank(form.basicSalary, "0");
+        withDefaults.grossSemiMonthly = defaultIfBlank(form.grossSemiMonthly, "0");
         withDefaults.hourlyRate = defaultIfBlank(form.hourlyRate, "0");
         return applyFormToRow(null, withDefaults);
     }
@@ -245,10 +251,93 @@ public class EmployeeRecordsModule {
     }
 
     /**
+     * Returns true when the value is a common "not available" placeholder (NA, N/A, 000, etc.).
+     */
+    public static boolean isNaPlaceholder(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        String compact = trimmed.replace("/", "").replace("-", "").replace(".", "")
+                .replace(",", "").replace(" ", "").toUpperCase();
+        return "NA".equals(compact) || "N/A".equals(compact) || "000".equals(compact);
+    }
+
+    /**
+     * Normalizes numeric form input: NA / N/A / 000 / blank → {@code "0"}.
+     */
+    public static String normalizeNumericInput(String value) {
+        if (isBlank(value) || isNaPlaceholder(value)) {
+            return "0";
+        }
+        return value.trim();
+    }
+
+    /**
+     * Clears NA-style birthday placeholders so the user must pick a date from the calendar.
+     */
+    public static String normalizeBirthdayInput(String value) {
+        if (isBlank(value) || isNaPlaceholder(value)) {
+            return "";
+        }
+        return value.trim();
+    }
+
+    /**
+     * Value shown in the birthday field when opening Add/Edit (hides invalid or NA stored values).
+     */
+    public static String displayBirthdayForForm(String raw) {
+        String formatted = formatBirthdayForDisplay(raw);
+        return formatted == null ? "" : formatted;
+    }
+
+    /**
+     * Formats a CSV birthday for display in view/edit (MM/DD/YYYY with leading zeros).
+     */
+    public static String formatBirthdayForDisplay(String raw) {
+        if (isBlank(raw) || isNaPlaceholder(raw)) {
+            return "";
+        }
+        String trimmed = raw.trim();
+        if (trimmed.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            String[] parts = trimmed.split("/");
+            return String.format("%02d/%02d/%04d",
+                    Integer.parseInt(parts[0]),
+                    Integer.parseInt(parts[1]),
+                    Integer.parseInt(parts[2]));
+        }
+        return trimmed;
+    }
+
+    /**
+     * Applies NA → 0 and related cleanup before validation or save.
+     */
+    public static void sanitizeFormData(RecordFormData form) {
+        if (form == null) {
+            return;
+        }
+        form.birthday = normalizeBirthdayInput(form.birthday);
+        form.basicSalary = normalizeNumericInput(form.basicSalary);
+        form.riceSubsidy = normalizeNumericInput(form.riceSubsidy);
+        form.phoneAllowance = normalizeNumericInput(form.phoneAllowance);
+        form.clothingAllowance = normalizeNumericInput(form.clothingAllowance);
+        form.grossSemiMonthly = normalizeNumericInput(form.grossSemiMonthly);
+        if (isNaPlaceholder(form.hourlyRate)) {
+            form.hourlyRate = "0";
+        }
+    }
+
+    /**
      * Hourly rate from gross semi-monthly pay: (semi-monthly x 2) / 168 working hours.
      */
     public static String computeHourlyRateFromGrossSemiMonthly(String grossSemiMonthly) {
-        if (isBlank(grossSemiMonthly) || !isNumeric(grossSemiMonthly)) {
+        if (isBlank(grossSemiMonthly) || isNaPlaceholder(grossSemiMonthly)) {
+            return "0.00";
+        }
+        if (!isNumeric(grossSemiMonthly)) {
             return "";
         }
         double grossSemi = Double.parseDouble(grossSemiMonthly.replace(",", "").trim());
@@ -257,15 +346,25 @@ public class EmployeeRecordsModule {
 
     private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
         if (isBlank(form.birthday)) {
-            errors.add("Birthday is required.");
+            errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
         } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
-            errors.add("Birthday must be in MM/DD/YYYY format.");
+            errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
         }
-        if (isBlank(form.address)) errors.add("Address is required.");
-        if (isBlank(form.phone)) errors.add("Phone number is required.");
-        if (isBlank(form.position)) errors.add("Position is required.");
-        if (isBlank(form.department)) errors.add("Department is required.");
-        if (isBlank(form.supervisor)) errors.add("Supervisor is required.");
+        if (isBlank(form.address)) {
+            errors.add("Address is required.");
+        }
+        if (isBlank(form.phone)) {
+            errors.add("Phone number is required.");
+        }
+        if (isBlank(form.position)) {
+            errors.add("Position is required.");
+        }
+        if (isBlank(form.department)) {
+            errors.add("Department is required.");
+        }
+        if (isBlank(form.supervisor)) {
+            errors.add("Supervisor is required.");
+        }
         validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
         validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
         validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
@@ -276,10 +375,9 @@ public class EmployeeRecordsModule {
     }
 
     private static void validateRequiredNumeric(String value, String displayName, List<String> errors) {
-        if (isBlank(value)) {
-            errors.add(displayName + " is required.");
-        } else if (!isNumeric(value)) {
-            errors.add(displayName + " must be a valid number.");
+        String normalized = normalizeNumericInput(value);
+        if (!isNumeric(normalized)) {
+            errors.add(displayName + " must be a valid number (or enter NA / 000 for zero).");
         }
     }
 
@@ -338,6 +436,9 @@ public class EmployeeRecordsModule {
     }
 
     private static boolean isNumeric(String value) {
+        if (isNaPlaceholder(value)) {
+            return true;
+        }
         try {
             Double.parseDouble(value.replace(",", "").trim());
             return true;

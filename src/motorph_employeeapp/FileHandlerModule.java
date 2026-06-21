@@ -507,6 +507,58 @@ public class FileHandlerModule {
         return list;
     }
 
+    /** Relative path for employee-submitted payslip issue reports (append-only log). */
+    public static final String PAYSLIP_ISSUES_FILE = "resources/payslip_issues.txt";
+
+    /**
+     * Appends one payslip issue report line. Creates the file when missing.
+     * Line format: timestamp|||employeeId|||employeeName|||payPeriod|||issueType|||description
+     */
+    public static boolean appendPayslipIssueReport(String employeeId, String employeeName,
+            String payPeriod, String issueType, String description) {
+        String line = sanitizeIssueField(java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                + "|||" + sanitizeIssueField(employeeId)
+                + "|||" + sanitizeIssueField(employeeName)
+                + "|||" + sanitizeIssueField(payPeriod)
+                + "|||" + sanitizeIssueField(issueType)
+                + "|||" + sanitizeIssueField(description);
+
+        java.util.function.Function<String, File> resolveWriteTarget = relativePath -> {
+            File direct = new File(relativePath);
+            if (direct.getParentFile() != null && !direct.getParentFile().exists()) {
+                direct.getParentFile().mkdirs();
+            }
+            if (direct.getParentFile() != null && direct.getParentFile().exists()) {
+                return direct;
+            }
+            String userDir = System.getProperty("user.dir");
+            File fromCwd = new File(userDir, relativePath);
+            if (fromCwd.getParentFile() != null && !fromCwd.getParentFile().exists()) {
+                fromCwd.getParentFile().mkdirs();
+            }
+            return fromCwd;
+        };
+
+        File target = resolveWriteTarget.apply(PAYSLIP_ISSUES_FILE);
+        try (java.io.FileWriter fw = new java.io.FileWriter(target, true);
+                java.io.BufferedWriter bw = new java.io.BufferedWriter(fw)) {
+            bw.write(line);
+            bw.newLine();
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving payslip issue report: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static String sanitizeIssueField(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("|||", "[PIPE3]").replace('\n', ' ').replace('\r', ' ').trim();
+    }
+
     /**
      * Parses a CSV line into columns, respecting double-quoted fields.
      *
