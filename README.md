@@ -71,7 +71,7 @@ The app uses a **procedural modular architecture**: business logic lives in stat
 ### HR Portal (`hr` / `hr12345`)
 
 - **Dashboard** — overview with calendar widget
-- **Employee Records** — add, edit, delete, search, filter; view full profile; attendance dialog
+- **Employee Records** — add, edit, delete, search, filter; view full profile; attendance dialog (edit/delete via modal popups — see [Implementation notes](#hr-employee-records--implementation-notes) below)
 - **Revision History** — audit trail of record changes with revert
 - **Payroll Processing**
   - **Single mode** — one employee, pay period attendance table, calculate, export
@@ -201,7 +201,7 @@ Central Swing application (~8,900 lines). Key responsibilities:
 | Login | `showCustomLoginDialog()` — styled modal, Enter key support |
 | Bootstrap | `initialize()` — sets frame title by role, opens dashboard |
 | Employee screens | PDF-style My Payslip viewer, period filter, bulk PDF export, report issue, responsive profile/notifications |
-| HR screens | Employee Records CRUD, revision history, payroll single/batch |
+| HR screens | Employee Records CRUD (popup edit/delete), revision history, payroll single/batch |
 | Payroll UI | HR: Single/Batch toggle, funnel filter, styled results; Employee: scrollable payslip document + summary chips |
 | Export | Clipboard copy, `.txt` download, `.pdf` payslip; employee bulk export to a chosen folder |
 | Navigation | Sidebar, page headers, role-gated menu items |
@@ -286,6 +286,19 @@ Static fields (`lastGrossFirst`, `lastSss`, `summaryNet`, etc.) hold the most re
 | `applyFormToRow` / `createNewRow` / `buildFullRowFromForm` | Form → CSV row |
 | `computeHourlyRateFromGrossSemiMonthly(gross)` | Live rate: `(gross × 2) / (22 × 8)` |
 | `collectViewWarnings(emp)` | Missing-field warnings on view |
+
+#### HR Employee Records — implementation notes
+
+These behaviors satisfy the update/delete requirements but differ slightly from a classic inline-form layout:
+
+- **Popup dialogs, not inline forms** — The Employee Records screen is table-only. Selecting a row enables **View**, **Edit**, and **Delete**; **Edit** and **Add** open modal dialogs with labeled fields pre-filled from the CSV. There is no inline form panel on the main screen.
+- **Legacy helpers** — `runUpdateEmployeeRecord()` and `populateEmployeeRecordForm()` remain in `MotorPH_GUI.java` from an earlier inline-form layout. The live edit path is **Edit** → `showSelectedEmployeeEditDialog()` → `showEmployeeEditPopup()`.
+- **Revision history (extra)** — Before each add, edit, or delete, `EmployeeRevisionModule.logChange()` saves a full CSV snapshot so HR can review history and revert. This goes beyond the basic CRUD spec but does not change normal save/delete behavior.
+
+| GUI entry point | Module calls |
+|---|---|
+| Edit → Save | `validateEditPopup()` → `applyFormToRow()` → `FileHandlerModule.updateEmployeeRecord()` → `refreshEmployeeTable()` |
+| Delete | Confirm dialog → `FileHandlerModule.deleteEmployeeRecord()` → `refreshEmployeeTable()` |
 
 ### `EmployeeRevisionModule.java` — Audit Trail
 

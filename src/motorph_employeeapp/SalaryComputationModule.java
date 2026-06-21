@@ -4,7 +4,9 @@ package motorph_employeeapp;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * SalaryComputationModule
@@ -467,22 +469,49 @@ public class SalaryComputationModule {
     }
 
     /**
-     * Loads all employees, computes salaries for the pay period, updates CSV columns,
-     * and rewrites the employee file.
+     * Computes salaries for every employee in the CSV and persists results to disk.
      */
     public static BulkPayrollResult computeAllEmployeeSalaries(String month, String year,
             javax.swing.JTextArea output) {
         FileHandlerModule.ensureEmployeeFileSchema();
-        List<String[]> employees = new ArrayList<>(FileHandlerModule.getAllEmployees());
-        PayrollValidationResult validation = validatePayrollInputs(employees, month, year);
-        if (!validation.isValid()) {
-            return new BulkPayrollResult(false, new ArrayList<>(), 0, 0, 0, 0, employees.size());
+        return computeSelectedEmployeeSalaries(month, year,
+                FileHandlerModule.getAllEmployees(), output, true);
+    }
+
+    /**
+     * Computes monthly payroll for a chosen subset using array-based modular methods,
+     * optionally merging computed columns back into the full Employee Details CSV.
+     *
+     * @param month             pay coverage month (1–12)
+     * @param year              pay coverage year
+     * @param selectedEmployees employee rows to process (typically checked rows in HR batch payroll)
+     * @param output            optional text area for plain-text summary; may be {@code null}
+     * @param saveToFile        when {@code true}, updates matching rows in the CSV via
+     *                          {@link FileHandlerModule#rewriteEmployeeFile}
+     */
+    public static BulkPayrollResult computeSelectedEmployeeSalaries(String month, String year,
+            List<String[]> selectedEmployees, javax.swing.JTextArea output, boolean saveToFile) {
+        FileHandlerModule.ensureEmployeeFileSchema();
+
+        if (selectedEmployees == null || selectedEmployees.isEmpty()) {
+            return new BulkPayrollResult(false, new ArrayList<>(), 0, 0, 0, 0, 0);
         }
 
-        int count = employees.size();
+        List<String[]> selected = new ArrayList<>();
+        for (String[] row : selectedEmployees) {
+            selected.add(FileHandlerModule.normalizeEmployeeRow(row));
+        }
+
+        PayrollValidationResult validation = validatePayrollInputs(selected, month, year);
+        if (!validation.isValid()) {
+            return new BulkPayrollResult(false, new ArrayList<>(), 0, 0, 0, 0, selected.size());
+        }
+
+        int count = selected.size();
         double[] rates = new double[count];
         double[] hoursWorked = new double[count];
         List<EmployeePayrollSummary> summaries = new ArrayList<>();
+        Map<String, String[]> computedById = new HashMap<>();
         double runningGross = 0;
         double runningDeductions = 0;
         double runningNet = 0;
@@ -490,8 +519,7 @@ public class SalaryComputationModule {
         int skippedCount = 0;
 
         for (int i = 0; i < count; i++) {
-            String[] emp = FileHandlerModule.normalizeEmployeeRow(employees.get(i));
-            employees.set(i, emp);
+            String[] emp = selected.get(i);
             String id = emp[EmployeeModule.ID].trim();
             rates[i] = EmployeeModule.getHourlyRate(emp);
             hoursWorked[i] = sumAttendanceHours(id, month, year);
@@ -512,12 +540,12 @@ public class SalaryComputationModule {
         if (output != null) {
             output.setText("");
             output.append("  PAYROLL SUMMARY — " + monthName(month) + " " + year.trim() + "\n");
-            output.append("  All employee salaries computed from attendance hours × hourly rate.\n");
+            output.append("  Selected employee salaries computed from attendance hours × hourly rate.\n");
             output.append("  ────────────────────────────────────────────────────────────────\n\n");
         }
 
         for (int i = 0; i < count; i++) {
-            String[] emp = employees.get(i);
+            String[] emp = selected.get(i);
             String id = emp[EmployeeModule.ID].trim();
             String name = EmployeeModule.fullName(emp);
             boolean hasHours = hoursWorked[i] > 0;
@@ -537,6 +565,7 @@ public class SalaryComputationModule {
                 emp[EmployeeModule.NET_PAY] = "0.00";
                 skippedCount++;
             }
+            computedById.put(id, emp);
             summaries.add(new EmployeePayrollSummary(id, name, hoursWorked[i], grossPays[i],
                     totalDeductions[i], netPays[i], hasHours));
 
@@ -547,7 +576,19 @@ public class SalaryComputationModule {
             }
         }
 
-        boolean saved = FileHandlerModule.rewriteEmployeeFile(employees);
+        boolean saved = false;
+        if (saveToFile) {
+            List<String[]> allEmployees = new ArrayList<>(FileHandlerModule.getAllEmployees());
+            for (int i = 0; i < allEmployees.size(); i++) {
+                String[] row = FileHandlerModule.normalizeEmployeeRow(allEmployees.get(i));
+                String id = row[EmployeeModule.ID].trim();
+                if (computedById.containsKey(id)) {
+                    allEmployees.set(i, computedById.get(id));
+                }
+            }
+            saved = FileHandlerModule.rewriteEmployeeFile(allEmployees);
+        }
+
         summaryGross = runningGross;
         summaryDeductions = runningDeductions;
         summaryNet = runningNet;
@@ -559,7 +600,7 @@ public class SalaryComputationModule {
                     computedCount, skippedCount));
             output.append(String.format("  Totals — Gross PHP %,.2f  •  Deductions PHP %,.2f  •  Net PHP %,.2f%n",
                     runningGross, runningDeductions, runningNet));
-            if (saved) {
+            if (saveToFile && saved) {
                 output.append("\n  Employee Details CSV updated with Hours Worked, Gross Pay, "
                         + "Total Deductions, and Net Pay.");
             }

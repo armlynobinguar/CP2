@@ -823,6 +823,19 @@ public class MotorPH_GUI {
         rpAppend("  No attendance data for this pay period.\n\n", rsWarn);
     }
 
+    /** Monthly bulk payroll summary card (hours × rate model from {@link SalaryComputationModule}). */
+    private static void rpRenderBulkEmployeeSummary(SalaryComputationModule.EmployeePayrollSummary summary) {
+        if (richPane == null || summary == null) {
+            return;
+        }
+        rpAppend("  " + summary.employeeId + "  ·  " + summary.employeeName + "  \n", rsHeader);
+        rpAppend("  Hours Worked:  " + String.format("%.2f", summary.hoursWorked) + "\n", rsNormal);
+        rpAppend("  Gross Pay:     PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
+        rpAppend("  Deductions:    PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsDeduct);
+        rpAppend("  Net Pay:       ", rsBold);
+        rpAppend("PHP " + String.format("%,.2f", summary.netPay) + "\n\n", rsNet);
+    }
+
     private static void rpRenderBatchTotals(int processed, int selected, double totalGross,
             double totalDed, double totalNet) {
         rpAppend("────────────────────────────────────\n", rsMuted);
@@ -920,7 +933,7 @@ public class MotorPH_GUI {
             clearBatchPayrollOutput();
             return;
         }
-        executeBatchPayrollComputation(monthHolder[0], yearHolder[0]);
+        executeBatchPayrollComputation(monthHolder[0], yearHolder[0], false);
     }
 
     private static void updatePayrollSelectionCount() {
@@ -1089,6 +1102,19 @@ public class MotorPH_GUI {
             }
         }
         return rows;
+    }
+
+    /** Loads CSV rows for every checked employee in the batch payroll table. */
+    private static java.util.List<String[]> getCheckedPayrollEmployees() {
+        java.util.List<String[]> selectedEmps = new ArrayList<>();
+        for (int modelRow : getCheckedPayrollModelRows()) {
+            String id = String.valueOf(payrollSelectTableModel.getValueAt(modelRow, 1)).trim();
+            String data = FileHandlerModule.findEmployeeData(id);
+            if (data != null) {
+                selectedEmps.add(FileHandlerModule.smartSplit(data));
+            }
+        }
+        return selectedEmps;
     }
 
     private static JPanel buildPayrollWorkflowStep(int step, String label, int x, int width) {
@@ -5926,16 +5952,7 @@ public class MotorPH_GUI {
         }
 
         String actualMonth = String.valueOf(MONTH_NUMBERS[monthCombo.getSelectedIndex()]);
-        java.util.List<Integer> selectedRows = getCheckedPayrollModelRows();
-
-        java.util.List<String[]> selectedEmps = new java.util.ArrayList<>();
-        for (int modelRow : selectedRows) {
-            String id = String.valueOf(payrollSelectTableModel.getValueAt(modelRow, 1)).trim();
-            String data = FileHandlerModule.findEmployeeData(id);
-            if (data != null) {
-                selectedEmps.add(FileHandlerModule.smartSplit(data));
-            }
-        }
+        java.util.List<String[]> selectedEmps = getCheckedPayrollEmployees();
 
         SalaryComputationModule.PayrollValidationResult validation = SalaryComputationModule
                 .validatePayrollInputs(selectedEmps, actualMonth, year);
@@ -5953,10 +5970,29 @@ public class MotorPH_GUI {
             }
         }
 
-        int processed = executeBatchPayrollComputation(actualMonth, year);
-        if (processed > 0) {
+        SalaryComputationModule.BulkPayrollResult result = executeBatchPayrollComputation(
+                actualMonth, year, true);
+        if (result.computedCount > 0) {
             batchPayrollComputedOnce = true;
-            showToast(processed + " salary record(s) computed for selected employees.");
+            if (result.savedToFile) {
+                if (employeeTableModel != null) {
+                    refreshEmployeeTable();
+                }
+                JOptionPane.showMessageDialog(frame,
+                        result.computedCount + " salary record(s) computed and saved to Employee Details CSV.\n\n"
+                                + "Gross: PHP " + String.format("%,.2f", result.totalGross) + "\n"
+                                + "Deductions: PHP " + String.format("%,.2f", result.totalDeductions) + "\n"
+                                + "Net: PHP " + String.format("%,.2f", result.totalNet),
+                        "Payroll Complete", JOptionPane.INFORMATION_MESSAGE);
+                showToast(result.computedCount + " salary record(s) computed and saved.");
+            } else {
+                JOptionPane.showMessageDialog(frame,
+                        "Payroll was computed but the CSV file could not be saved.\n\n"
+                                + "Close any program using the file and try again.",
+                        "Save Failed", JOptionPane.ERROR_MESSAGE);
+                showToast(result.computedCount + " record(s) computed (CSV save failed).",
+                        new Color(180, 90, 40));
+            }
         } else {
             clearBatchPayrollOutput();
             JOptionPane.showMessageDialog(frame,
@@ -5969,63 +6005,53 @@ public class MotorPH_GUI {
     /**
      * Runs batch payroll for checked rows in the current filtered table.
      *
-     * @return number of employees successfully processed
+     * @param saveToCsv when {@code true}, persists computed pay columns to the Employee Details CSV
+     * @return bulk computation result including save status and per-employee summaries
      */
-    private static int executeBatchPayrollComputation(String actualMonth, String year) {
+    private static SalaryComputationModule.BulkPayrollResult executeBatchPayrollComputation(
+            String actualMonth, String year, boolean saveToCsv) {
         if (txtResultArea == null || payrollSelectTableModel == null) {
-            return 0;
+            return new SalaryComputationModule.BulkPayrollResult(
+                    false, new ArrayList<>(), 0, 0, 0, 0, 0);
         }
 
         java.util.List<Integer> selectedRows = getCheckedPayrollModelRows();
         if (selectedRows.isEmpty()) {
             clearBatchPayrollOutput();
-            return 0;
+            return new SalaryComputationModule.BulkPayrollResult(
+                    false, new ArrayList<>(), 0, 0, 0, 0, 0);
         }
 
+        java.util.List<String[]> selectedEmps = getCheckedPayrollEmployees();
         rpClear();
         txtResultArea.setText("");
-        double totalGross = 0, totalDed = 0, totalNet = 0;
-        int processed = 0, skipped = 0;
 
-        for (int modelRow : selectedRows) {
-            String id = String.valueOf(payrollSelectTableModel.getValueAt(modelRow, 1)).trim();
-            String data = FileHandlerModule.findEmployeeData(id);
-            if (data == null) {
-                skipped++;
-                continue;
-            }
-            String[] emp = FileHandlerModule.smartSplit(data);
-            String empName = EmployeeModule.fullName(emp);
-            javax.swing.JTextArea chunk = new javax.swing.JTextArea();
-            SalaryComputationModule.calculatePayroll(emp, actualMonth, year, chunk);
-            if (SalaryComputationModule.lastCalculationSucceeded) {
-                txtResultArea.append("\n═══════════════════════════\n");
-                txtResultArea.append("  EMPLOYEE #" + id + " — " + empName + "\n");
-                txtResultArea.append("═══════════════════════════\n");
-                txtResultArea.append(chunk.getText());
-                rpRenderEmployeeCard(id, empName);
-                totalGross += SalaryComputationModule.summaryGross;
-                totalDed += SalaryComputationModule.summaryDeductions;
-                totalNet += SalaryComputationModule.summaryNet;
+        SalaryComputationModule.BulkPayrollResult result = SalaryComputationModule
+                .computeSelectedEmployeeSalaries(actualMonth, year, selectedEmps, txtResultArea, saveToCsv);
+
+        int processed = 0;
+        for (SalaryComputationModule.EmployeePayrollSummary summary : result.summaries) {
+            if (summary.computed) {
+                rpRenderBulkEmployeeSummary(summary);
                 processed++;
             } else {
-                rpRenderSkippedEmployee(id, empName);
-                skipped++;
+                rpRenderSkippedEmployee(summary.employeeId, summary.employeeName);
             }
         }
 
         if (processed > 0) {
-            rpRenderBatchTotals(processed, selectedRows.size(), totalGross, totalDed, totalNet);
+            rpRenderBatchTotals(processed, selectedRows.size(), result.totalGross,
+                    result.totalDeductions, result.totalNet);
             if (richPane != null) {
                 richPane.setCaretPosition(0);
             }
-            updatePayrollStatChips(totalGross, totalDed, totalNet);
+            updatePayrollStatChips(result.totalGross, result.totalDeductions, result.totalNet);
         } else {
             rpSet("No attendance data was found for the selected employees in the chosen pay period.", rsWarn);
             resetPayrollStatChips();
         }
 
-        return processed;
+        return result;
     }
 
     /**
