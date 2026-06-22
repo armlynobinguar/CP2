@@ -356,7 +356,7 @@ public class MotorPH_GUI {
     static final int SIDEBAR_NAV_BTN_H = 42;
     static final int SIDEBAR_NAV_GAP = 4;
     static final int RECORDS_ACTION_BAR_H = 136;
-    static final int DASHBOARD_CAL_W = 300;
+    static final int DASHBOARD_CAL_W = 220;
 
     /** HR sidebar / screen label (replaces legacy "Lookup"). */
     static final String HR_DIRECTORY_NAV = "Directory";
@@ -373,7 +373,7 @@ public class MotorPH_GUI {
     /** Stack dashboard calendar below cards when content is narrower than this. */
     static final int RESP_DASH_STACK_CAL = 720;
     /** Single-column dashboard cards below this content width. */
-    static final int RESP_DASH_SINGLE_COL = 560;
+    static final int RESP_DASH_SINGLE_COL = 880;
     /** Single-column profile fields below this content width. */
     static final int RESP_PROFILE_SINGLE_COL = 640;
     /** Stack notification actions below the list below this width. */
@@ -8336,28 +8336,29 @@ public class MotorPH_GUI {
         });
 
         if (basicField != null) {
-            basicField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-                private void sync() {
-                    String raw = basicField.getText().trim().replace(",", "");
-                    if (raw.isEmpty()) {
-                        grossField.setEditable(true);
-                        grossField.setBackground(PALETTE_WHITE);
-                        grossField.setToolTipText(null);
-                        return;
-                    }
-                    try {
-                        double basic = Double.parseDouble(raw);
-                        double semi = basic / 2.0;
-                        grossField.setText(String.format("%.2f", semi));
-                        grossField.setEditable(false);
-                        grossField.setBackground(lockedBg);
-                        grossField.setToolTipText("Auto-computed from Basic Salary");
-                    } catch (NumberFormatException ignored) {}
+            Runnable syncBasic = () -> {
+                String raw = basicField.getText().trim().replace(",", "");
+                if (raw.isEmpty()) {
+                    grossField.setEditable(true);
+                    grossField.setBackground(PALETTE_WHITE);
+                    grossField.setToolTipText(null);
+                    return;
                 }
-                public void insertUpdate(javax.swing.event.DocumentEvent e) { sync(); }
-                public void removeUpdate(javax.swing.event.DocumentEvent e) { sync(); }
-                public void changedUpdate(javax.swing.event.DocumentEvent e) { sync(); }
+                try {
+                    double basic = Double.parseDouble(raw);
+                    double semi = basic / 2.0;
+                    grossField.setText(String.format("%.2f", semi));
+                    grossField.setEditable(false);
+                    grossField.setBackground(lockedBg);
+                    grossField.setToolTipText("Auto-computed from Basic Salary");
+                } catch (NumberFormatException ignored) {}
+            };
+            basicField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { syncBasic.run(); }
+                @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { syncBasic.run(); }
+                @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { syncBasic.run(); }
             });
+            syncBasic.run(); // fire immediately for pre-populated basic salary on edit/load
         }
         recomputeHourly.run();
     }
