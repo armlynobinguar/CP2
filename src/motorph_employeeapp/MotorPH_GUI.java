@@ -852,10 +852,15 @@ public class MotorPH_GUI {
             return;
         }
         rpAppend("  " + summary.employeeId + "  ·  " + summary.employeeName + "  \n", rsHeader);
-        rpAppend("  Hours Worked:  " + String.format("%.2f", summary.hoursWorked) + "\n", rsNormal);
-        rpAppend("  Gross Pay:     PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
-        rpAppend("  Deductions:    PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsDeduct);
-        rpAppend("  Net Pay:       ", rsBold);
+        rpAppend("  Hours Worked:       " + String.format("%.2f", summary.hoursWorked) + "\n", rsNormal);
+        rpAppend("  Gross Pay:          PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
+        rpAppend("  Deductions\n", rsBold);
+        rpAppend("    SSS:              PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
+        rpAppend("    PhilHealth:       PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
+        rpAppend("    Pag-IBIG:         PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
+        rpAppend("    Withholding Tax:  PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
+        rpAppend("  Total Deductions:   PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
+        rpAppend("  Net Pay:            ", rsBold);
         rpAppend("PHP " + String.format("%,.2f", summary.netPay) + "\n\n", rsNet);
     }
 
@@ -1267,13 +1272,13 @@ public class MotorPH_GUI {
         employeePayslipViewportH = scrollH;
 
         employeePayslipViewport = new JPanel(new java.awt.BorderLayout());
-        employeePayslipViewport.setBackground(PALETTE_WHITE);
+        employeePayslipViewport.setBackground(PAYSLIP_VIEWER_BG);
         refreshEmployeePayslipViewport(buildEmployeePayslipPlaceholder());
 
         employeePayslipScroll = new JScrollPane(employeePayslipViewport);
         employeePayslipScroll.setBounds(0, y, width, scrollH);
         employeePayslipScroll.setBorder(null);
-        employeePayslipScroll.getViewport().setBackground(PALETTE_WHITE);
+        employeePayslipScroll.getViewport().setBackground(PAYSLIP_VIEWER_BG);
         employeePayslipScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         employeePayslipScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         employeePayslipScroll.getVerticalScrollBar().setUnitIncrement(16);
@@ -1283,11 +1288,11 @@ public class MotorPH_GUI {
         return y + scrollH + actionH;
     }
 
+    static final int PAYSLIP_DOC_H_MARGIN = 20; // horizontal margin each side within viewport
+
     private static int resolveEmployeePayslipDocWidth() {
-        if (employeePayslipViewportW > 0) {
-            return employeePayslipViewportW;
-        }
-        return Math.max(320, getContentBounds().width);
+        int vw = employeePayslipViewportW > 0 ? employeePayslipViewportW : getContentBounds().width;
+        return Math.max(320, vw - PAYSLIP_DOC_H_MARGIN * 2);
     }
 
     private static void refreshEmployeePayslipViewport(JComponent content) {
@@ -1301,9 +1306,9 @@ public class MotorPH_GUI {
         content.setMinimumSize(new java.awt.Dimension(Math.min(docW, 280), docH));
 
         employeePayslipViewport.removeAll();
-        JPanel wrapper = new JPanel();
-        wrapper.setLayout(new javax.swing.BoxLayout(wrapper, javax.swing.BoxLayout.Y_AXIS));
-        wrapper.setBackground(PALETTE_WHITE);
+        JPanel wrapper = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 12));
+        wrapper.setBackground(PAYSLIP_VIEWER_BG);
+        content.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
         wrapper.add(content);
         employeePayslipViewport.add(wrapper, java.awt.BorderLayout.NORTH);
         employeePayslipViewport.revalidate();
@@ -2759,7 +2764,7 @@ public class MotorPH_GUI {
 
     private static void pushCsvSnapshotWithLog(String action, String employeeId, String summary) {
         List<String[]> snap = takeCsvSnapshot();
-        EmployeeRevisionModule.logChange(action, employeeId, summary, snap);
+        EmployeeRevisionModule.logChange(action, employeeId, summary, snap, loggedInUser);
         csvUndoStack.push(snap);
         csvRedoStack.clear();
         updateCsvHistoryButtonStates();
@@ -7091,7 +7096,7 @@ public class MotorPH_GUI {
     private static void showEmployeeRevisionHistoryDialog() {
         java.util.List<EmployeeRevisionModule.RevisionEntry> revisions = EmployeeRevisionModule.getEntries();
         JDialog dialog = new JDialog(frame, "Employee Record Revisions", true);
-        dialog.setSize(680, 420);
+        dialog.setSize(800, 420);
         dialog.setLocationRelativeTo(frame);
         dialog.setLayout(new java.awt.BorderLayout());
 
@@ -7103,7 +7108,7 @@ public class MotorPH_GUI {
         hdr.setPreferredSize(new java.awt.Dimension(0, 40));
         dialog.add(hdr, java.awt.BorderLayout.NORTH);
 
-        String[] cols = { "Date / Time", "Action", "Employee #", "Summary" };
+        String[] cols = { "Date / Time", "Action", "Employee #", "User", "Summary" };
         javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -7112,14 +7117,15 @@ public class MotorPH_GUI {
         };
         for (EmployeeRevisionModule.RevisionEntry entry : revisions) {
             model.addRow(new Object[] {
-                    entry.formattedTime(), entry.action, entry.employeeId, entry.summary
+                    entry.formattedTime(), entry.action, entry.employeeId,
+                    entry.performedBy.isEmpty() ? "—" : entry.performedBy, entry.summary
             });
         }
         JTable table = new JTable(model);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         applyModernTableStyle(table);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-        int[] revPreferredWidths = {140, 80, 90, 270}; 
+        int[] revPreferredWidths = {140, 80, 80, 120, 170};
         for (int i = 0; i < revPreferredWidths.length; i++) {
             if (i < table.getColumnModel().getColumnCount()) {
                 javax.swing.table.TableColumn column = table.getColumnModel().getColumn(i);
@@ -7369,6 +7375,7 @@ public class MotorPH_GUI {
         form.setPreferredSize(new java.awt.Dimension(fieldX + fieldW + PAD, fy + 12));
 
         wireGrossSemiMonthlyHourlyRate(
+                fieldMap.get("Basic Salary:"),
                 fieldMap.get("Gross Semi-monthly:"),
                 fieldMap.get("Hourly Rate:"));
 
@@ -7623,6 +7630,7 @@ public class MotorPH_GUI {
         }
 
         wireGrossSemiMonthlyHourlyRate(
+                fieldMap.get("Basic Salary:"),
                 fieldMap.get("Gross Semi-monthly:"),
                 fieldMap.get("Hourly Rate:"));
 
@@ -8015,37 +8023,70 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Gross semi-monthly is editable; hourly rate is derived live as the user types.
-     * Formula: (gross semi-monthly × 2) / 168 working hours per month.
+     * When Basic Salary is filled, Gross Semi-monthly (= basic/2) and Hourly Rate
+     * (= grossSemi*2/168) are auto-computed and locked. Clearing Basic Salary unlocks
+     * Gross Semi-monthly so it can be entered manually.
+     * Formula: hourly = (gross semi-monthly × 2) / 168 working hours per month.
      */
     private static void wireGrossSemiMonthlyHourlyRate(JTextField grossField, JTextField hourlyField) {
+        wireGrossSemiMonthlyHourlyRate(null, grossField, hourlyField);
+    }
+
+    private static void wireGrossSemiMonthlyHourlyRate(JTextField basicField,
+            JTextField grossField, JTextField hourlyField) {
         if (grossField == null || hourlyField == null) {
             return;
         }
+        Color lockedBg = new Color(235, 240, 250);
         grossField.setEditable(true);
         grossField.setBackground(PALETTE_WHITE);
         hourlyField.setEditable(false);
-        hourlyField.setBackground(new Color(235, 240, 250));
+        hourlyField.setBackground(lockedBg);
         hourlyField.setToolTipText("Auto-computed from Gross Semi-monthly");
 
-        Runnable recompute = () -> {
+        Runnable recomputeHourly = () -> {
             String hourly = EmployeeRecordsModule.computeHourlyRateFromGrossSemiMonthly(grossField.getText());
             hourlyField.setText(hourly);
         };
         grossField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                recompute.run();
+                recomputeHourly.run();
             }
 
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                recompute.run();
+                recomputeHourly.run();
             }
 
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                recompute.run();
+                recomputeHourly.run();
             }
         });
-        recompute.run();
+
+        if (basicField != null) {
+            basicField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                private void sync() {
+                    String raw = basicField.getText().trim().replace(",", "");
+                    if (raw.isEmpty()) {
+                        grossField.setEditable(true);
+                        grossField.setBackground(PALETTE_WHITE);
+                        grossField.setToolTipText(null);
+                        return;
+                    }
+                    try {
+                        double basic = Double.parseDouble(raw);
+                        double semi = basic / 2.0;
+                        grossField.setText(String.format("%.2f", semi));
+                        grossField.setEditable(false);
+                        grossField.setBackground(lockedBg);
+                        grossField.setToolTipText("Auto-computed from Basic Salary");
+                    } catch (NumberFormatException ignored) {}
+                }
+                public void insertUpdate(javax.swing.event.DocumentEvent e) { sync(); }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) { sync(); }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) { sync(); }
+            });
+        }
+        recomputeHourly.run();
     }
 
     private static void attachIdFormat(JTextField tf, String pattern) {
@@ -9188,12 +9229,14 @@ public class MotorPH_GUI {
         JDialog dlg = new JDialog(frame, "Review Payslip Report", true);
         dlg.setLayout(null);
         dlg.getContentPane().setBackground(PALETTE_WHITE);
-        dlg.setSize(520, 520);
+        dlg.setSize(520, 544);
         dlg.setLocationRelativeTo(frame);
         dlg.setResizable(false);
 
         int pad = 20;
         int w = 520 - pad * 2;
+        int gap = 14; // consistent inter-section gap
+        int lf  = 4;  // label-to-field gap
 
         JLabel title = new JLabel("Employee Report");
         title.setFont(new Font("Segoe UI", Font.BOLD, 15));
@@ -9206,26 +9249,30 @@ public class MotorPH_GUI {
                 + " · " + escapeHtml(formatPayslipIssueTimestamp(issue.timestamp)) + "</html>");
         meta.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         meta.setForeground(TEXT_MUTED);
-        meta.setBounds(pad, 40, w, 34);
+        meta.setBounds(pad, 42, w, 34);
         dlg.add(meta);
+
+        // y=76 after meta; first section gets a slightly larger 18px separator from header
+        int y = 94;
 
         JLabel lblType = new JLabel("Issue Type");
         lblType.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblType.setForeground(TEXT_MUTED);
-        lblType.setBounds(pad, 82, w, 16);
+        lblType.setBounds(pad, y, w, 16);
         dlg.add(lblType);
 
         JTextField txtType = new JTextField(issue.issueType);
         txtType.setEditable(false);
         txtType.setFont(APP_FONT_PLAIN);
-        txtType.setBounds(pad, 100, w, FIELD_HEIGHT);
+        txtType.setBounds(pad, y + 16 + lf, w, FIELD_HEIGHT);
         txtType.setBackground(new Color(248, 250, 254));
         dlg.add(txtType);
+        y += 16 + lf + FIELD_HEIGHT + gap;
 
         JLabel lblDesc = new JLabel("Employee Description");
         lblDesc.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblDesc.setForeground(TEXT_MUTED);
-        lblDesc.setBounds(pad, 138, w, 16);
+        lblDesc.setBounds(pad, y, w, 16);
         dlg.add(lblDesc);
 
         JTextArea txtDesc = new JTextArea(issue.description);
@@ -9235,13 +9282,14 @@ public class MotorPH_GUI {
         txtDesc.setWrapStyleWord(true);
         txtDesc.setBackground(new Color(248, 250, 254));
         JScrollPane descScroll = new JScrollPane(txtDesc);
-        descScroll.setBounds(pad, 158, w, 72);
+        descScroll.setBounds(pad, y + 16 + lf, w, 72);
         dlg.add(descScroll);
+        y += 16 + lf + 72 + gap;
 
         JLabel lblStatus = new JLabel("HR Status");
         lblStatus.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblStatus.setForeground(TEXT_MUTED);
-        lblStatus.setBounds(pad, 242, w, 16);
+        lblStatus.setBounds(pad, y, w, 16);
         dlg.add(lblStatus);
 
         String[] statuses = {
@@ -9252,13 +9300,14 @@ public class MotorPH_GUI {
         JComboBox<String> cmbStatus = new JComboBox<>(statuses);
         cmbStatus.setSelectedItem(issue.status);
         cmbStatus.setFont(APP_FONT_PLAIN);
-        cmbStatus.setBounds(pad, 262, w, FIELD_HEIGHT);
+        cmbStatus.setBounds(pad, y + 16 + lf, w, FIELD_HEIGHT);
         dlg.add(cmbStatus);
+        y += 16 + lf + FIELD_HEIGHT + gap;
 
         JLabel lblHr = new JLabel("HR Resolution Notes");
         lblHr.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblHr.setForeground(TEXT_MUTED);
-        lblHr.setBounds(pad, 300, w, 16);
+        lblHr.setBounds(pad, y, w, 16);
         dlg.add(lblHr);
 
         JTextArea txtHr = new JTextArea(issue.hrNote);
@@ -9269,20 +9318,21 @@ public class MotorPH_GUI {
                 BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)));
         JScrollPane hrScroll = new JScrollPane(txtHr);
-        hrScroll.setBounds(pad, 320, w, 88);
+        hrScroll.setBounds(pad, y + 16 + lf, w, 84);
         dlg.add(hrScroll);
+        y += 16 + lf + 84 + gap;
 
         JButton btnSave = new JButton("Save Resolution");
         guiStyleAccentButton(btnSave);
-        btnSave.setBounds(pad, 430, 140, BTN_HEIGHT);
+        btnSave.setBounds(pad, y, 140, BTN_HEIGHT);
 
         JButton btnPayroll = new JButton("Open Payroll");
         styleStandardButton(btnPayroll);
-        btnPayroll.setBounds(pad + 150, 430, 120, BTN_HEIGHT);
+        btnPayroll.setBounds(pad + 150, y, 120, BTN_HEIGHT);
 
         JButton btnClose = new JButton("Close");
         styleStandardButton(btnClose);
-        btnClose.setBounds(pad + 280, 430, 90, BTN_HEIGHT);
+        btnClose.setBounds(pad + 280, y, 90, BTN_HEIGHT);
 
         btnClose.addActionListener(e -> dlg.dispose());
         btnPayroll.addActionListener(e -> {
