@@ -7668,8 +7668,9 @@ public class MotorPH_GUI {
                     attachIdFormat(tf, "XX-XXXXXXX-X");
                 } else if ("TIN #:".equals(row[0])) {
                     attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
-                        || "Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
+                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                    attachDigitsOnlyFilter(tf);
+                } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
                         || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
                     attachNumericValidation(tf);
@@ -7922,8 +7923,9 @@ public class MotorPH_GUI {
                     attachIdFormat(tf, "XX-XXXXXXX-X");
                 } else if ("TIN #:".equals(row[0])) {
                     attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
-                        || "Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
+                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                    attachDigitsOnlyFilter(tf);
+                } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
                         || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
                     attachNumericValidation(tf);
@@ -8304,6 +8306,28 @@ public class MotorPH_GUI {
         btn.setMargin(new java.awt.Insets(0, 0, 0, 0));
         btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         return btn;
+    }
+
+    private static void attachDigitsOnlyFilter(JTextField tf) {
+        tf.setToolTipText("Digits and hyphens only");
+        ((javax.swing.text.AbstractDocument) tf.getDocument())
+                .setDocumentFilter(new javax.swing.text.DocumentFilter() {
+                    private String clean(String s) {
+                        return s == null ? "" : s.replaceAll("[^0-9\\-]", "");
+                    }
+                    @Override
+                    public void insertString(FilterBypass fb, int offset, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        fb.insertString(offset, clean(string), attr);
+                    }
+                    @Override
+                    public void replace(FilterBypass fb, int offset, int length, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        fb.replace(offset, length, clean(string), attr);
+                    }
+                });
     }
 
     private static void attachNumericValidation(JTextField tf) {
