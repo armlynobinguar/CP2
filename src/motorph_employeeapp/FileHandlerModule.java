@@ -518,57 +518,100 @@ public class FileHandlerModule {
         return list;
     }
 
-    /** Relative path for employee-submitted payslip issue reports (append-only log). */
+    /** Relative path for employee-submitted payslip issue reports. */
     public static final String PAYSLIP_ISSUES_FILE = "resources/payslip_issues.txt";
 
+    private static File resolvePayslipIssuesFile() {
+        File direct = new File(PAYSLIP_ISSUES_FILE);
+        if (direct.getParentFile() != null && !direct.getParentFile().exists()) {
+            direct.getParentFile().mkdirs();
+        }
+        if (direct.getParentFile() != null && direct.getParentFile().exists()) {
+            return direct;
+        }
+        String userDir = System.getProperty("user.dir");
+        File fromCwd = new File(userDir, PAYSLIP_ISSUES_FILE);
+        if (fromCwd.getParentFile() != null && !fromCwd.getParentFile().exists()) {
+            fromCwd.getParentFile().mkdirs();
+        }
+        return fromCwd;
+    }
+
+    /** Loads all payslip issue reports from disk (file order, oldest first). */
+    public static java.util.List<PayslipIssueModule.PayslipIssue> loadPayslipIssues() {
+        java.util.List<PayslipIssueModule.PayslipIssue> list = new ArrayList<>();
+        File target = resolvePayslipIssuesFile();
+        if (!target.isFile()) {
+            return list;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(target))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                PayslipIssueModule.PayslipIssue issue = PayslipIssueModule.PayslipIssue.parseLine(line);
+                if (issue != null) {
+                    list.add(issue);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading payslip issues: " + e.getMessage());
+        }
+        return list;
+    }
+
+    /** Rewrites the payslip issues file after HR updates status or resolution notes. */
+    public static boolean savePayslipIssues(java.util.List<PayslipIssueModule.PayslipIssue> issues) {
+        File target = resolvePayslipIssuesFile();
+        if (target.getParentFile() != null) {
+            target.getParentFile().mkdirs();
+        }
+        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(target)))) {
+            if (issues != null) {
+                for (PayslipIssueModule.PayslipIssue issue : issues) {
+                    if (issue != null) {
+                        out.println(issue.serializeLine());
+                    }
+                }
+            }
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error saving payslip issues: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** Open or in-progress payslip reports — used for HR sidebar badge counts. */
+    public static int countPayslipIssuesNeedingAction() {
+        int count = 0;
+        for (PayslipIssueModule.PayslipIssue issue : loadPayslipIssues()) {
+            if (issue.needsHrAction()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /**
-     * Appends one payslip issue report line. Creates the file when missing.
-     * Line format: timestamp|||employeeId|||employeeName|||payPeriod|||issueType|||description
+     * Appends one employee payslip issue report (status defaults to Open).
      */
     public static boolean appendPayslipIssueReport(String employeeId, String employeeName,
             String payPeriod, String issueType, String description) {
-        String line = sanitizeIssueField(java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-                + "|||" + sanitizeIssueField(employeeId)
-                + "|||" + sanitizeIssueField(employeeName)
-                + "|||" + sanitizeIssueField(payPeriod)
-                + "|||" + sanitizeIssueField(issueType)
-                + "|||" + sanitizeIssueField(description);
+        PayslipIssueModule.PayslipIssue issue = new PayslipIssueModule.PayslipIssue(
+                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                employeeId, employeeName, payPeriod, issueType, description);
 
-        java.util.function.Function<String, File> resolveWriteTarget = relativePath -> {
-            File direct = new File(relativePath);
-            if (direct.getParentFile() != null && !direct.getParentFile().exists()) {
-                direct.getParentFile().mkdirs();
-            }
-            if (direct.getParentFile() != null && direct.getParentFile().exists()) {
-                return direct;
-            }
-            String userDir = System.getProperty("user.dir");
-            File fromCwd = new File(userDir, relativePath);
-            if (fromCwd.getParentFile() != null && !fromCwd.getParentFile().exists()) {
-                fromCwd.getParentFile().mkdirs();
-            }
-            return fromCwd;
-        };
-
-        File target = resolveWriteTarget.apply(PAYSLIP_ISSUES_FILE);
+        File target = resolvePayslipIssuesFile();
         try (java.io.FileWriter fw = new java.io.FileWriter(target, true);
                 java.io.BufferedWriter bw = new java.io.BufferedWriter(fw)) {
-            bw.write(line);
+            bw.write(issue.serializeLine());
             bw.newLine();
             return true;
         } catch (IOException e) {
             System.out.println("Error saving payslip issue report: " + e.getMessage());
             return false;
         }
-    }
-
-    /** Sanitizes one field before writing a payslip issue log line (strips newlines and delimiter chars). */
-    private static String sanitizeIssueField(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace("|||", "[PIPE3]").replace('\n', ' ').replace('\r', ' ').trim();
     }
 
     /**

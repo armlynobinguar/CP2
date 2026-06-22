@@ -48,6 +48,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -475,6 +476,28 @@ public class MotorPH_GUI {
                 col.setHeaderValue("");
             }
         }
+    }
+
+    private static void configurePayslipIssueTableColumns(JTable table, int availableWidth) {
+        if (table == null || table.getColumnCount() < 6 || availableWidth <= 0) {
+            return;
+        }
+        int[] weights = { 18, 10, 22, 20, 18, 12 };
+        TableColumnModel cm = table.getColumnModel();
+        int assigned = 0;
+        for (int i = 0; i < 5; i++) {
+            int w = Math.max(64, (availableWidth * weights[i]) / 100);
+            TableColumn col = cm.getColumn(i);
+            col.setMinWidth(56);
+            col.setPreferredWidth(w);
+            col.setResizable(true);
+            assigned += w;
+        }
+        int lastW = Math.max(56, availableWidth - assigned);
+        TableColumn lastCol = cm.getColumn(5);
+        lastCol.setMinWidth(56);
+        lastCol.setPreferredWidth(lastW);
+        lastCol.setResizable(true);
     }
 
     private static final Color PAYROLL_SECTION_BG = new Color(248, 251, 255);
@@ -2269,10 +2292,11 @@ public class MotorPH_GUI {
     }
 
     private static void enableTableSorting(JTable table) {
-        if (table == null || table.getModel() == null) {
+        if (table == null || !(table.getModel() instanceof DefaultTableModel)) {
             return;
         }
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(employeeTableModel);
+        TableRowSorter<DefaultTableModel> sorter =
+                new TableRowSorter<>((DefaultTableModel) table.getModel());
         table.setRowSorter(sorter);
     }
 
@@ -4225,10 +4249,27 @@ public class MotorPH_GUI {
         addPreviewRow(card, "Next Pay Day", payInfo, cx, cy, cw, rh);
         cy += rh + 8;
         addPreviewRow(card, "Employees", String.valueOf(empCount) + " on file", cx, cy, cw, rh);
+        cy += rh + 8;
+        int openIssues = FileHandlerModule.countPayslipIssuesNeedingAction();
+        addPreviewRow(card, "Payslip Reports",
+                openIssues > 0 ? openIssues + " need HR review" : "No open reports", cx, cy, cw, rh);
         cy += rh;
 
         card.putClientProperty(DASH_SUBTITLE_BOTTOM_KEY, cy);
-        addDashboardCardButton(card, w, h, "Open Payroll", w - DASH_CARD_INSET * 2, true, e -> setupPayrollUI());
+        addDashboardCardButtons(card, w, h,
+                new String[] { "Open Payroll", "Review Reports" },
+                splitButtonWidths(w, 2),
+                new boolean[] { true, false },
+                new ActionListener[] {
+                    e -> {
+                        payrollSubView = "Batch";
+                        setupPayrollUI();
+                    },
+                    e -> {
+                        payrollSubView = "Reports";
+                        setupPayrollUI();
+                    }
+                });
         addCardHoverAndClick(card, h, e -> setupPayrollUI());
         return card;
     }
@@ -4564,12 +4605,12 @@ public class MotorPH_GUI {
         frame.add(topBar);
     }
 
-    /** Single / Batch toggle embedded in the payroll page header (stays visible on resize). */
+    /** Single / Batch / Reports toggle embedded in the payroll page header. */
     private static void addHrPayrollModeButtons(JPanel topBar, int contentW) {
-        final int btnW = 136;
+        final int btnW = 118;
         final int btnH = 32;
         final int gap = 0;
-        final int switchW = btnW * 2 + gap;
+        final int switchW = btnW * 3 + gap;
         final int switchH = btnH;
         final int switchX = contentW - CONTENT_PAD - switchW;
         final int switchY = (PAGE_HEADER_H - switchH) / 2;
@@ -4580,12 +4621,12 @@ public class MotorPH_GUI {
         modeSwitch.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
         topBar.add(modeSwitch);
 
-        JButton btnSingle = new JButton("Single Processing");
+        JButton btnSingle = new JButton("Single");
         btnSingle.setBounds(0, 0, btnW, switchH);
         btnSingle.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnSingle.setFocusable(false);
         btnSingle.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        stylePayrollModeButton(btnSingle, "Single".equals(payrollSubView), true);
+        stylePayrollModeButton(btnSingle, "Single".equals(payrollSubView), 0);
         btnSingle.setToolTipText("Compute payroll for a single employee");
         btnSingle.addActionListener(e -> {
             if (!"Single".equals(payrollSubView)) {
@@ -4595,12 +4636,12 @@ public class MotorPH_GUI {
         });
         modeSwitch.add(btnSingle);
 
-        JButton btnBatch = new JButton("Batch Processing");
+        JButton btnBatch = new JButton("Batch");
         btnBatch.setBounds(btnW + gap, 0, btnW, switchH);
         btnBatch.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnBatch.setFocusable(false);
         btnBatch.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        stylePayrollModeButton(btnBatch, "Batch".equals(payrollSubView), false);
+        stylePayrollModeButton(btnBatch, "Batch".equals(payrollSubView), 1);
         btnBatch.setToolTipText("Compute payroll for multiple employees");
         btnBatch.addActionListener(e -> {
             if (!"Batch".equals(payrollSubView)) {
@@ -4609,9 +4650,26 @@ public class MotorPH_GUI {
             }
         });
         modeSwitch.add(btnBatch);
+
+        int pendingReports = FileHandlerModule.countPayslipIssuesNeedingAction();
+        String reportsLabel = pendingReports > 0 ? "Reports (" + pendingReports + ")" : "Reports";
+        JButton btnReports = new JButton(reportsLabel);
+        btnReports.setBounds((btnW + gap) * 2, 0, btnW, switchH);
+        btnReports.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnReports.setFocusable(false);
+        btnReports.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        stylePayrollModeButton(btnReports, "Reports".equals(payrollSubView), 2);
+        btnReports.setToolTipText("Review and resolve employee payslip issue reports");
+        btnReports.addActionListener(e -> {
+            if (!"Reports".equals(payrollSubView)) {
+                payrollSubView = "Reports";
+                setupPayrollUI();
+            }
+        });
+        modeSwitch.add(btnReports);
     }
 
-    private static void stylePayrollModeButton(JButton btn, boolean active, boolean isLeft) {
+    private static void stylePayrollModeButton(JButton btn, boolean active, int position) {
         btn.setOpaque(true);
         btn.setContentAreaFilled(true);
         btn.setBorderPainted(true);
@@ -4622,7 +4680,8 @@ public class MotorPH_GUI {
             btn.setBackground(PALETTE_WHITE);
             btn.setForeground(TEXT_MUTED);
             btn.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, isLeft ? 0 : 1, 0, isLeft ? 1 : 0, CARD_BORDER_COLOR),
+                    BorderFactory.createMatteBorder(0, position > 0 ? 1 : 0, 0, position < 2 ? 1 : 0,
+                            CARD_BORDER_COLOR),
                     BorderFactory.createEmptyBorder(4, 8, 4, 8)));
         }
     }
@@ -5102,6 +5161,8 @@ public class MotorPH_GUI {
 
         if ("Single".equals(payrollSubView)) {
             setupHrSinglePayrollContent(outerPanel, panelW, panelH);
+        } else if ("Reports".equals(payrollSubView)) {
+            setupHrPayslipReportsContent(outerPanel, panelW, panelH);
         } else {
             setupHrBulkPayrollContent(outerPanel, panelW, panelH);
         }
@@ -5571,64 +5632,67 @@ public class MotorPH_GUI {
         y += compInfoH + PAYROLL_SECTION_GAP;
 
         // Wire card auto-population on key release
+        Runnable refreshSinglePayrollEmployeeCard = () -> {
+            String id = txtEmployeeNo.getText().trim();
+            if (id.isEmpty()) {
+                avatarLbl.setText("—");
+                lblCardName.setText("Enter an employee number");
+                lblCardInfo.setText(" ");
+                valPosition.setText("—");
+                valDepartment.setText("—");
+                valSupervisor.setText("—");
+                valBasicSalary.setText("—");
+                valRiceSubsidy.setText("—");
+                valPhoneAllowance.setText("—");
+                valClothingAllow.setText("—");
+                valGrossSemiMo.setText("—");
+                valHourlyRate.setText("—");
+                refreshSinglePayrollAttendancePreview();
+                return;
+            }
+            String data = FileHandlerModule.findEmployeeData(id);
+            if (data == null) {
+                avatarLbl.setText("?");
+                lblCardName.setText("Employee not found");
+                lblCardInfo.setText(" ");
+                valPosition.setText("—");
+                valDepartment.setText("—");
+                valSupervisor.setText("—");
+                valBasicSalary.setText("—");
+                valRiceSubsidy.setText("—");
+                valPhoneAllowance.setText("—");
+                valClothingAllow.setText("—");
+                valGrossSemiMo.setText("—");
+                valHourlyRate.setText("—");
+                refreshSinglePayrollAttendancePreview();
+                return;
+            }
+            String[] emp = FileHandlerModule.smartSplit(data);
+            String name = EmployeeModule.fullName(emp);
+            String dept = safeColumn(emp, EmployeeModule.DEPARTMENT);
+            String status = safeColumn(emp, EmployeeModule.STATUS);
+            String[] parts = name.trim().split("\\s+");
+            String initials = parts.length >= 2
+                    ? "" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
+                    : name.isEmpty() ? "?" : String.valueOf(name.charAt(0));
+            avatarLbl.setText(initials.toUpperCase());
+            lblCardName.setText(name);
+            lblCardInfo.setText(dept + "  ·  " + status);
+            valPosition.setText(safeColumn(emp, EmployeeModule.POSITION));
+            valDepartment.setText(dept);
+            valSupervisor.setText(safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR));
+            valBasicSalary.setText(fmtPhp(safeColumn(emp, EmployeeModule.BASIC_SALARY)));
+            valRiceSubsidy.setText(fmtPhp(safeColumn(emp, EmployeeModule.RICE_SUBSIDY)));
+            valPhoneAllowance.setText(fmtPhp(safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE)));
+            valClothingAllow.setText(fmtPhp(safeColumn(emp, EmployeeModule.CLOTHING_ALLOWANCE)));
+            valGrossSemiMo.setText(fmtPhp(safeColumn(emp, EmployeeModule.GROSS_SEMI_MONTHLY)));
+            valHourlyRate.setText(fmtPhp(safeColumn(emp, EmployeeModule.HOURLY_RATE)));
+            refreshSinglePayrollAttendancePreview();
+        };
         txtEmployeeNo.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                String id = txtEmployeeNo.getText().trim();
-                if (id.isEmpty()) {
-                    avatarLbl.setText("—");
-                    lblCardName.setText("Enter an employee number");
-                    lblCardInfo.setText(" ");
-                    valPosition.setText("—");
-                    valDepartment.setText("—");
-                    valSupervisor.setText("—");
-                    valBasicSalary.setText("—");
-                    valRiceSubsidy.setText("—");
-                    valPhoneAllowance.setText("—");
-                    valClothingAllow.setText("—");
-                    valGrossSemiMo.setText("—");
-                    valHourlyRate.setText("—");
-                    refreshSinglePayrollAttendancePreview();
-                    return;
-                }
-                String data = FileHandlerModule.findEmployeeData(id);
-                if (data == null) {
-                    avatarLbl.setText("?");
-                    lblCardName.setText("Employee not found");
-                    lblCardInfo.setText(" ");
-                    valPosition.setText("—");
-                    valDepartment.setText("—");
-                    valSupervisor.setText("—");
-                    valBasicSalary.setText("—");
-                    valRiceSubsidy.setText("—");
-                    valPhoneAllowance.setText("—");
-                    valClothingAllow.setText("—");
-                    valGrossSemiMo.setText("—");
-                    valHourlyRate.setText("—");
-                    refreshSinglePayrollAttendancePreview();
-                    return;
-                }
-                String[] emp = FileHandlerModule.smartSplit(data);
-                String name = EmployeeModule.fullName(emp);
-                String dept = safeColumn(emp, EmployeeModule.DEPARTMENT);
-                String status = safeColumn(emp, EmployeeModule.STATUS);
-                String[] parts = name.trim().split("\\s+");
-                String initials = parts.length >= 2
-                        ? "" + parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
-                        : name.isEmpty() ? "?" : String.valueOf(name.charAt(0));
-                avatarLbl.setText(initials.toUpperCase());
-                lblCardName.setText(name);
-                lblCardInfo.setText(dept + "  ·  " + status);
-                valPosition.setText(safeColumn(emp, EmployeeModule.POSITION));
-                valDepartment.setText(dept);
-                valSupervisor.setText(safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR));
-                valBasicSalary.setText(fmtPhp(safeColumn(emp, EmployeeModule.BASIC_SALARY)));
-                valRiceSubsidy.setText(fmtPhp(safeColumn(emp, EmployeeModule.RICE_SUBSIDY)));
-                valPhoneAllowance.setText(fmtPhp(safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE)));
-                valClothingAllow.setText(fmtPhp(safeColumn(emp, EmployeeModule.CLOTHING_ALLOWANCE)));
-                valGrossSemiMo.setText(fmtPhp(safeColumn(emp, EmployeeModule.GROSS_SEMI_MONTHLY)));
-                valHourlyRate.setText(fmtPhp(safeColumn(emp, EmployeeModule.HOURLY_RATE)));
-                refreshSinglePayrollAttendancePreview();
+                refreshSinglePayrollEmployeeCard.run();
             }
         });
 
@@ -5673,6 +5737,12 @@ public class MotorPH_GUI {
 
         addSinglePayrollAttendancePreview(leftPanel, y, lw, panelH);
         refreshSinglePayrollAttendancePreview();
+
+        if (pendingPayrollEmployeeId != null && !pendingPayrollEmployeeId.isEmpty()) {
+            txtEmployeeNo.setText(pendingPayrollEmployeeId.trim());
+            pendingPayrollEmployeeId = null;
+            refreshSinglePayrollEmployeeCard.run();
+        }
 
         // ── RIGHT COLUMN ─────────────────────────────────────────
         addPayrollOutputBlock(rightPanel, PAYROLL_PAD, rightW, panelH - PAYROLL_PAD * 2,
@@ -6066,8 +6136,10 @@ public class MotorPH_GUI {
 
         buildAndAddSidebar("Payroll");
         if (isHrUser()) {
-            addPageHeader("Payroll Processing",
-                    "Set pay period, select employees, then calculate payroll.", true);
+            String payrollSubtitle = "Reports".equals(payrollSubView)
+                    ? "Review employee payslip concerns, fix payroll data, and mark reports resolved."
+                    : "Set pay period, select employees, then calculate payroll.";
+            addPageHeader("Payroll Processing", payrollSubtitle, true);
         } else {
             addPageHeader("My Payslip");
         }
@@ -6711,6 +6783,7 @@ public class MotorPH_GUI {
     static void openPayrollForEmployee(String employeeId) {
         if (employeeId == null || employeeId.trim().isEmpty())
             return;
+        payrollSubView = "Single";
         pendingPayrollEmployeeId = employeeId.trim();
         setupPayrollUI();
     }
@@ -8774,6 +8847,483 @@ public class MotorPH_GUI {
                     "An unexpected error occurred while deleting the record:\n" + ex.getMessage(),
                     "Delete Failed", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    /** Opens Payroll Processing on the Reports tab (employee payslip issue inbox). */
+    static void showHrPayslipIssuesUI() {
+        if (!isHrUser()) {
+            JOptionPane.showMessageDialog(frame,
+                    "Payslip issue review is only available in the HR portal.",
+                    "HR Portal Required", JOptionPane.INFORMATION_MESSAGE);
+            showDashboard();
+            return;
+        }
+        payrollSubView = "Reports";
+        setupPayrollUI();
+    }
+
+    /**
+     * HR payslip issue inbox embedded in Payroll Processing (Reports tab).
+     * Full-width table with status filters; double-click or right-click for actions.
+     */
+    private static void setupHrPayslipReportsContent(JPanel panel, int panelW, int panelH) {
+        java.util.List<PayslipIssueModule.PayslipIssue> allIssues =
+                new ArrayList<>(FileHandlerModule.loadPayslipIssues());
+        java.util.Collections.reverse(allIssues);
+
+        final java.util.List<PayslipIssueModule.PayslipIssue> displayedIssues = new ArrayList<>();
+        final String[] activeFilter = { "Open" };
+
+        final int tablePad = 12;
+        final int filterTop = 12;
+        final int filterBarH = 44;
+        final int tableX = tablePad;
+        final int tableW = panelW - tablePad * 2;
+        final int tableY = filterTop + filterBarH + 8;
+        final int tableH = panelH - tableY - tablePad;
+
+        String[] tableColumns = {
+                "Submitted", "Employee #", "Name", "Pay Period", "Issue Type", "Status"
+        };
+        DefaultTableModel issueTableModel = new DefaultTableModel(tableColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        JTable issueTable = new JTable(issueTableModel);
+        issueTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        issueTable.setFillsViewportHeight(true);
+        applyModernTableStyle(issueTable);
+        configurePayslipIssueTableColumns(issueTable, tableW);
+
+        java.util.function.Supplier<PayslipIssueModule.PayslipIssue> selectedIssue = () -> {
+            int viewRow = issueTable.getSelectedRow();
+            if (viewRow < 0 || viewRow >= issueTable.getRowCount()) {
+                return null;
+            }
+            int modelRow = issueTable.convertRowIndexToModel(viewRow);
+            if (modelRow < 0 || modelRow >= displayedIssues.size()) {
+                return null;
+            }
+            return displayedIssues.get(modelRow);
+        };
+
+        java.util.function.Supplier<PayslipIssueModule.PayslipIssue> requireSelectedIssue = () -> {
+            PayslipIssueModule.PayslipIssue sel = selectedIssue.get();
+            if (sel == null) {
+                JOptionPane.showMessageDialog(frame,
+                        "Select a payslip report from the table first.",
+                        "No Selection", JOptionPane.WARNING_MESSAGE);
+            }
+            return sel;
+        };
+
+        JPanel filterBar = createRecordsStyleBar(tableW, filterBarH);
+        filterBar.setLocation(tableX, filterTop);
+        panel.add(filterBar);
+
+        JLabel filterLbl = new JLabel("Status:");
+        filterLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        filterLbl.setForeground(TEXT_MUTED);
+        filterLbl.setBounds(12, 14, 52, 18);
+        filterBar.add(filterLbl);
+
+        String[] filters = { "Open", "In Progress", "Resolved", "All" };
+        int fx = 68;
+        JButton[] filterBtns = new JButton[filters.length];
+        for (int i = 0; i < filters.length; i++) {
+            final String cat = filters[i];
+            JButton fb = new JButton(cat);
+            fb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            fb.setBounds(fx, 10, 96, 26);
+            stylePayrollFilterChip(fb, cat.equals(activeFilter[0]));
+            filterBtns[i] = fb;
+            filterBar.add(fb);
+            fx += 102;
+        }
+
+        final int barPad = 12;
+        final int btnH = 28;
+        final int btnY = 8;
+        final Font reviewBtnFont = new Font("Segoe UI", Font.BOLD, 12);
+        java.awt.FontMetrics reviewFm = filterBar.getFontMetrics(reviewBtnFont);
+        final int btnW = Math.max(118, reviewFm.stringWidth("View Report") + 28);
+        final int btnX = tableW - barPad - btnW;
+        final int countGap = 14;
+        final int countX = fx + 8;
+        final int countW = Math.max(120, btnX - countGap - countX);
+
+        JLabel countLbl = new JLabel();
+        countLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        countLbl.setForeground(TEXT_MUTED);
+        countLbl.setHorizontalAlignment(SwingConstants.RIGHT);
+        countLbl.setBounds(countX, 14, countW, 18);
+        filterBar.add(countLbl);
+
+        JButton btnReview = new JButton("View Report");
+        btnReview.setBounds(btnX, btnY, btnW, btnH);
+        guiStyleAccentButton(btnReview);
+        btnReview.setFont(reviewBtnFont);
+        btnReview.setBorder(BorderFactory.createEmptyBorder(4, 12, 4, 12));
+        btnReview.setToolTipText("Open the selected payslip issue report");
+        filterBar.add(btnReview);
+
+        final Runnable refreshCountLbl = () -> {
+            int pending = FileHandlerModule.countPayslipIssuesNeedingAction();
+            countLbl.setText(displayedIssues.size() + " shown · " + pending + " pending");
+        };
+
+        Runnable refreshIssueTable = () -> {
+            issueTable.clearSelection();
+            issueTable.setRowSorter(null);
+            issueTableModel.setRowCount(0);
+            displayedIssues.clear();
+            for (PayslipIssueModule.PayslipIssue issue : allIssues) {
+                if (!payslipIssueMatchesFilter(issue, activeFilter[0])) {
+                    continue;
+                }
+                displayedIssues.add(issue);
+                issueTableModel.addRow(new Object[] {
+                        formatPayslipIssueTimestamp(issue.timestamp),
+                        issue.employeeId,
+                        issue.employeeName,
+                        issue.payPeriod,
+                        issue.issueType,
+                        issue.status
+                });
+            }
+            enableTableSorting(issueTable);
+            configurePayslipIssueTableColumns(issueTable, tableW);
+            if (issueTable.getRowCount() > 0) {
+                SwingUtilities.invokeLater(() -> {
+                    if (issueTable.getRowCount() > 0) {
+                        issueTable.setRowSelectionInterval(0, 0);
+                    }
+                });
+            }
+            refreshCountLbl.run();
+        };
+
+        Runnable openReview = () -> {
+            PayslipIssueModule.PayslipIssue sel = requireSelectedIssue.get();
+            if (sel != null) {
+                showHrPayslipIssueReviewDialog(sel, allIssues, refreshIssueTable);
+            }
+        };
+
+        Runnable openPayroll = () -> {
+            PayslipIssueModule.PayslipIssue sel = requireSelectedIssue.get();
+            if (sel != null) {
+                openPayrollForEmployee(sel.employeeId);
+            }
+        };
+
+        Runnable openEmployee = () -> {
+            PayslipIssueModule.PayslipIssue sel = requireSelectedIssue.get();
+            if (sel == null) {
+                return;
+            }
+            String data = FileHandlerModule.findEmployeeData(sel.employeeId);
+            if (data == null) {
+                JOptionPane.showMessageDialog(frame,
+                        "Employee #" + sel.employeeId + " could not be found in the CSV.",
+                        "Not Found", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            selectedEmployeeId = sel.employeeId.trim();
+            showEmployeeEditPopup(FileHandlerModule.smartSplit(data));
+        };
+
+        Runnable markResolved = () -> {
+            PayslipIssueModule.PayslipIssue sel = requireSelectedIssue.get();
+            if (sel == null) {
+                return;
+            }
+            if (sel.isResolved()) {
+                JOptionPane.showMessageDialog(frame,
+                        "This report is already marked resolved.",
+                        "Already Resolved", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            sel.status = PayslipIssueModule.STATUS_RESOLVED;
+            if (sel.hrNote == null || sel.hrNote.trim().isEmpty()) {
+                sel.hrNote = "Reviewed and corrected by HR.";
+            }
+            sel.resolvedAt = java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            if (FileHandlerModule.savePayslipIssues(allIssues)) {
+                showToast("Report marked resolved.");
+                refreshIssueTable.run();
+            } else {
+                JOptionPane.showMessageDialog(frame,
+                        "Could not save the updated report status.",
+                        "Save Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        };
+
+        java.util.function.Consumer<java.awt.Component> showReportActionsMenu = anchor -> {
+            PayslipIssueModule.PayslipIssue sel = selectedIssue.get();
+            if (sel == null) {
+                JOptionPane.showMessageDialog(frame,
+                        "Select a payslip report from the table first.",
+                        "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            JPopupMenu menu = new JPopupMenu();
+            JMenuItem miReview = new JMenuItem("Review & Fix");
+            miReview.addActionListener(e -> openReview.run());
+            menu.add(miReview);
+            JMenuItem miPayroll = new JMenuItem("Open Payroll");
+            miPayroll.addActionListener(e -> openPayroll.run());
+            menu.add(miPayroll);
+            JMenuItem miEmployee = new JMenuItem("View Employee");
+            miEmployee.addActionListener(e -> openEmployee.run());
+            menu.add(miEmployee);
+            if (!sel.isResolved()) {
+                menu.addSeparator();
+                JMenuItem miResolve = new JMenuItem("Mark Resolved");
+                miResolve.addActionListener(e -> markResolved.run());
+                menu.add(miResolve);
+            }
+            menu.show(anchor, 0, anchor.getHeight());
+        };
+
+        for (int i = 0; i < filters.length; i++) {
+            final String cat = filters[i];
+            filterBtns[i].addActionListener(e -> {
+                activeFilter[0] = cat;
+                for (int j = 0; j < filterBtns.length; j++) {
+                    stylePayrollFilterChip(filterBtns[j], filters[j].equals(activeFilter[0]));
+                }
+                refreshIssueTable.run();
+            });
+        }
+
+        btnReview.addActionListener(e -> openReview.run());
+
+        JScrollPane issueScroll = new JScrollPane(issueTable);
+        issueScroll.setBounds(tableX, tableY, tableW, tableH);
+        styleEmployeeRecordsScrollPane(issueScroll);
+        panel.add(issueScroll);
+
+        refreshIssueTable.run();
+
+        issueTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && selectedIssue.get() != null) {
+                    openReview.run();
+                }
+            }
+
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                maybeShowReportContextMenu(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                maybeShowReportContextMenu(e);
+            }
+
+            private void maybeShowReportContextMenu(java.awt.event.MouseEvent e) {
+                if (!e.isPopupTrigger()) {
+                    return;
+                }
+                int row = issueTable.rowAtPoint(e.getPoint());
+                if (row >= 0) {
+                    issueTable.setRowSelectionInterval(row, row);
+                }
+                showReportActionsMenu.accept(issueTable);
+            }
+        });
+    }
+
+    private static boolean payslipIssueMatchesFilter(PayslipIssueModule.PayslipIssue issue, String filter) {
+        if (issue == null || filter == null || "All".equalsIgnoreCase(filter)) {
+            return issue != null;
+        }
+        if ("Open".equalsIgnoreCase(filter)) {
+            return issue.isOpen();
+        }
+        if ("In Progress".equalsIgnoreCase(filter)) {
+            return issue.isInProgress();
+        }
+        if ("Resolved".equalsIgnoreCase(filter)) {
+            return issue.isResolved();
+        }
+        return true;
+    }
+
+    private static String formatPayslipIssueTimestamp(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return "—";
+        }
+        try {
+            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(raw.trim());
+            return dt.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a"));
+        } catch (Exception e) {
+            return raw.trim();
+        }
+    }
+
+    private static void stylePayrollFilterChip(JButton btn, boolean active) {
+        if (btn == null) {
+            return;
+        }
+        btn.setFocusable(false);
+        btn.setOpaque(true);
+        btn.setBackground(active ? ACCENT_BLUE : new Color(240, 244, 252));
+        btn.setForeground(active ? PALETTE_WHITE : TEXT_DARK_NAVY);
+        btn.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+    }
+
+    private static void showHrPayslipIssueReviewDialog(PayslipIssueModule.PayslipIssue issue,
+            java.util.List<PayslipIssueModule.PayslipIssue> allIssues, Runnable onSaved) {
+        if (issue == null) {
+            return;
+        }
+
+        JDialog dlg = new JDialog(frame, "Review Payslip Report", true);
+        dlg.setLayout(null);
+        dlg.getContentPane().setBackground(PALETTE_WHITE);
+        dlg.setSize(520, 520);
+        dlg.setLocationRelativeTo(frame);
+        dlg.setResizable(false);
+
+        int pad = 20;
+        int w = 520 - pad * 2;
+
+        JLabel title = new JLabel("Employee Report");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        title.setForeground(TEXT_DARK_NAVY);
+        title.setBounds(pad, 16, w, 22);
+        dlg.add(title);
+
+        JLabel meta = new JLabel("<html>#" + escapeHtml(issue.employeeId) + " · "
+                + escapeHtml(issue.employeeName) + "<br>" + escapeHtml(issue.payPeriod)
+                + " · " + escapeHtml(formatPayslipIssueTimestamp(issue.timestamp)) + "</html>");
+        meta.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        meta.setForeground(TEXT_MUTED);
+        meta.setBounds(pad, 40, w, 34);
+        dlg.add(meta);
+
+        JLabel lblType = new JLabel("Issue Type");
+        lblType.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblType.setForeground(TEXT_MUTED);
+        lblType.setBounds(pad, 82, w, 16);
+        dlg.add(lblType);
+
+        JTextField txtType = new JTextField(issue.issueType);
+        txtType.setEditable(false);
+        txtType.setFont(APP_FONT_PLAIN);
+        txtType.setBounds(pad, 100, w, FIELD_HEIGHT);
+        txtType.setBackground(new Color(248, 250, 254));
+        dlg.add(txtType);
+
+        JLabel lblDesc = new JLabel("Employee Description");
+        lblDesc.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblDesc.setForeground(TEXT_MUTED);
+        lblDesc.setBounds(pad, 138, w, 16);
+        dlg.add(lblDesc);
+
+        JTextArea txtDesc = new JTextArea(issue.description);
+        txtDesc.setEditable(false);
+        txtDesc.setFont(APP_FONT_PLAIN);
+        txtDesc.setLineWrap(true);
+        txtDesc.setWrapStyleWord(true);
+        txtDesc.setBackground(new Color(248, 250, 254));
+        JScrollPane descScroll = new JScrollPane(txtDesc);
+        descScroll.setBounds(pad, 158, w, 72);
+        dlg.add(descScroll);
+
+        JLabel lblStatus = new JLabel("HR Status");
+        lblStatus.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblStatus.setForeground(TEXT_MUTED);
+        lblStatus.setBounds(pad, 242, w, 16);
+        dlg.add(lblStatus);
+
+        String[] statuses = {
+                PayslipIssueModule.STATUS_OPEN,
+                PayslipIssueModule.STATUS_IN_PROGRESS,
+                PayslipIssueModule.STATUS_RESOLVED
+        };
+        JComboBox<String> cmbStatus = new JComboBox<>(statuses);
+        cmbStatus.setSelectedItem(issue.status);
+        cmbStatus.setFont(APP_FONT_PLAIN);
+        cmbStatus.setBounds(pad, 262, w, FIELD_HEIGHT);
+        dlg.add(cmbStatus);
+
+        JLabel lblHr = new JLabel("HR Resolution Notes");
+        lblHr.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblHr.setForeground(TEXT_MUTED);
+        lblHr.setBounds(pad, 300, w, 16);
+        dlg.add(lblHr);
+
+        JTextArea txtHr = new JTextArea(issue.hrNote);
+        txtHr.setFont(APP_FONT_PLAIN);
+        txtHr.setLineWrap(true);
+        txtHr.setWrapStyleWord(true);
+        txtHr.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        JScrollPane hrScroll = new JScrollPane(txtHr);
+        hrScroll.setBounds(pad, 320, w, 88);
+        dlg.add(hrScroll);
+
+        JButton btnSave = new JButton("Save Resolution");
+        guiStyleAccentButton(btnSave);
+        btnSave.setBounds(pad, 430, 140, BTN_HEIGHT);
+
+        JButton btnPayroll = new JButton("Open Payroll");
+        styleStandardButton(btnPayroll);
+        btnPayroll.setBounds(pad + 150, 430, 120, BTN_HEIGHT);
+
+        JButton btnClose = new JButton("Close");
+        styleStandardButton(btnClose);
+        btnClose.setBounds(pad + 280, 430, 90, BTN_HEIGHT);
+
+        btnClose.addActionListener(e -> dlg.dispose());
+        btnPayroll.addActionListener(e -> {
+            dlg.dispose();
+            openPayrollForEmployee(issue.employeeId);
+        });
+
+        btnSave.addActionListener(e -> {
+            String hrNote = txtHr.getText().trim();
+            String status = String.valueOf(cmbStatus.getSelectedItem());
+            if (PayslipIssueModule.STATUS_RESOLVED.equals(status) && hrNote.isEmpty()) {
+                JOptionPane.showMessageDialog(dlg,
+                        "Add HR resolution notes before marking this report as Resolved.",
+                        "Resolution Notes Required", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            issue.status = status;
+            issue.hrNote = hrNote;
+            if (issue.isResolved()) {
+                issue.resolvedAt = java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            } else {
+                issue.resolvedAt = "";
+            }
+            if (FileHandlerModule.savePayslipIssues(allIssues)) {
+                dlg.dispose();
+                showToast("Payslip report updated.");
+                if (onSaved != null) {
+                    onSaved.run();
+                }
+            } else {
+                JOptionPane.showMessageDialog(dlg,
+                        "Could not save HR resolution. The issues file may be locked.",
+                        "Save Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        dlg.add(btnSave);
+        dlg.add(btnPayroll);
+        dlg.add(btnClose);
+        dlg.setVisible(true);
     }
 
     static void showHelpCenterUI() {
