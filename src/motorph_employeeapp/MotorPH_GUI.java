@@ -1500,8 +1500,8 @@ public class MotorPH_GUI {
         double dPi = SalaryComputationModule.lastPagIbig;
         double dTax = SalaryComputationModule.lastTax;
         double dTotal = SalaryComputationModule.lastTotalDeductions;
-        double tGross = SalaryComputationModule.summaryGross;
-        double tNet = SalaryComputationModule.summaryNet;
+        double tGross = gFirst + gSecond;
+        double tNet = nFirst + nSecond;
 
         int lastDay = 31;
         try {
@@ -3147,8 +3147,8 @@ public class MotorPH_GUI {
         double dPi = SalaryComputationModule.lastPagIbig;
         double dTax = SalaryComputationModule.lastTax;
         double dTotal = SalaryComputationModule.lastTotalDeductions;
-        double tGross = SalaryComputationModule.summaryGross;
-        double tNet = SalaryComputationModule.summaryNet;
+        double tGross = gFirst + gSecond;
+        double tNet = nFirst + nSecond;
 
         int lastDay = 31;
         try {
@@ -7871,7 +7871,7 @@ public class MotorPH_GUI {
         root.setBackground(PALETTE_WHITE);
         root.setBorder(BorderFactory.createEmptyBorder(0, 6, 8, 6));
 
-        // Header: « ‹ [Month ▾] [Year ▾] › »
+        // Header: « ‹ [Month v] [Year v] › »
         JPanel header = new JPanel(new java.awt.BorderLayout(4, 0));
         header.setBackground(ACCENT_BLUE);
         header.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
@@ -7941,7 +7941,7 @@ public class MotorPH_GUI {
 
             if (mode[0] == 1) {
                 // ── Month grid (4 rows × 3 cols) ───────────────────────────
-                lblMonth.setText(mNames[curM] + " ▾");
+                lblMonth.setText(mNames[curM] + " v");
                 lblMonth.setForeground(activeHl);
                 lblYear.setText(String.valueOf(curY));
                 lblYear.setForeground(PALETTE_WHITE);
@@ -7974,7 +7974,7 @@ public class MotorPH_GUI {
                 // ── Year grid (4 rows × 3 cols = 12 years) ─────────────────
                 lblMonth.setText(mNames[curM]);
                 lblMonth.setForeground(PALETTE_WHITE);
-                lblYear.setText(yearBase[0] + "–" + (yearBase[0] + 11) + " ▾");
+                lblYear.setText(yearBase[0] + "–" + (yearBase[0] + 11) + " v");
                 lblYear.setForeground(activeHl);
                 grid.setLayout(new java.awt.GridLayout(4, 3, 5, 5));
                 for (int i = 0; i < 12; i++) {
@@ -8003,9 +8003,9 @@ public class MotorPH_GUI {
 
             } else {
                 // ── Day grid (mode == 0) ────────────────────────────────────
-                lblMonth.setText(mNames[curM] + " ▾");
+                lblMonth.setText(mNames[curM] + " v");
                 lblMonth.setForeground(PALETTE_WHITE);
-                lblYear.setText(curY + " ▾");
+                lblYear.setText(curY + " v");
                 lblYear.setForeground(PALETTE_WHITE);
                 grid.setLayout(new java.awt.GridLayout(0, 7, 2, 2));
                 for (String dn : new String[] { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" }) {
