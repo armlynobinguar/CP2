@@ -5962,8 +5962,12 @@ public class MotorPH_GUI {
             valRiceSubsidy.setText(fmtPhp(safeColumn(emp, EmployeeModule.RICE_SUBSIDY)));
             valPhoneAllowance.setText(fmtPhp(safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE)));
             valClothingAllow.setText(fmtPhp(safeColumn(emp, EmployeeModule.CLOTHING_ALLOWANCE)));
-            valGrossSemiMo.setText(fmtPhp(safeColumn(emp, EmployeeModule.GROSS_SEMI_MONTHLY)));
-            valHourlyRate.setText(fmtPhp(safeColumn(emp, EmployeeModule.HOURLY_RATE)));
+            double payBasic = 0;
+            try { payBasic = Double.parseDouble(safeColumn(emp, EmployeeModule.BASIC_SALARY).replace(",", "").trim()); } catch (NumberFormatException ignored) {}
+            double payGross  = payBasic / 2.0;
+            double payHourly = payGross  * 2.0 / 168.0;
+            valGrossSemiMo.setText(String.format("PHP %,.2f", payGross));
+            valHourlyRate.setText(String.format("PHP %.2f", payHourly));
             refreshSinglePayrollAttendancePreview();
         };
         txtEmployeeNo.addKeyListener(new KeyAdapter() {
@@ -6660,12 +6664,16 @@ public class MotorPH_GUI {
         inner.add(secComp);
         y += 26;
 
+        double profileBasic = 0;
+        try { profileBasic = Double.parseDouble(safeColumn(emp, EmployeeModule.BASIC_SALARY).replace(",", "").trim()); } catch (NumberFormatException ignored) {}
+        double profileGross  = profileBasic / 2.0;
+        double profileHourly = profileGross  * 2.0 / 168.0;
         String[][] compRows = {
-                { "Rice Subsidy", "PHP " + safeColumn(emp, EmployeeModule.RICE_SUBSIDY) },
-                { "Phone Allowance", "PHP " + safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE) },
+                { "Rice Subsidy",       "PHP " + safeColumn(emp, EmployeeModule.RICE_SUBSIDY) },
+                { "Phone Allowance",    "PHP " + safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE) },
                 { "Clothing Allowance", "PHP " + safeColumn(emp, EmployeeModule.CLOTHING_ALLOWANCE) },
-                { "Gross Semi-monthly", "PHP " + safeColumn(emp, EmployeeModule.GROSS_SEMI_MONTHLY) },
-                { "Hourly Rate", "PHP " + safeColumn(emp, EmployeeModule.HOURLY_RATE) },
+                { "Gross Semi-monthly", String.format("PHP %,.2f", profileGross) },
+                { "Hourly Rate",        String.format("PHP %.2f", profileHourly) },
         };
 
         int compRowY = y;
@@ -6829,6 +6837,7 @@ public class MotorPH_GUI {
         }
 
         FileHandlerModule.ensureEmployeeFileSchema();
+        EmployeeRecordsModule.recomputeSalaryFieldsForAllEmployees();
         EmployeeRevisionModule.loadFromDisk();
 
         frame.getContentPane().removeAll();

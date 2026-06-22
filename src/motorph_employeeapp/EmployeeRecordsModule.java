@@ -372,6 +372,33 @@ public class EmployeeRecordsModule {
     }
 
     /**
+     * Recomputes Gross Semi-monthly (= Basic Salary / 2) and Hourly Rate
+     * (= gross * 2 / 168) for every employee row and persists the corrected
+     * values back to the CSV. Called once at app startup to repair stale data.
+     */
+    public static void recomputeSalaryFieldsForAllEmployees() {
+        List<String[]> all = FileHandlerModule.getAllEmployees();
+        if (all.isEmpty()) return;
+        boolean changed = false;
+        for (String[] row : all) {
+            if (row.length <= EmployeeModule.BASIC_SALARY) continue;
+            String rawBasic = row[EmployeeModule.BASIC_SALARY].replace(",", "").trim();
+            if (rawBasic.isEmpty()) continue;
+            try {
+                double basic  = Double.parseDouble(rawBasic);
+                double gross  = basic / 2.0;
+                double hourly = gross  * 2.0 / 168.0;
+                if (row.length > EmployeeModule.GROSS_SEMI_MONTHLY)
+                    row[EmployeeModule.GROSS_SEMI_MONTHLY] = String.format("%.2f", gross);
+                if (row.length > EmployeeModule.HOURLY_RATE)
+                    row[EmployeeModule.HOURLY_RATE] = String.format("%.2f", hourly);
+                changed = true;
+            } catch (NumberFormatException ignored) {}
+        }
+        if (changed) FileHandlerModule.rewriteEmployeeFile(all);
+    }
+
+    /**
      * Extra validation rules for Add/Edit popups beyond {@link #validateForm}:
      * required birthday/address/phone, numeric allowances, and gov-ID format checks.
      */
