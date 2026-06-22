@@ -91,27 +91,51 @@ public class SalaryComputationModule {
 
     /** Summary row for one employee after bulk salary computation. */
     public static class EmployeePayrollSummary {
-        /** Employee number from CSV. */
         public final String employeeId;
-        /** Display name for batch results table. */
         public final String employeeName;
-        /** Total attendance hours in the selected month. */
+        public final String birthday;
+        public final String monthName;
+        public final String year;
+        /** Hours in days 1–15. */
+        public final double hoursFirst;
+        /** Gross pay for days 1–15 (no deductions). */
+        public final double grossFirst;
+        /** Hours in days 16–end. */
+        public final double hoursSecond;
+        /** Gross pay for days 16–end before deductions. */
+        public final double grossSecond;
+        /** Total hours both cutoffs. */
         public final double hoursWorked;
-        /** Gross pay (hours × hourly rate). */
+        /** Total gross both cutoffs. */
         public final double grossPay;
-        /** SSS + PhilHealth + Pag-IBIG + tax. */
+        public final double sss;
+        public final double philHealth;
+        public final double pagIbig;
+        public final double tax;
         public final double totalDeductions;
-        /** Gross minus deductions. */
         public final double netPay;
-        /** {@code false} when employee had no attendance in the period. */
         public final boolean computed;
 
-        public EmployeePayrollSummary(String employeeId, String employeeName, double hoursWorked,
-                double grossPay, double totalDeductions, double netPay, boolean computed) {
+        public EmployeePayrollSummary(String employeeId, String employeeName, String birthday,
+                String monthName, String year,
+                double hoursFirst, double grossFirst, double hoursSecond, double grossSecond,
+                double sss, double philHealth, double pagIbig, double tax,
+                double totalDeductions, double netPay, boolean computed) {
             this.employeeId = employeeId;
             this.employeeName = employeeName;
-            this.hoursWorked = hoursWorked;
-            this.grossPay = grossPay;
+            this.birthday = birthday;
+            this.monthName = monthName;
+            this.year = year;
+            this.hoursFirst = hoursFirst;
+            this.grossFirst = grossFirst;
+            this.hoursSecond = hoursSecond;
+            this.grossSecond = grossSecond;
+            this.hoursWorked = hoursFirst + hoursSecond;
+            this.grossPay = grossFirst + grossSecond;
+            this.sss = sss;
+            this.philHealth = philHealth;
+            this.pagIbig = pagIbig;
+            this.tax = tax;
             this.totalDeductions = totalDeductions;
             this.netPay = netPay;
             this.computed = computed;
@@ -518,14 +542,22 @@ public class SalaryComputationModule {
         int computedCount = 0;
         int skippedCount = 0;
 
+        double[] hoursFirst  = new double[count];
+        double[] hoursSecond = new double[count];
+
         for (int i = 0; i < count; i++) {
             String[] emp = selected.get(i);
             String id = emp[EmployeeModule.ID].trim();
             rates[i] = EmployeeModule.getHourlyRate(emp);
-            hoursWorked[i] = sumAttendanceHours(id, month, year);
+            double[] cutoff = sumAttendanceHoursByCutoff(id, month, year);
+            hoursFirst[i]  = cutoff[0];
+            hoursSecond[i] = cutoff[1];
+            hoursWorked[i] = cutoff[0] + cutoff[1];
         }
 
-        double[] grossPays = computeGrossPay(rates, hoursWorked);
+        double[] grossFirst  = computeGrossPay(rates, hoursFirst);
+        double[] grossSecond = computeGrossPay(rates, hoursSecond);
+        double[] grossPays   = computeGrossPay(rates, hoursWorked);
         double[] sss = computeSSS(grossPays);
         double[] philHealth = computePhilHealth(grossPays);
         double[] pagIbig = computePagIBIG(grossPays);
@@ -566,7 +598,10 @@ public class SalaryComputationModule {
                 skippedCount++;
             }
             computedById.put(id, emp);
-            summaries.add(new EmployeePayrollSummary(id, name, hoursWorked[i], grossPays[i],
+            String bday = emp.length > EmployeeModule.BIRTHDAY ? emp[EmployeeModule.BIRTHDAY] : "";
+            summaries.add(new EmployeePayrollSummary(id, name, bday, monthName(month), year,
+                    hoursFirst[i], grossFirst[i], hoursSecond[i], grossSecond[i],
+                    sss[i], philHealth[i], pagIbig[i], tax[i],
                     totalDeductions[i], netPays[i], hasHours));
 
             if (output != null) {
@@ -608,6 +643,33 @@ public class SalaryComputationModule {
 
         return new BulkPayrollResult(saved, summaries, runningGross, runningDeductions, runningNet,
                 computedCount, skippedCount);
+    }
+
+    /**
+     * Returns {hoursFirst, hoursSecond} split at day 15 for one employee in a calendar month.
+     */
+    public static double[] sumAttendanceHoursByCutoff(String employeeId, String month, String year) {
+        double[] result = {0, 0};
+        if (employeeId == null || employeeId.trim().isEmpty()) return result;
+        List<String> records = FileHandlerModule.findAttendanceData(employeeId.trim());
+        for (String line : records) {
+            String[] row = FileHandlerModule.smartSplit(line);
+            if (row.length < 6) continue;
+            String[] dateParts = row[3].split("/");
+            if (dateParts.length < 3) continue;
+            try {
+                int inputMonth = Integer.parseInt(month.trim());
+                int inputYear  = Integer.parseInt(year.trim());
+                int csvMonth   = Integer.parseInt(dateParts[0].trim());
+                int csvYear    = Integer.parseInt(dateParts[2].trim());
+                int csvDay     = Integer.parseInt(dateParts[1].trim());
+                if (csvMonth == inputMonth && csvYear == inputYear) {
+                    double shift = calculateShift(row[4].trim(), row[5].trim());
+                    if (csvDay <= 15) result[0] += shift; else result[1] += shift;
+                }
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {}
+        }
+        return result;
     }
 
     /**

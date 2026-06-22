@@ -61,12 +61,17 @@ public class EmployeeRevisionModule {
         /** Filename under {@link #SNAP_DIR} containing the pre-change CSV copy. */
         public final String snapshotFile;
 
-        RevisionEntry(long timestampMs, String action, String employeeId, String summary, String snapshotFile) {
+        /** Username of the HR user who performed this action. */
+        public final String performedBy;
+
+        RevisionEntry(long timestampMs, String action, String employeeId, String summary,
+                String snapshotFile, String performedBy) {
             this.timestampMs = timestampMs;
             this.action = action;
             this.employeeId = employeeId;
             this.summary = summary;
             this.snapshotFile = snapshotFile;
+            this.performedBy = performedBy == null ? "" : performedBy.trim();
         }
 
         /** Formats {@link #timestampMs} for display in the revision history UI. */
@@ -91,17 +96,19 @@ public class EmployeeRevisionModule {
                 if (line.trim().isEmpty()) {
                     continue;
                 }
-                // Pipe-delimited metadata; summary may not contain unescaped pipes
-                String[] parts = line.split("\\|", 5);
+                // Pipe-delimited: ts|action|employeeId|summary|snapshotFile[|performedBy]
+                String[] parts = line.split("\\|", 6);
                 if (parts.length < 5) {
                     continue;
                 }
+                String performedBy = parts.length >= 6 ? parts[5].trim() : "";
                 entries.add(new RevisionEntry(
                         Long.parseLong(parts[0].trim()),
                         parts[1].trim(),
                         parts[2].trim(),
                         parts[3].trim(),
-                        parts[4].trim()));
+                        parts[4].trim(),
+                        performedBy));
             }
         } catch (IOException | NumberFormatException e) {
             System.out.println("Could not load revision index: " + e.getMessage());
@@ -117,7 +124,13 @@ public class EmployeeRevisionModule {
      * @param summary        short description for HR review
      * @param beforeSnapshot complete employee file rows before the mutation
      */
-    public static void logChange(String action, String employeeId, String summary, List<String[]> beforeSnapshot) {
+    public static void logChange(String action, String employeeId, String summary,
+            List<String[]> beforeSnapshot) {
+        logChange(action, employeeId, summary, beforeSnapshot, "");
+    }
+
+    public static void logChange(String action, String employeeId, String summary,
+            List<String[]> beforeSnapshot, String performedBy) {
         if (beforeSnapshot == null) {
             return;
         }
@@ -137,7 +150,7 @@ public class EmployeeRevisionModule {
             return;
         }
 
-        RevisionEntry entry = new RevisionEntry(ts, action, nz(employeeId), nz(summary), snapName);
+        RevisionEntry entry = new RevisionEntry(ts, action, nz(employeeId), nz(summary), snapName, nz(performedBy));
         entries.add(0, entry); // newest at front for UI list
 
         // Trim oldest entries and delete their snapshot files to cap disk use
@@ -194,7 +207,8 @@ public class EmployeeRevisionModule {
         index.getParentFile().mkdirs();
         try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(index, true)))) {
             out.println(entry.timestampMs + "|" + entry.action + "|" + entry.employeeId + "|"
-                    + entry.summary.replace("|", "/") + "|" + entry.snapshotFile);
+                    + entry.summary.replace("|", "/") + "|" + entry.snapshotFile
+                    + "|" + entry.performedBy.replace("|", "/"));
         } catch (IOException e) {
             System.out.println("Could not append revision index: " + e.getMessage());
         }
