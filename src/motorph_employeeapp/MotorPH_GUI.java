@@ -133,6 +133,8 @@ public class MotorPH_GUI {
     static JTextArea txtResultArea;
     /** Styled payslip display shown in the payroll results panel. */
     static JTextPane richPane;
+    /** Last computed batch payroll summaries; used for ZIP PDF export. */
+    private static java.util.List<SalaryComputationModule.EmployeePayrollSummary> lastBatchSummaries = new java.util.ArrayList<>();
     private static javax.swing.text.Style rsNormal, rsBold, rsHeader, rsNet, rsMuted,
             rsSectionTitle, rsDeduct, rsWarn;
 
@@ -851,22 +853,45 @@ public class MotorPH_GUI {
         if (richPane == null || summary == null) {
             return;
         }
+        String mn = summary.monthName;
+        String yr = summary.year;
+        double netFirst  = summary.grossFirst;
+        double netSecond = summary.grossSecond - summary.totalDeductions;
+
         rpAppend("  " + summary.employeeId + "  ·  " + summary.employeeName + "  \n", rsHeader);
-        rpAppend("  Hours Worked:       " + String.format("%.2f", summary.hoursWorked) + "\n", rsNormal);
-        rpAppend("  Gross Pay:          PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
+        rpAppend("\n", rsNormal);
+
+        rpAppend("  1ST CUTOFF (Days 1–15)\n", rsSectionTitle);
+        rpAppend("  Period:          " + mn + " 1–15, " + yr + "\n", rsMuted);
+        rpAppend("  Hours Worked:    " + String.format("%.2f", summary.hoursFirst) + " hrs\n", rsNormal);
+        rpAppend("  Gross Pay:       PHP " + String.format("%,.2f", summary.grossFirst) + "\n", rsNormal);
+        rpAppend("  Net Pay:         ", rsBold);
+        rpAppend("PHP " + String.format("%,.2f", netFirst) + "  (no deductions)\n\n", rsNet);
+
+        rpAppend("  2ND CUTOFF (Days 16–31)\n", rsSectionTitle);
+        rpAppend("  Period:          " + mn + " 16–31, " + yr + "\n", rsMuted);
+        rpAppend("  Hours Worked:    " + String.format("%.2f", summary.hoursSecond) + " hrs\n", rsNormal);
+        rpAppend("  Gross Pay:       PHP " + String.format("%,.2f", summary.grossSecond) + "\n", rsNormal);
         rpAppend("  Deductions\n", rsBold);
-        rpAppend("    SSS:              PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
-        rpAppend("    PhilHealth:       PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
-        rpAppend("    Pag-IBIG:         PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
-        rpAppend("    Withholding Tax:  PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
-        rpAppend("  Total Deductions:   PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
-        rpAppend("  Net Pay:            ", rsBold);
+        rpAppend("    SSS:             PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
+        rpAppend("    PhilHealth:      PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
+        rpAppend("    Pag-IBIG:        PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
+        rpAppend("    Withholding Tax: PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
+        rpAppend("  Total Deductions: PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
+        rpAppend("  Net Pay:          ", rsBold);
+        rpAppend("PHP " + String.format("%,.2f", netSecond) + "\n\n", rsNet);
+
+        rpAppend("  TOTAL  ·  " + mn + " " + yr + "\n", rsSectionTitle);
+        rpAppend("  Total Hours:      " + String.format("%.2f", summary.hoursWorked) + " hrs\n", rsNormal);
+        rpAppend("  Total Gross Pay:  PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
+        rpAppend("  Total Deductions: PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
+        rpAppend("  NET PAY:          ", rsBold);
         rpAppend("PHP " + String.format("%,.2f", summary.netPay) + "\n\n", rsNet);
     }
 
     private static void rpRenderBatchTotals(int processed, int selected, double totalGross,
             double totalDed, double totalNet) {
-        rpAppend("────────────────────────────────────\n", rsMuted);
+        rpAppend("  ------------------------------------\n", rsMuted);
         rpAppend("  BATCH SUMMARY\n", rsSectionTitle);
         rpAppend("  Processed:  " + processed + " of " + selected + " selected\n\n", rsNormal);
     }
@@ -1251,11 +1276,10 @@ public class MotorPH_GUI {
         btnExport.addActionListener(e -> exportPayrollTextToFile());
         panel.add(btnExport);
 
-        // ADD THESE LINES immediately after:
         JButton btnPdf = new JButton("Download .pdf");
         btnPdf.setBounds(x, y + BTN_HEIGHT + 6, width, BTN_HEIGHT);
         styleStandardButton(btnPdf);
-        btnPdf.addActionListener(e -> exportPayslipToFile());
+        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
         panel.add(btnPdf);
     }
 
@@ -2985,6 +3009,127 @@ public class MotorPH_GUI {
         }
     }
 
+    private static void exportBatchPayslipsAsZip() {
+        java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed = new java.util.ArrayList<>();
+        for (SalaryComputationModule.EmployeePayrollSummary s : lastBatchSummaries) {
+            if (s.computed) computed.add(s);
+        }
+        if (computed.isEmpty()) {
+            showToast("No payslip data — run Calculate Payroll first.", new Color(180, 90, 40));
+            return;
+        }
+
+        String mName = computed.get(0).monthName;
+        String yr    = computed.get(0).year;
+
+        if (computed.size() == 1) {
+            // Single employee — save a plain PDF
+            SalaryComputationModule.EmployeePayrollSummary s = computed.get(0);
+            String defName = "Payslip_" + s.employeeId + "_" + mName + "_" + yr + ".pdf";
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Save Payslip as PDF");
+            chooser.setSelectedFile(new File(defName));
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
+            if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+            File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".pdf")) target = new File(target.getAbsolutePath() + ".pdf");
+            try {
+                byte[] pdf = buildPayslipPdfForSummary(s);
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) { fos.write(pdf); }
+                showToast("Payslip saved: " + target.getName());
+                try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "Could not save PDF: " + ex.getMessage(), "Export Failed", JOptionPane.ERROR_MESSAGE);
+            }
+            return;
+        }
+
+        // Multiple employees — offer a ZIP
+        String defZip = "Payslips_" + mName + "_" + yr + ".zip";
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Save Payslips as ZIP");
+        chooser.setSelectedFile(new File(defZip));
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("ZIP Archive (*.zip)", "zip"));
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+        File zipTarget = chooser.getSelectedFile();
+        if (!zipTarget.getName().toLowerCase().endsWith(".zip")) zipTarget = new File(zipTarget.getAbsolutePath() + ".zip");
+
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(zipTarget))) {
+            for (SalaryComputationModule.EmployeePayrollSummary s : computed) {
+                byte[] pdf = buildPayslipPdfForSummary(s);
+                String entryName = "Payslip_" + s.employeeId + "_" + s.employeeName.replace(" ", "_") + ".pdf";
+                zos.putNextEntry(new java.util.zip.ZipEntry(entryName));
+                zos.write(pdf);
+                zos.closeEntry();
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, "Could not save ZIP: " + ex.getMessage(), "Export Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        showToast(computed.size() + " payslips saved to " + zipTarget.getName());
+        try { java.awt.Desktop.getDesktop().open(zipTarget.getParentFile()); } catch (Exception ignored) {}
+    }
+
+    private static byte[] buildPayslipPdfForSummary(SalaryComputationModule.EmployeePayrollSummary s)
+            throws java.io.IOException {
+        // Temporarily populate the last* fields so buildPayslipPdf() can read them
+        boolean prevOk    = SalaryComputationModule.lastCalculationSucceeded;
+        String prevId     = SalaryComputationModule.lastEmpId;
+        String prevName   = SalaryComputationModule.lastEmpName;
+        String prevBday   = SalaryComputationModule.lastEmpBirthday;
+        String prevMon    = SalaryComputationModule.lastMonthName;
+        String prevYr     = SalaryComputationModule.lastYear;
+        double prevHF     = SalaryComputationModule.lastHoursFirst;
+        double prevHS     = SalaryComputationModule.lastHoursSecond;
+        double prevGF     = SalaryComputationModule.lastGrossFirst;
+        double prevGS     = SalaryComputationModule.lastGrossSecond;
+        double prevNF     = SalaryComputationModule.lastNetFirst;
+        double prevNS     = SalaryComputationModule.lastNetSecond;
+        double prevSss    = SalaryComputationModule.lastSss;
+        double prevPh     = SalaryComputationModule.lastPhilHealth;
+        double prevPi     = SalaryComputationModule.lastPagIbig;
+        double prevTax    = SalaryComputationModule.lastTax;
+        double prevDed    = SalaryComputationModule.lastTotalDeductions;
+        try {
+            SalaryComputationModule.lastCalculationSucceeded = true;
+            SalaryComputationModule.lastEmpId            = s.employeeId;
+            SalaryComputationModule.lastEmpName          = s.employeeName;
+            SalaryComputationModule.lastEmpBirthday      = s.birthday;
+            SalaryComputationModule.lastMonthName        = s.monthName;
+            SalaryComputationModule.lastYear             = s.year;
+            SalaryComputationModule.lastHoursFirst       = s.hoursFirst;
+            SalaryComputationModule.lastHoursSecond      = s.hoursSecond;
+            SalaryComputationModule.lastGrossFirst       = s.grossFirst;
+            SalaryComputationModule.lastGrossSecond      = s.grossSecond;
+            SalaryComputationModule.lastNetFirst         = s.grossFirst;
+            SalaryComputationModule.lastNetSecond        = s.grossSecond - s.totalDeductions;
+            SalaryComputationModule.lastSss              = s.sss;
+            SalaryComputationModule.lastPhilHealth       = s.philHealth;
+            SalaryComputationModule.lastPagIbig          = s.pagIbig;
+            SalaryComputationModule.lastTax              = s.tax;
+            SalaryComputationModule.lastTotalDeductions  = s.totalDeductions;
+            return buildPayslipPdf();
+        } finally {
+            SalaryComputationModule.lastCalculationSucceeded = prevOk;
+            SalaryComputationModule.lastEmpId            = prevId;
+            SalaryComputationModule.lastEmpName          = prevName;
+            SalaryComputationModule.lastEmpBirthday      = prevBday;
+            SalaryComputationModule.lastMonthName        = prevMon;
+            SalaryComputationModule.lastYear             = prevYr;
+            SalaryComputationModule.lastHoursFirst       = prevHF;
+            SalaryComputationModule.lastHoursSecond      = prevHS;
+            SalaryComputationModule.lastGrossFirst       = prevGF;
+            SalaryComputationModule.lastGrossSecond      = prevGS;
+            SalaryComputationModule.lastNetFirst         = prevNF;
+            SalaryComputationModule.lastNetSecond        = prevNS;
+            SalaryComputationModule.lastSss              = prevSss;
+            SalaryComputationModule.lastPhilHealth       = prevPh;
+            SalaryComputationModule.lastPagIbig          = prevPi;
+            SalaryComputationModule.lastTax              = prevTax;
+            SalaryComputationModule.lastTotalDeductions  = prevDed;
+        }
+    }
+
     private static byte[] buildPayslipPdf() throws java.io.IOException {
         String empId = SalaryComputationModule.lastEmpId;
         String empName = SalaryComputationModule.lastEmpName;
@@ -3792,7 +3937,9 @@ public class MotorPH_GUI {
         java.awt.Rectangle bounds = getContentBounds();
         int calGap = 20;
         int contentW = bounds.width;
-        boolean stackCalendar = contentW < DASHBOARD_CAL_W + calGap + 480;
+        // Stack calendar below cards only on very narrow windows; at min 1024px width
+        // content is 752px so keep side-by-side layout the default.
+        boolean stackCalendar = contentW < DASHBOARD_CAL_W + calGap + 240;
         boolean singleColumnCards = contentW < RESP_DASH_SINGLE_COL;
 
         int leftW = stackCalendar ? contentW : contentW - DASHBOARD_CAL_W - calGap;
@@ -3804,7 +3951,8 @@ public class MotorPH_GUI {
             dashRowH = Math.max(120, DASH_CARD_H);
             cardY = dashRowH * 3 + DASH_CARD_GAP * 2;
         } else {
-            dashRowH = Math.max(DASH_CARD_H, (bounds.height - DASH_CARD_GAP) / 2);
+            // Cap card row height so cards don't become excessively tall
+            dashRowH = Math.max(DASH_CARD_H, Math.min((bounds.height - DASH_CARD_GAP) / 2, 220));
             if (stackCalendar) {
                 dashRowH = Math.max(DASH_CARD_H, Math.min(dashRowH, 168));
             }
@@ -6103,6 +6251,7 @@ public class MotorPH_GUI {
 
         SalaryComputationModule.BulkPayrollResult result = SalaryComputationModule
                 .computeSelectedEmployeeSalaries(actualMonth, year, selectedEmps, txtResultArea, saveToCsv);
+        lastBatchSummaries = result.summaries;
 
         int processed = 0;
         for (SalaryComputationModule.EmployeePayrollSummary summary : result.summaries) {
