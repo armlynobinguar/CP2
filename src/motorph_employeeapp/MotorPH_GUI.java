@@ -802,6 +802,8 @@ public class MotorPH_GUI {
         if (richPane != null) {
             richPane.setText("");
         }
+        batchCardCollapseActions.clear();
+        batchCardCount = 0;
     }
 
     private static void rpRenderEmployeeCard(String id, String name) {
@@ -854,20 +856,27 @@ public class MotorPH_GUI {
     private static final int BCRD_TOT_H   = 50;   // centered total strip
     private static final int BCRD_EXP_H   = BCRD_HDR_H + BCRD_COL_H + BCRD_TOT_H + 4;
 
+    // Accordion state: all cards register their collapse Runnable here so expanding
+    // one card can collapse the currently open one.
+    private static final java.util.List<Runnable> batchCardCollapseActions = new java.util.ArrayList<>();
+    private static int batchCardCount = 0;
+
     /** Embeds one collapsible employee card into the rich-text pane. */
     private static void rpRenderBulkEmployeeSummary(SalaryComputationModule.EmployeePayrollSummary summary) {
         if (richPane == null || summary == null) return;
-        richPane.insertComponent(buildCollapsibleEmployeeCard(summary));
+        boolean isFirst = (batchCardCount == 0);
+        batchCardCount++;
+        richPane.insertComponent(buildCollapsibleEmployeeCard(summary, isFirst));
         rpAppend("\n", rsNormal);
     }
 
-    private static JPanel buildCollapsibleEmployeeCard(SalaryComputationModule.EmployeePayrollSummary s) {
+    private static JPanel buildCollapsibleEmployeeCard(SalaryComputationModule.EmployeePayrollSummary s, boolean startExpanded) {
         int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
         int detH = BCRD_COL_H + BCRD_TOT_H + 4;
 
         JPanel card = new JPanel(null);
         card.setBackground(APP_BG);
-        card.setPreferredSize(new java.awt.Dimension(pw, BCRD_EXP_H));
+        card.setPreferredSize(new java.awt.Dimension(pw, startExpanded ? BCRD_EXP_H : BCRD_HDR_H));
 
         // ── header (always visible, click to toggle) ──
         JPanel header = new JPanel(null);
@@ -888,7 +897,7 @@ public class MotorPH_GUI {
         summaryLbl.setBounds(pw - 190, 0, 158, BCRD_HDR_H);
         header.add(summaryLbl);
 
-        JLabel arrowLbl = new JLabel("v");
+        JLabel arrowLbl = new JLabel(startExpanded ? "v" : ">");
         arrowLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
         arrowLbl.setForeground(java.awt.Color.WHITE);
         arrowLbl.setHorizontalAlignment(SwingConstants.CENTER);
@@ -901,6 +910,7 @@ public class MotorPH_GUI {
         JPanel details = new JPanel(null);
         details.setBackground(APP_BG);
         details.setBounds(0, BCRD_HDR_H, pw, detH);
+        details.setVisible(startExpanded);
 
         JPanel twoCol = buildCutoffTwoColPanel(s, pw);
         twoCol.setBounds(0, 0, pw, BCRD_COL_H);
@@ -912,17 +922,39 @@ public class MotorPH_GUI {
 
         card.add(details);
 
-        // ── toggle ──
-        boolean[] expanded = { true };
+        // ── accordion toggle ──
+        boolean[] expanded = { startExpanded };
+
+        // Register collapse callback so any card can close this one
+        Runnable collapseThis = () -> {
+            if (expanded[0]) {
+                expanded[0] = false;
+                details.setVisible(false);
+                arrowLbl.setText(">");
+                card.setPreferredSize(new java.awt.Dimension(pw, BCRD_HDR_H));
+                card.revalidate();
+            }
+        };
+        batchCardCollapseActions.add(collapseThis);
+
         header.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                expanded[0] = !expanded[0];
-                details.setVisible(expanded[0]);
-                arrowLbl.setText(expanded[0] ? "v" : ">");
-                int h = BCRD_HDR_H + (expanded[0] ? detH : 0);
-                card.setPreferredSize(new java.awt.Dimension(pw, h));
-                card.revalidate();
+                if (expanded[0]) {
+                    // Collapse this card
+                    collapseThis.run();
+                } else {
+                    // Collapse every other card first
+                    for (Runnable collapse : batchCardCollapseActions) {
+                        collapse.run();
+                    }
+                    // Then expand this card
+                    expanded[0] = true;
+                    details.setVisible(true);
+                    arrowLbl.setText("v");
+                    card.setPreferredSize(new java.awt.Dimension(pw, BCRD_HDR_H + detH));
+                    card.revalidate();
+                }
                 if (richPane != null) { richPane.revalidate(); richPane.repaint(); }
             }
             @Override
