@@ -1022,7 +1022,7 @@ public class MotorPH_GUI {
 
         int h2 = BCRD_TOT_H / 2;
         String row1 = "TOTAL  ·  " + s.monthName + " " + s.year
-                + "    │    " + String.format("%.2f", s.hoursWorked) + " hrs total";
+                + "    |    " + String.format("%.2f", s.hoursWorked) + " hrs total";
         JLabel lbl1 = makeCutoffLabel(row1, TEXT_DARK_NAVY, true, 11);
         lbl1.setHorizontalAlignment(SwingConstants.CENTER);
         lbl1.setBounds(0, 3, pw, h2 - 1);
