@@ -848,37 +848,29 @@ public class MotorPH_GUI {
         rpAppend("  No attendance data for this pay period.\n\n", rsWarn);
     }
 
-    /** Monthly bulk payroll summary card (hours × rate model from {@link SalaryComputationModule}). */
+    /** Monthly bulk payroll summary card — two-column cutoff layout with deductions below. */
     private static void rpRenderBulkEmployeeSummary(SalaryComputationModule.EmployeePayrollSummary summary) {
-        if (richPane == null || summary == null) {
-            return;
-        }
+        if (richPane == null || summary == null) return;
+
         String mn = summary.monthName;
         String yr = summary.year;
-        double netFirst  = summary.grossFirst;
         double netSecond = summary.grossSecond - summary.totalDeductions;
 
         rpAppend("  " + summary.employeeId + "  ·  " + summary.employeeName + "  \n", rsHeader);
         rpAppend("\n", rsNormal);
 
-        rpAppend("  1ST CUTOFF (Days 1–15)\n", rsSectionTitle);
-        rpAppend("  Period:          " + mn + " 1–15, " + yr + "\n", rsMuted);
-        rpAppend("  Hours Worked:    " + String.format("%.2f", summary.hoursFirst) + " hrs\n", rsNormal);
-        rpAppend("  Gross Pay:       PHP " + String.format("%,.2f", summary.grossFirst) + "\n", rsNormal);
-        rpAppend("  Net Pay:         ", rsBold);
-        rpAppend("PHP " + String.format("%,.2f", netFirst) + "  (no deductions)\n\n", rsNet);
+        // Two-column cutoff panel embedded as a component
+        richPane.insertComponent(buildCutoffTwoColPanel(summary, mn, yr));
+        rpAppend("\n", rsNormal);
 
-        rpAppend("  2ND CUTOFF (Days 16–31)\n", rsSectionTitle);
-        rpAppend("  Period:          " + mn + " 16–31, " + yr + "\n", rsMuted);
-        rpAppend("  Hours Worked:    " + String.format("%.2f", summary.hoursSecond) + " hrs\n", rsNormal);
-        rpAppend("  Gross Pay:       PHP " + String.format("%,.2f", summary.grossSecond) + "\n", rsNormal);
+        // Deductions underneath both columns
         rpAppend("  Deductions\n", rsBold);
-        rpAppend("    SSS:             PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
-        rpAppend("    PhilHealth:      PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
-        rpAppend("    Pag-IBIG:        PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
-        rpAppend("    Withholding Tax: PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
-        rpAppend("  Total Deductions: PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
-        rpAppend("  Net Pay:          ", rsBold);
+        rpAppend("    SSS:              PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
+        rpAppend("    PhilHealth:       PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
+        rpAppend("    Pag-IBIG:         PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
+        rpAppend("    Withholding Tax:  PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
+        rpAppend("  Total Deductions:   PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
+        rpAppend("  Net Pay:            ", rsBold);
         rpAppend("PHP " + String.format("%,.2f", netSecond) + "\n\n", rsNet);
 
         rpAppend("  TOTAL  ·  " + mn + " " + yr + "\n", rsSectionTitle);
@@ -887,6 +879,50 @@ public class MotorPH_GUI {
         rpAppend("  Total Deductions: PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
         rpAppend("  NET PAY:          ", rsBold);
         rpAppend("PHP " + String.format("%,.2f", summary.netPay) + "\n\n", rsNet);
+    }
+
+    private static JPanel buildCutoffTwoColPanel(
+            SalaryComputationModule.EmployeePayrollSummary s, String mn, String yr) {
+        int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
+        Color colBg  = new Color(245, 248, 254);
+        Color divCol = new Color(200, 210, 230);
+
+        JPanel panel = new JPanel(new java.awt.GridLayout(1, 2, 0, 0));
+        panel.setBackground(colBg);
+        panel.setBorder(BorderFactory.createLineBorder(divCol, 1));
+        panel.setPreferredSize(new java.awt.Dimension(pw, 108));
+
+        // Left – 1st cutoff
+        JPanel left = new JPanel(new java.awt.GridLayout(5, 1, 0, 1));
+        left.setBackground(colBg);
+        left.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 8));
+        left.add(makeCutoffLabel("1ST CUTOFF  ·  " + mn + " 1–15, " + yr, ACCENT_BLUE, true, 11));
+        left.add(makeCutoffLabel("Hours:   " + String.format("%.2f", s.hoursFirst) + " hrs", TEXT_DARK_NAVY, false, 11));
+        left.add(makeCutoffLabel("Gross:   PHP " + String.format("%,.2f", s.grossFirst), TEXT_DARK_NAVY, false, 11));
+        left.add(makeCutoffLabel("Net Pay: PHP " + String.format("%,.2f", s.grossFirst), new Color(22, 130, 70), true, 11));
+        left.add(makeCutoffLabel("(no deductions)", TEXT_MUTED, false, 10));
+        panel.add(left);
+
+        // Right – 2nd cutoff
+        JPanel right = new JPanel(new java.awt.GridLayout(4, 1, 0, 1));
+        right.setBackground(colBg);
+        right.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 1, 0, 0, divCol),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        right.add(makeCutoffLabel("2ND CUTOFF  ·  " + mn + " 16–31, " + yr, ACCENT_BLUE, true, 11));
+        right.add(makeCutoffLabel("Hours:   " + String.format("%.2f", s.hoursSecond) + " hrs", TEXT_DARK_NAVY, false, 11));
+        right.add(makeCutoffLabel("Gross:   PHP " + String.format("%,.2f", s.grossSecond), TEXT_DARK_NAVY, false, 11));
+        right.add(makeCutoffLabel("(deductions below)", TEXT_MUTED, false, 10));
+        panel.add(right);
+
+        return panel;
+    }
+
+    private static JLabel makeCutoffLabel(String text, Color color, boolean bold, int size) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", bold ? Font.BOLD : Font.PLAIN, size));
+        lbl.setForeground(color);
+        return lbl;
     }
 
     private static void rpRenderBatchTotals(int processed, int selected, double totalGross,
