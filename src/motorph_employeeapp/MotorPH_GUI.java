@@ -3328,14 +3328,15 @@ public class MotorPH_GUI {
         final int padX = 6;
 
         // Layout stack (PDF y increases upward; each block sits below the previous)
-        final int companyHeaderBottom = 794;
+        // Content shifted 44pt down (36pt page-top margin + 8pt inner top padding).
+        final int companyHeaderBottom = 750;
         final int companyHeaderHeight = 48;
-        final int companyHeaderTop = companyHeaderBottom + companyHeaderHeight;
-        final int payslipRibbonBottom = 776;
+        final int companyHeaderTop = companyHeaderBottom + companyHeaderHeight; // = 798
+        final int payslipRibbonBottom = 732;
         final int payslipRibbonHeight = 18;
-        final int empInfoBandBottom = 758;
+        final int empInfoBandBottom = 714;
         final int empInfoBandHeight = 14;
-        final int empDetailBottom = 712;
+        final int empDetailBottom = 668;
         final int empDetailHeight = 46;
 
         // ── Background fills first (text drawn afterward so nothing is covered) ──
@@ -3383,85 +3384,85 @@ public class MotorPH_GUI {
                 contentRight, empDetailBottom - 4);
 
         // ── 1ST CUTOFF ──────────────────────────────────────────────────────
-        final int cutoff1BandBottom = 694;
+        final int cutoff1BandBottom = 650;
         final int cutoff1BandHeight = 14;
         pdfFillRect(cs, 0.88f, 0.92f, 0.97f, contentLeft, cutoff1BandBottom,
                 contentWidth, cutoff1BandHeight);
         pdfDrawBandTitle(cs, contentLeft + padX, cutoff1BandBottom, cutoff1BandHeight,
                 "1ST CUTOFF  \u00b7  " + mName + " 1 - 15, " + yr, 8.5f);
 
-        pdfDrawText(cs, contentLeft + padX + 2, 679, "Hours Worked", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 400, 679, String.format("%.2f hrs", hrsFirst), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, contentLeft + padX + 2, 665, "Gross Pay", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 665, "PHP " + payFmt(gFirst), 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, contentLeft + padX + 2, 651, "Net Pay  (No Deductions)", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 651, "PHP " + payFmt(nFirst), 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 635, "Hours Worked", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 400, 635, String.format("%.2f hrs", hrsFirst), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 621, "Gross Pay", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 621, "PHP " + payFmt(gFirst), 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 607, "Net Pay  (No Deductions)", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 607, "PHP " + payFmt(nFirst), 9f, true, 0f, 0f, 0f);
 
-        pdfDrawLine(cs, 0.78f, 0.80f, 0.85f, 0.5f, contentLeft, 641,
-                contentRight, 641);
+        pdfDrawLine(cs, 0.78f, 0.80f, 0.85f, 0.5f, contentLeft, 597,
+                contentRight, 597);
 
         // ── 2ND CUTOFF ──────────────────────────────────────────────────────
-        final int cutoff2BandBottom = 628;
+        final int cutoff2BandBottom = 584;
         final int cutoff2BandHeight = 14;
         pdfFillRect(cs, 0.88f, 0.92f, 0.97f, contentLeft, cutoff2BandBottom,
                 contentWidth, cutoff2BandHeight);
         pdfDrawBandTitle(cs, contentLeft + padX, cutoff2BandBottom, cutoff2BandHeight,
                 "2ND CUTOFF  \u00b7  " + mName + " 16 - " + lastDay + ", " + yr, 8.5f);
 
-        pdfDrawText(cs, contentLeft + padX + 2, 611, "Hours Worked", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 400, 611, String.format("%.2f hrs", hrsSecond), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, contentLeft + padX + 2, 597, "Gross Pay", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 597, "PHP " + payFmt(gSecond), 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 567, "Hours Worked", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 400, 567, String.format("%.2f hrs", hrsSecond), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 553, "Gross Pay", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 553, "PHP " + payFmt(gSecond), 9f, true, 0f, 0f, 0f);
 
         // Deductions sub-header
-        final int deductBandBottom = 583;
+        final int deductBandBottom = 539;
         final int deductBandHeight = 14;
         pdfFillRect(cs, 0.92f, 0.94f, 0.98f, contentLeft, deductBandBottom,
                 contentWidth, deductBandHeight);
         pdfDrawText(cs, contentLeft + padX, deductBandBottom + 5, "DEDUCTIONS", 8f, true, 0.30f, 0.30f, 0.40f);
 
-        pdfDrawText(cs, 66, 571, "SSS Contribution", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 571, "PHP " + payFmt(dSss), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 66, 557, "PhilHealth Premium", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 557, "PHP " + payFmt(dPh), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 66, 543, "Pag-IBIG Contribution", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 543, "PHP " + payFmt(dPi), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 66, 529, "Withholding Tax", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 529, "PHP " + payFmt(dTax), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 66, 527, "SSS Contribution", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 527, "PHP " + payFmt(dSss), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 66, 513, "PhilHealth Premium", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 513, "PHP " + payFmt(dPh), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 66, 499, "Pag-IBIG Contribution", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 499, "PHP " + payFmt(dPi), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 66, 485, "Withholding Tax", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 485, "PHP " + payFmt(dTax), 9f, false, 0f, 0f, 0f);
 
-        pdfDrawLine(cs, 0.60f, 0.62f, 0.68f, 0.5f, contentLeft, 519,
-                contentRight, 519);
-        pdfDrawText(cs, contentLeft + padX + 2, 505, "Total Deductions", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 505, "PHP " + payFmt(dTotal), 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, contentLeft + padX + 2, 491, "Net Pay", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 491, "PHP " + payFmt(nSecond), 9f, true, 0f, 0f, 0f);
+        pdfDrawLine(cs, 0.60f, 0.62f, 0.68f, 0.5f, contentLeft, 475,
+                contentRight, 475);
+        pdfDrawText(cs, contentLeft + padX + 2, 461, "Total Deductions", 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 461, "PHP " + payFmt(dTotal), 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 447, "Net Pay", 9f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 447, "PHP " + payFmt(nSecond), 9f, true, 0f, 0f, 0f);
 
-        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 2f, contentLeft, 478,
-                contentRight, 478);
+        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 2f, contentLeft, 434,
+                contentRight, 434);
 
         // ── PAY SUMMARY ────────────────────────────────────────────────────
-        final int summaryBandBottom = 465;
+        final int summaryBandBottom = 421;
         final int summaryBandHeight = 14;
         pdfFillRect(cs, 0.13f, 0.25f, 0.55f, contentLeft, summaryBandBottom,
                 contentWidth, summaryBandHeight);
         pdfDrawText(cs, contentLeft + padX, summaryBandBottom + 5, "PAY SUMMARY", 9f, true, 1f, 1f, 1f);
 
-        pdfDrawText(cs, contentLeft + padX + 2, 451, "Total Gross Pay", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 451, "PHP " + payFmt(tGross), 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, contentLeft + padX + 2, 437, "Total Deductions", 9f, false, 0f, 0f, 0f);
-        pdfDrawText(cs, 390, 437, "PHP " + payFmt(dTotal), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 407, "Total Gross Pay", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 407, "PHP " + payFmt(tGross), 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 393, "Total Deductions", 9f, false, 0f, 0f, 0f);
+        pdfDrawText(cs, 390, 393, "PHP " + payFmt(dTotal), 9f, false, 0f, 0f, 0f);
 
-        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 1f, contentLeft, 427,
-                contentRight, 427);
+        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 1f, contentLeft, 383,
+                contentRight, 383);
 
-        pdfDrawText(cs, contentLeft + padX + 2, 410, "TOTAL NET PAY", 12f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 370, 410, "PHP " + payFmt(tNet), 12f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, contentLeft + padX + 2, 366, "TOTAL NET PAY", 12f, true, 0f, 0f, 0f);
+        pdfDrawText(cs, 370, 366, "PHP " + payFmt(tNet), 12f, true, 0f, 0f, 0f);
 
-        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 2f, contentLeft, 397,
-                contentRight, 397);
+        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 2f, contentLeft, 353,
+                contentRight, 353);
 
         // ── Footer ─────────────────────────────────────────────────────────
-        final int footerBottom = 369;
+        final int footerBottom = 325;
         final int footerHeight = 26;
         pdfFillRect(cs, 0.94f, 0.95f, 0.97f, contentLeft, footerBottom,
                 contentWidth, footerHeight);
@@ -3473,9 +3474,11 @@ public class MotorPH_GUI {
                 "MotorPH Payroll System  |  Generated on " + genDate,
                 7.5f, false, 0.42f, 0.44f, 0.50f);
 
-        // Outer border (proper rectangle — avoids diagonal slash from bad path ops)
-        pdfDrawRectBorder(cs, 0.13f, 0.25f, 0.55f, 1f, contentLeft, footerBottom,
-                contentWidth, 842 - footerBottom);
+        // Outer border — 36pt margin from page top, 8pt inner padding at top & bottom
+        final int borderBottom = footerBottom - 8;   // 317
+        final int borderTop    = 842 - 36;            // 806
+        pdfDrawRectBorder(cs, 0.13f, 0.25f, 0.55f, 1f, contentLeft, borderBottom,
+                contentWidth, borderTop - borderBottom);
 
         byte[] csBytes = cs.toString().getBytes("ISO-8859-1");
 
