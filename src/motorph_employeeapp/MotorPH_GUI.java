@@ -8352,8 +8352,6 @@ public class MotorPH_GUI {
             return;
         }
         Color lockedBg = new Color(235, 240, 250);
-        grossField.setEditable(true);
-        grossField.setBackground(PALETTE_WHITE);
         hourlyField.setEditable(false);
         hourlyField.setBackground(lockedBg);
         hourlyField.setToolTipText("Auto-computed from Gross Semi-monthly");
@@ -8379,19 +8377,16 @@ public class MotorPH_GUI {
         if (basicField != null) {
             Runnable syncBasic = () -> {
                 String raw = basicField.getText().trim().replace(",", "");
+                grossField.setEditable(false);
+                grossField.setBackground(lockedBg);
+                grossField.setToolTipText("Auto-computed from Basic Salary");
                 if (raw.isEmpty()) {
-                    grossField.setEditable(true);
-                    grossField.setBackground(PALETTE_WHITE);
-                    grossField.setToolTipText(null);
+                    grossField.setText("");
                     return;
                 }
                 try {
                     double basic = Double.parseDouble(raw);
-                    double semi = basic / 2.0;
-                    grossField.setText(String.format("%.2f", semi));
-                    grossField.setEditable(false);
-                    grossField.setBackground(lockedBg);
-                    grossField.setToolTipText("Auto-computed from Basic Salary");
+                    grossField.setText(String.format("%.2f", basic / 2.0));
                 } catch (NumberFormatException ignored) {}
             };
             basicField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
