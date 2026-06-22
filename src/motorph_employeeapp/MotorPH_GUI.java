@@ -7235,11 +7235,32 @@ public class MotorPH_GUI {
 
     private static List<String> validateEmployeeEditPopup(java.util.Map<String, JTextField> fieldMap,
             String originalId) {
-        return EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId);
+        List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
+        errs.addAll(EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId));
+        return errs;
     }
 
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
-        return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
+        List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
+        errs.addAll(EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap)));
+        return errs;
+    }
+
+    private static List<String> checkCompensationFieldsBlank(java.util.Map<String, JTextField> fieldMap) {
+        List<String> errs = new java.util.ArrayList<>();
+        String[][] checks = {
+            { "Basic Salary:",       "Basic Salary" },
+            { "Rice Subsidy:",       "Rice Subsidy" },
+            { "Phone Allowance:",    "Phone Allowance" },
+            { "Clothing Allowance:", "Clothing Allowance" },
+        };
+        for (String[] pair : checks) {
+            JTextField tf = fieldMap.get(pair[0]);
+            if (tf != null && tf.getText().trim().isEmpty()) {
+                errs.add(pair[1] + " is required.");
+            }
+        }
+        return errs;
     }
 
     private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap) {
