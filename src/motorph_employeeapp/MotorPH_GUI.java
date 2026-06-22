@@ -848,51 +848,110 @@ public class MotorPH_GUI {
         rpAppend("  No attendance data for this pay period.\n\n", rsWarn);
     }
 
-    /** Monthly bulk payroll summary card — two-column cutoff layout with deductions below. */
+    // Heights used by every collapsible employee card in the batch results pane
+    private static final int BCRD_HDR_H   = 32;   // clickable header bar
+    private static final int BCRD_COL_H   = 200;  // two-column cutoff panel
+    private static final int BCRD_TOT_H   = 50;   // centered total strip
+    private static final int BCRD_EXP_H   = BCRD_HDR_H + BCRD_COL_H + BCRD_TOT_H + 4;
+
+    /** Embeds one collapsible employee card into the rich-text pane. */
     private static void rpRenderBulkEmployeeSummary(SalaryComputationModule.EmployeePayrollSummary summary) {
         if (richPane == null || summary == null) return;
-
-        String mn = summary.monthName;
-        String yr = summary.year;
-        double netSecond = summary.grossSecond - summary.totalDeductions;
-
-        rpAppend("  " + summary.employeeId + "  ·  " + summary.employeeName + "  \n", rsHeader);
+        richPane.insertComponent(buildCollapsibleEmployeeCard(summary));
         rpAppend("\n", rsNormal);
-
-        // Two-column cutoff panel embedded as a component
-        richPane.insertComponent(buildCutoffTwoColPanel(summary, mn, yr));
-        rpAppend("\n", rsNormal);
-
-        // Deductions underneath both columns
-        rpAppend("  Deductions\n", rsBold);
-        rpAppend("    SSS:              PHP " + String.format("%,.2f", summary.sss) + "\n", rsDeduct);
-        rpAppend("    PhilHealth:       PHP " + String.format("%,.2f", summary.philHealth) + "\n", rsDeduct);
-        rpAppend("    Pag-IBIG:         PHP " + String.format("%,.2f", summary.pagIbig) + "\n", rsDeduct);
-        rpAppend("    Withholding Tax:  PHP " + String.format("%,.2f", summary.tax) + "\n", rsDeduct);
-        rpAppend("  Total Deductions:   PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
-        rpAppend("  Net Pay:            ", rsBold);
-        rpAppend("PHP " + String.format("%,.2f", netSecond) + "\n\n", rsNet);
-
-        rpAppend("  TOTAL  ·  " + mn + " " + yr + "\n", rsSectionTitle);
-        rpAppend("  Total Hours:      " + String.format("%.2f", summary.hoursWorked) + " hrs\n", rsNormal);
-        rpAppend("  Total Gross Pay:  PHP " + String.format("%,.2f", summary.grossPay) + "\n", rsNormal);
-        rpAppend("  Total Deductions: PHP " + String.format("%,.2f", summary.totalDeductions) + "\n", rsBold);
-        rpAppend("  NET PAY:          ", rsBold);
-        rpAppend("PHP " + String.format("%,.2f", summary.netPay) + "\n\n", rsNet);
     }
 
-    private static JPanel buildCutoffTwoColPanel(
-            SalaryComputationModule.EmployeePayrollSummary s, String mn, String yr) {
+    private static JPanel buildCollapsibleEmployeeCard(SalaryComputationModule.EmployeePayrollSummary s) {
         int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
-        Color colBg  = new Color(245, 248, 254);
-        Color divCol = new Color(200, 210, 230);
+        int detH = BCRD_COL_H + BCRD_TOT_H + 4;
+
+        JPanel card = new JPanel(null);
+        card.setBackground(APP_BG);
+        card.setPreferredSize(new java.awt.Dimension(pw, BCRD_EXP_H));
+
+        // ── header (always visible, click to toggle) ──
+        JPanel header = new JPanel(null);
+        header.setBackground(TEXT_DARK_NAVY);
+        header.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        header.setBounds(0, 0, pw, BCRD_HDR_H);
+
+        JLabel nameLbl = new JLabel("  " + s.employeeId + "  ·  " + s.employeeName);
+        nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        nameLbl.setForeground(java.awt.Color.WHITE);
+        nameLbl.setBounds(0, 0, pw - 190, BCRD_HDR_H);
+        header.add(nameLbl);
+
+        JLabel summaryLbl = new JLabel("NET: PHP " + String.format("%,.2f", s.netPay));
+        summaryLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        summaryLbl.setForeground(new Color(120, 220, 160));
+        summaryLbl.setHorizontalAlignment(SwingConstants.RIGHT);
+        summaryLbl.setBounds(pw - 190, 0, 158, BCRD_HDR_H);
+        header.add(summaryLbl);
+
+        JLabel arrowLbl = new JLabel("v");
+        arrowLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        arrowLbl.setForeground(java.awt.Color.WHITE);
+        arrowLbl.setHorizontalAlignment(SwingConstants.CENTER);
+        arrowLbl.setBounds(pw - 32, 0, 32, BCRD_HDR_H);
+        header.add(arrowLbl);
+
+        card.add(header);
+
+        // ── details (collapsible) ──
+        JPanel details = new JPanel(null);
+        details.setBackground(APP_BG);
+        details.setBounds(0, BCRD_HDR_H, pw, detH);
+
+        JPanel twoCol = buildCutoffTwoColPanel(s, pw);
+        twoCol.setBounds(0, 0, pw, BCRD_COL_H);
+        details.add(twoCol);
+
+        JPanel totalStrip = buildEmployeeTotalPanel(s, pw);
+        totalStrip.setBounds(0, BCRD_COL_H + 2, pw, BCRD_TOT_H);
+        details.add(totalStrip);
+
+        card.add(details);
+
+        // ── toggle ──
+        boolean[] expanded = { true };
+        header.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                expanded[0] = !expanded[0];
+                details.setVisible(expanded[0]);
+                arrowLbl.setText(expanded[0] ? "v" : ">");
+                int h = BCRD_HDR_H + (expanded[0] ? detH : 0);
+                card.setPreferredSize(new java.awt.Dimension(pw, h));
+                card.revalidate();
+                if (richPane != null) { richPane.revalidate(); richPane.repaint(); }
+            }
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                header.setBackground(new Color(38, 71, 128));
+            }
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                header.setBackground(TEXT_DARK_NAVY);
+            }
+        });
+
+        return card;
+    }
+
+    /** Two-column panel: 1st cutoff (left) and 2nd cutoff + deductions (right). */
+    private static JPanel buildCutoffTwoColPanel(SalaryComputationModule.EmployeePayrollSummary s, int pw) {
+        String mn = s.monthName;
+        String yr = s.year;
+        Color colBg      = new Color(245, 248, 254);
+        Color divCol     = new Color(200, 210, 230);
+        Color deductCol  = new Color(180, 60, 40);
+        double netSecond = s.grossSecond - s.totalDeductions;
 
         JPanel panel = new JPanel(new java.awt.GridLayout(1, 2, 0, 0));
         panel.setBackground(colBg);
         panel.setBorder(BorderFactory.createLineBorder(divCol, 1));
-        panel.setPreferredSize(new java.awt.Dimension(pw, 108));
 
-        // Left – 1st cutoff
+        // Left – 1st cutoff (no deductions)
         JPanel left = new JPanel(new java.awt.GridLayout(5, 1, 0, 1));
         left.setBackground(colBg);
         left.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 8));
@@ -903,8 +962,8 @@ public class MotorPH_GUI {
         left.add(makeCutoffLabel("(no deductions)", TEXT_MUTED, false, 10));
         panel.add(left);
 
-        // Right – 2nd cutoff
-        JPanel right = new JPanel(new java.awt.GridLayout(4, 1, 0, 1));
+        // Right – 2nd cutoff with deductions
+        JPanel right = new JPanel(new java.awt.GridLayout(9, 1, 0, 1));
         right.setBackground(colBg);
         right.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 1, 0, 0, divCol),
@@ -912,10 +971,40 @@ public class MotorPH_GUI {
         right.add(makeCutoffLabel("2ND CUTOFF  ·  " + mn + " 16–31, " + yr, ACCENT_BLUE, true, 11));
         right.add(makeCutoffLabel("Hours:   " + String.format("%.2f", s.hoursSecond) + " hrs", TEXT_DARK_NAVY, false, 11));
         right.add(makeCutoffLabel("Gross:   PHP " + String.format("%,.2f", s.grossSecond), TEXT_DARK_NAVY, false, 11));
-        right.add(makeCutoffLabel("(deductions below)", TEXT_MUTED, false, 10));
+        right.add(makeCutoffLabel("SSS:  PHP " + String.format("%,.2f", s.sss), deductCol, false, 10));
+        right.add(makeCutoffLabel("PhilHealth:  PHP " + String.format("%,.2f", s.philHealth), deductCol, false, 10));
+        right.add(makeCutoffLabel("Pag-IBIG:  PHP " + String.format("%,.2f", s.pagIbig), deductCol, false, 10));
+        right.add(makeCutoffLabel("Tax:  PHP " + String.format("%,.2f", s.tax), deductCol, false, 10));
+        right.add(makeCutoffLabel("Total Deductions:  PHP " + String.format("%,.2f", s.totalDeductions), TEXT_DARK_NAVY, true, 10));
+        right.add(makeCutoffLabel("Net Pay:  PHP " + String.format("%,.2f", netSecond), new Color(22, 130, 70), true, 11));
         panel.add(right);
 
         return panel;
+    }
+
+    /** Centered total strip displayed beneath both cutoff columns. */
+    private static JPanel buildEmployeeTotalPanel(SalaryComputationModule.EmployeePayrollSummary s, int pw) {
+        JPanel p = new JPanel(null);
+        p.setBackground(new Color(236, 241, 252));
+        p.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 210, 230)));
+
+        int h2 = BCRD_TOT_H / 2;
+        String row1 = "TOTAL  ·  " + s.monthName + " " + s.year
+                + "    │    " + String.format("%.2f", s.hoursWorked) + " hrs total";
+        JLabel lbl1 = makeCutoffLabel(row1, TEXT_DARK_NAVY, true, 11);
+        lbl1.setHorizontalAlignment(SwingConstants.CENTER);
+        lbl1.setBounds(0, 3, pw, h2 - 1);
+        p.add(lbl1);
+
+        String row2 = "Gross: PHP " + String.format("%,.2f", s.grossPay)
+                + "     Deductions: PHP " + String.format("%,.2f", s.totalDeductions)
+                + "     NET PAY: PHP " + String.format("%,.2f", s.netPay);
+        JLabel lbl2 = makeCutoffLabel(row2, new Color(22, 130, 70), true, 11);
+        lbl2.setHorizontalAlignment(SwingConstants.CENTER);
+        lbl2.setBounds(0, h2 + 2, pw, h2 - 2);
+        p.add(lbl2);
+
+        return p;
     }
 
     private static JLabel makeCutoffLabel(String text, Color color, boolean bold, int size) {
@@ -3987,8 +4076,7 @@ public class MotorPH_GUI {
             dashRowH = Math.max(120, DASH_CARD_H);
             cardY = dashRowH * 3 + DASH_CARD_GAP * 2;
         } else {
-            // Cap card row height so cards don't become excessively tall
-            dashRowH = Math.max(DASH_CARD_H, Math.min((bounds.height - DASH_CARD_GAP) / 2, 220));
+            dashRowH = Math.max(DASH_CARD_H, (bounds.height - DASH_CARD_GAP) / 2);
             if (stackCalendar) {
                 dashRowH = Math.max(DASH_CARD_H, Math.min(dashRowH, 168));
             }
