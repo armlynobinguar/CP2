@@ -7668,7 +7668,7 @@ public class MotorPH_GUI {
                 } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
                         || "Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
-                        || "Gross Semi-monthly:".equals(row[0])) {
+                        || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
                 fields.add(tf);
@@ -7922,7 +7922,7 @@ public class MotorPH_GUI {
                 } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
                         || "Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
-                        || "Gross Semi-monthly:".equals(row[0])) {
+                        || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
                 fields.add(tf);
