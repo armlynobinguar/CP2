@@ -7689,11 +7689,12 @@ public class MotorPH_GUI {
                     attachIdFormat(tf, "XX-XXXXXXX-X");
                 } else if ("TIN #:".equals(row[0])) {
                     attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
+                        || "Phone:".equals(row[0])) {
                     attachDigitsOnlyFilter(tf);
                 } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
-                        || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
+                        || "Gross Semi-monthly:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
                 fields.add(tf);
@@ -7944,11 +7945,12 @@ public class MotorPH_GUI {
                     attachIdFormat(tf, "XX-XXXXXXX-X");
                 } else if ("TIN #:".equals(row[0])) {
                     attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
+                        || "Phone:".equals(row[0])) {
                     attachDigitsOnlyFilter(tf);
                 } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
-                        || "Gross Semi-monthly:".equals(row[0]) || "Phone:".equals(row[0])) {
+                        || "Gross Semi-monthly:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
                 fields.add(tf);
