@@ -356,7 +356,7 @@ public class MotorPH_GUI {
     static final int SIDEBAR_NAV_BTN_H = 42;
     static final int SIDEBAR_NAV_GAP = 4;
     static final int RECORDS_ACTION_BAR_H = 136;
-    static final int DASHBOARD_CAL_W = 220;
+    static final int DASHBOARD_CAL_W = 300;
 
     /** HR sidebar / screen label (replaces legacy "Lookup"). */
     static final String HR_DIRECTORY_NAV = "Directory";
