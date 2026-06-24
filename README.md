@@ -52,6 +52,7 @@ The app uses a **procedural modular architecture**: business logic lives in stat
 | **Employee responsive UI** | Fixed layout | Dashboard, profile, payslip, and notifications adapt on window resize |
 | **HR batch payroll UX** | Basic table + calculate | Funnel filter (department/status), live gross/deductions/net sync on filter changes; works with 1+ employees |
 | **HR employee records** | Manual hourly rate entry | Gross semi-monthly editable; hourly rate auto-computed; birthday picker; NA normalization |
+| **Payslip issue tracking** | N/A | Employees report concerns via **Report Issue**; HR reviews, updates status, and resolves via dedicated screen |
 
 ---
 
@@ -76,6 +77,7 @@ The app uses a **procedural modular architecture**: business logic lives in stat
 - **Payroll Processing**
   - **Single mode** — one employee, pay period attendance table, calculate, export
   - **Batch mode** — filter employees, checkbox selection with select-all, sortable results table, styled summary with Gross / Deductions / Net Pay chips
+- **Payslip Issue Reports** — view all employee-submitted payslip concerns; filter by status (Open / In Progress / Resolved); update status and add HR notes; mark resolved
 - **Employee Directory** — company-wide lookup
 - **HR Announcements / Notifications**
 
@@ -102,14 +104,15 @@ CP2/
 │   └── revisions/                                     ← Revision snapshots (gitignored)
 ├── src/motorph_employeeapp/
 │   ├── MotorPH_EmployeeApp.java     ← Entry point, role-based authentication
-│   ├── MotorPH_GUI.java             ← All Swing UI, navigation, and event handlers
+│   ├── MotorPH_GUI.java             ← All Swing UI, navigation, and event handlers (~11,000 lines)
 │   ├── EmployeeModule.java          ← CSV column constants, name/rate/search helpers
 │   ├── FileHandlerModule.java       ← CSV read/write, smartSplit, schema migration
 │   ├── SalaryComputationModule.java ← Payroll math, bulk compute, deductions
 │   ├── EmployeeRecordsModule.java   ← CRUD validation, table rows, gross→hourly rate
 │   ├── EmployeeRevisionModule.java  ← Change snapshots and revert
 │   ├── DepartmentModule.java        ← Departments, positions, supervisors
-│   └── NotificationModule.java      ← In-app notification model and helpers
+│   ├── NotificationModule.java      ← In-app notification model and helpers
+│   └── PayslipIssueModule.java      ← Payslip concern model, serialization, status tracking
 ├── bin/                             ← Compiled classes (gitignored)
 ├── build.xml                        ← NetBeans Ant build
 └── nbproject/                       ← NetBeans project config
@@ -175,7 +178,8 @@ ant run
 | PDF export looks wrong | Use **Download .pdf** from payroll results; layout uses custom PDF drawing helpers |
 | Revision files missing | Normal on first run — created under `resources/` when HR edits records |
 | Payslip issue reports not in repo | `resources/payslip_issues.txt` is runtime-only and gitignored |
-| Employee payslip empty for a month | Use the filter icon to pick a period with attendance; demo data is mostly **2024** (Jun–Dec) |
+| Employee payslip empty for a month | Use the filter icon to pick a period with attendance; demo data is **2024** (Jun–Dec) |
+| Payslip issue not showing in HR | Issues are stored in `resources/payslip_issues.txt`; file is created on first employee report |
 
 ---
 
@@ -188,25 +192,25 @@ ant run
 | `EMPLOYEE_USERNAME` / `EMPLOYEE_PASSWORD` | `employee` / `12345` |
 | `HR_USERNAME` / `HR_PASSWORD` | `hr` / `hr12345` |
 | `HR_USERNAME_LEGACY` / `HR_PASSWORD_LEGACY` | `payroll_staff` / `password123` |
-| `LINKED_EMPLOYEE_ID` | `"10001"` — demo employee portal account |
-| `resolveLinkedEmployeeId(username)` | Maps portal username to CSV employee ID |
+| `EMPLOYEE_DEMO_ID` | `"10001"` — demo employee portal account |
+| `getLinkedEmployeeId(username)` | Maps portal username to CSV employee ID |
+| `authenticate(username, password)` | Validates credentials and sets `loggedInRole` |
 | `main(String[] args)` | Shows login → initializes GUI on success |
 
 ### `MotorPH_GUI.java` — UI Layer
 
-Central Swing application (~8,900 lines). Key responsibilities:
+Central Swing application (~11,000 lines). Key responsibilities:
 
 | Area | Key methods / behavior |
 |---|---|
 | Login | `showCustomLoginDialog()` — styled modal, Enter key support |
 | Bootstrap | `initialize()` — sets frame title by role, opens dashboard |
 | Employee screens | PDF-style My Payslip viewer, period filter, bulk PDF export, report issue, responsive profile/notifications |
-| HR screens | Employee Records CRUD (popup edit/delete), revision history, payroll single/batch |
-| Payroll UI | HR: Single/Batch toggle, funnel filter, styled results; Employee: scrollable payslip document + summary chips |
+| HR screens | Employee Records CRUD (popup edit/delete), revision history, payroll single/batch, payslip issue review |
+| Payroll UI | HR: Single/Batch toggle via `setupHrPayrollWithSubMenu()`, funnel filter, styled results; Employee: scrollable payslip document + summary chips |
+| Payslip issues | Employee: `showReportPayslipIssueDialog()`; HR: `showHrPayslipIssuesUI()`, `showHrPayslipIssueReviewDialog()` |
 | Export | Clipboard copy, `.txt` download, `.pdf` payslip; employee bulk export to a chosen folder |
 | Navigation | Sidebar, page headers, role-gated menu items |
-
-Legacy methods like `showMainMenu()`, `setupPayrollUI()` are superseded by the portal dashboard flow but payroll calculation still flows through `SalaryComputationModule`.
 
 ### `EmployeeModule.java` — Column Constants & Utilities
 
@@ -247,7 +251,9 @@ Employee CSV rows are `String[]` with **24 columns** (`COLUMN_COUNT = 24`):
 | `rewriteEmployeeFile(list)` | Full file rewrite after bulk changes |
 | `getNextEmployeeNumber()` | Auto-increment ID for new records |
 | `loadStructuredNotifications()` / `saveStructuredNotifications()` | Notification persistence |
-| `appendPayslipIssueReport(...)` | Appends employee payslip concern lines to `resources/payslip_issues.txt` |
+| `loadPayslipIssues()` / `savePayslipIssues()` | Load and save all payslip concern records |
+| `appendPayslipIssueReport(...)` | Appends employee payslip concern to `resources/payslip_issues.txt` |
+| `countPayslipIssuesNeedingAction()` | Count of Open + In Progress issues for HR badge |
 
 ### `SalaryComputationModule.java` — Payroll Engine
 
@@ -319,16 +325,39 @@ Data stored in `resources/employee_revision_index.txt` and `resources/revisions/
 | `allDepartments()` | All department names |
 | `positionsForDepartment(dept)` | Positions in a department |
 | `inferDepartmentFromPosition(position)` | Reverse lookup |
-| `resolveSupervisor(dept, position)` | Default supervisor name |
-| `formatSupervisorName(emp)` | Display helper |
+| `resolveSupervisor(dept, position)` | Default supervisor name based on org chart |
+| `formatSupervisorName(emp)` | Display helper: `"Last, First"` format |
 
 ### `NotificationModule.java` — Notifications
 
 | Item | Description |
 |---|---|
-| `Notification` | Model: type, title, message, timestamp, read flag |
-| `Notification.parseLine(line)` | Deserialize from storage |
+| `Notification` | Model: id, category, text, timestamp, read flag |
+| `Notification(category, text)` | Convenience constructor — id = current time, unread |
+| `Notification.serializeLine()` | Converts to pipe-delimited storage line |
+| `Notification.parseLine(line)` | Deserializes from storage |
 | Built dynamically in GUI | Payroll deadlines, attendance gaps, birthdays |
+
+### `PayslipIssueModule.java` — Payslip Issue Tracking
+
+| Item | Description |
+|---|---|
+| `STATUS_OPEN` | `"Open"` — newly submitted, no HR action yet |
+| `STATUS_IN_PROGRESS` | `"In Progress"` — HR acknowledged and working on it |
+| `STATUS_RESOLVED` | `"Resolved"` — HR marked complete with a note |
+| `PayslipIssue` | Model: timestamp, employeeId, employeeName, payPeriod, issueType, description, status, hrNote, resolvedAt |
+| `PayslipIssue.serializeLine()` | Converts to `|||`-delimited storage line |
+| `PayslipIssue.parseLine(line)` | Deserializes from `resources/payslip_issues.txt` |
+| `displaySummary()` | Short label: `"#10001 · June 2024 · Wrong deduction"` |
+| `isOpen()` / `isInProgress()` / `isResolved()` | Status helpers |
+| `needsHrAction()` | `true` when not yet resolved |
+
+Issue lifecycle:
+```
+Employee clicks Report Issue → appendPayslipIssueReport() → payslip_issues.txt
+HR opens Payslip Reports screen → loadPayslipIssues() → reviews and updates status
+HR saves → savePayslipIssues() → status updated in file
+```
 
 ---
 
@@ -350,6 +379,13 @@ Data stored in `resources/employee_revision_index.txt` and `resources/revisions/
 | PHP 10,001 – PHP 59,999 | 1.5% of salary |
 | ≥ PHP 60,000 | PHP 900.00 (max) |
 
+### Pag-IBIG (employee share)
+
+| Monthly Salary | Share |
+|---|---|
+| ≤ PHP 1,500 | 1% of salary |
+| Above PHP 1,500 | 2% of salary (max PHP 100.00) |
+
 ### BIR Withholding Tax (taxable income = gross − SSS − PhilHealth − Pag-IBIG)
 
 | Taxable Income | Tax |
@@ -363,13 +399,14 @@ Data stored in `resources/employee_revision_index.txt` and `resources/revisions/
 
 ---
 
-## Homework Progress
+## Progress
 
-| Homework | Description | Status |
+| Deliverable | Description | Status |
 |---|---|---|
 | Homework 1 | Class Diagram Design | ✅ Done |
 | Homework 2 | Java Implementation (OOP) | ✅ Done |
 | Homework 3 | GUI Interface Design (Procedural) | ✅ Done |
+| Milestone 2 | Features 2–4: Employee Records CRUD, Salary Computation, Edit & Delete | ✅ Done |
 
 ---
 
