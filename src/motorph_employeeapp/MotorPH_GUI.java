@@ -11046,58 +11046,43 @@ public class MotorPH_GUI {
         totalStrip.add(totHdrLbl);
         totalStrip.add(javax.swing.Box.createVerticalStrut(8));
 
-        // Gross row
-        JPanel grossRow = new JPanel(new java.awt.BorderLayout());
-        grossRow.setOpaque(false);
-        grossRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 20));
-        grossRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        grossRow.add(makeCutoffLabel("Gross Pay", TEXT_MUTED, false, 11), java.awt.BorderLayout.WEST);
-        grossRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalGross),
-                TEXT_DARK_NAVY, false, 11), java.awt.BorderLayout.EAST);
-        totalStrip.add(grossRow);
-        totalStrip.add(javax.swing.Box.createVerticalStrut(3));
-
-        // Deductions row
-        JPanel dedRow = new JPanel(new java.awt.BorderLayout());
-        dedRow.setOpaque(false);
-        dedRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 20));
-        dedRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        dedRow.add(makeCutoffLabel("−  Deductions", deductCol, false, 11), java.awt.BorderLayout.WEST);
-        dedRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalDeductions),
-                deductCol, false, 11), java.awt.BorderLayout.EAST);
-        totalStrip.add(dedRow);
-        totalStrip.add(javax.swing.Box.createVerticalStrut(4));
-
-        // Divider line
-        JPanel totDivider = new JPanel();
-        totDivider.setBackground(new Color(180, 196, 220));
-        totDivider.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 1));
-        totDivider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        totalStrip.add(totDivider);
-        totalStrip.add(javax.swing.Box.createVerticalStrut(4));
-
-        // Net Pay row
-        JPanel netRow = new JPanel(new java.awt.BorderLayout());
-        netRow.setOpaque(false);
-        netRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 22));
-        netRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        netRow.add(makeCutoffLabel("=  Net Pay", netGreen, true, 12), java.awt.BorderLayout.WEST);
-        netRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalNet),
-                netGreen, true, 12), java.awt.BorderLayout.EAST);
-        totalStrip.add(netRow);
-        totalStrip.add(javax.swing.Box.createVerticalStrut(3));
-
-        // Average Net Pay row
+        // Computation table — fully centered, both columns center-aligned
         double avgNet = n > 0 ? previewResult.totalNet / n : 0;
-        JPanel avgRow = new JPanel(new java.awt.BorderLayout());
-        avgRow.setOpaque(false);
-        avgRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 18));
-        avgRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        avgRow.add(makeCutoffLabel("Avg. Net Pay / Employee", TEXT_MUTED, false, 10),
-                java.awt.BorderLayout.WEST);
-        avgRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", avgNet), TEXT_MUTED, false, 10),
-                java.awt.BorderLayout.EAST);
-        totalStrip.add(avgRow);
+        String tableHtml = "<html>"
+                + "<table align='center' cellpadding='4' cellspacing='0'"
+                + "       style='font-family:Segoe UI;font-size:11px;'>"
+                + "<tr>"
+                + "  <td align='left'><font color='#646470'>Gross Pay</font></td>"
+                + "  <td width='40'></td>"
+                + "  <td align='right'><font color='#1C3970'><b>PHP "
+                +      String.format("%,.2f", previewResult.totalGross) + "</b></font></td>"
+                + "</tr><tr>"
+                + "  <td align='left'><font color='#B43C28'>Deductions</font></td>"
+                + "  <td></td>"
+                + "  <td align='right'><font color='#B43C28'><b>PHP "
+                +      String.format("%,.2f", previewResult.totalDeductions) + "</b></font></td>"
+                + "</tr><tr>"
+                + "  <td colspan='3'><hr size='1' color='#B4C4DC'/></td>"
+                + "</tr><tr>"
+                + "  <td align='left'><font color='#168246'><b>Net Pay</b></font></td>"
+                + "  <td></td>"
+                + "  <td align='right'><font color='#168246'><b>PHP "
+                +      String.format("%,.2f", previewResult.totalNet) + "</b></font></td>"
+                + "</tr><tr>"
+                + "  <td align='left'><font color='#888888'><small>Avg. Net Pay / Employee</small></font></td>"
+                + "  <td></td>"
+                + "  <td align='right'><font color='#888888'><small>PHP "
+                +      String.format("%,.2f", avgNet) + "</small></font></td>"
+                + "</tr>"
+                + "</table></html>";
+
+        JPanel tableWrapper = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 0));
+        tableWrapper.setOpaque(false);
+        tableWrapper.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+        JLabel tableLabel = new JLabel(tableHtml);
+        tableLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        tableWrapper.add(tableLabel);
+        totalStrip.add(tableWrapper);
 
         // Stack the two-column panel + total strip in CENTER
         JPanel centerPanel = new JPanel(new java.awt.BorderLayout());
@@ -11122,7 +11107,7 @@ public class MotorPH_GUI {
         btnCopy.addActionListener(e -> copyPayslipToClipboard());
         exportRow.add(btnCopy);
 
-        JButton btnPdf = new JButton("Download .pdf");
+        JButton btnPdf = new JButton("Download Payslips");
         styleStandardButton(btnPdf);
         btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
         exportRow.add(btnPdf);
