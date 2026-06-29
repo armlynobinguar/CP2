@@ -7923,11 +7923,6 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
-                if ("SSS #:".equals(row[0])) {
-                    attachIdFormat(tf, "XX-XXXXXXX-X");
-                } else if ("TIN #:".equals(row[0])) {
-                    attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                }
                 java.util.Set<String> _noValidate = new java.util.HashSet<>(
                         java.util.Arrays.asList("Employee #:", "Birthday:", "Status:", "Department:", "Position:"));
                 if (!_noValidate.contains(row[0])) {
@@ -8395,7 +8390,9 @@ public class MotorPH_GUI {
                     return "Phone must be 7–11 digits.";
                 break;
             case "SSS #:":
-                if (value.length() > 0 && value.length() < 12)
+                if (!value.matches("[0-9\\-]+"))
+                    return "SSS # must contain digits and hyphens only (e.g. 01-2345678-9).";
+                if (value.length() < 12)
                     return "SSS # format: XX-XXXXXXX-X — fill in all digits.";
                 break;
             case "PhilHealth #:":
@@ -8405,7 +8402,9 @@ public class MotorPH_GUI {
                     return "PhilHealth # must be 12 digits.";
                 break;
             case "TIN #:":
-                if (value.length() > 0 && value.length() < 11)
+                if (!value.matches("[0-9\\-]+"))
+                    return "TIN # must contain digits and hyphens only (e.g. 123-456-789-000).";
+                if (value.length() < 11)
                     return "TIN # format: XXX-XXX-XXX-XXX — fill in all digits.";
                 break;
             case "Pag-IBIG #:":
