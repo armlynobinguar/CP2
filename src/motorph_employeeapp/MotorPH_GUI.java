@@ -7923,15 +7923,6 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
-                if ("SSS #:".equals(row[0])) {
-                    attachMaxLength(tf, 12);
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
-                    attachMaxLength(tf, 12);
-                } else if ("TIN #:".equals(row[0])) {
-                    attachMaxLength(tf, 15);
-                } else if ("Phone:".equals(row[0])) {
-                    attachMaxLength(tf, 11);
-                }
                 java.util.Set<String> _noValidate = new java.util.HashSet<>(
                         java.util.Arrays.asList("Employee #:", "Birthday:", "Status:", "Department:", "Position:"));
                 if (!_noValidate.contains(row[0])) {
@@ -7941,7 +7932,19 @@ public class MotorPH_GUI {
                     errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    attachInlineValidator(tf, errLbl, row[0]);
+                    // SSS # and TIN # get auto-hyphen formatting; all others use the inline validator
+                    if ("SSS #:".equals(row[0])) {
+                        attachIdAutoFormat(tf, errLbl, new int[]{2, 9}, 10);
+                    } else if ("TIN #:".equals(row[0])) {
+                        attachIdAutoFormat(tf, errLbl, new int[]{3, 6, 9}, 12);
+                    } else {
+                        if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                            attachMaxLength(tf, 12);
+                        } else if ("Phone:".equals(row[0])) {
+                            attachMaxLength(tf, 11);
+                        }
+                        attachInlineValidator(tf, errLbl, row[0]);
+                    }
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
@@ -8485,6 +8488,85 @@ public class MotorPH_GUI {
                                 super.replace(fb, offset, length, truncated, attr);
                             }
                         }
+                    }
+                });
+    }
+
+    private static void attachIdAutoFormat(JTextField tf, JLabel errLbl, int[] hyphenBeforeDigit, int maxDigits) {
+        final boolean[] busy = {false};
+        ((javax.swing.text.AbstractDocument) tf.getDocument())
+                .setDocumentFilter(new javax.swing.text.DocumentFilter() {
+
+                    private String format(String digits) {
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 0; i < digits.length(); i++) {
+                            for (int pos : hyphenBeforeDigit) {
+                                if (i == pos) sb.append('-');
+                            }
+                            sb.append(digits.charAt(i));
+                        }
+                        return sb.toString();
+                    }
+
+                    private void process(FilterBypass fb, int start, int removeLen, String inserted)
+                            throws javax.swing.text.BadLocationException {
+                        if (busy[0]) return;
+                        busy[0] = true;
+                        try {
+                            String raw = fb.getDocument().getText(0, fb.getDocument().getLength());
+                            String before = raw.substring(0, Math.min(start, raw.length())).replaceAll("[^0-9]", "");
+                            String after = raw.substring(Math.min(start + removeLen, raw.length())).replaceAll("[^0-9]", "");
+                            String newDigits = inserted == null ? "" : inserted.replaceAll("[^0-9]", "");
+                            final boolean hadInvalid = inserted != null && !inserted.isEmpty()
+                                    && !inserted.replaceAll("[0-9]", "").isEmpty();
+
+                            String allDigits = before + newDigits + after;
+                            if (allDigits.length() > maxDigits)
+                                allDigits = allDigits.substring(0, maxDigits);
+
+                            String formatted = format(allDigits);
+                            fb.replace(0, fb.getDocument().getLength(), formatted, null);
+
+                            int caretDigitPos = Math.min(before.length() + newDigits.length(), allDigits.length());
+                            final int caretPos = format(allDigits.substring(0, caretDigitPos)).length();
+
+                            SwingUtilities.invokeLater(() -> {
+                                tf.setCaretPosition(Math.min(caretPos, tf.getDocument().getLength()));
+                                if (hadInvalid) {
+                                    tf.setBorder(BorderFactory.createCompoundBorder(
+                                            BorderFactory.createLineBorder(new Color(200, 40, 40), 1),
+                                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                                    errLbl.setText("Only digits are accepted — hyphens are added automatically.");
+                                } else {
+                                    tf.setBorder(BorderFactory.createCompoundBorder(
+                                            BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
+                                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                                    errLbl.setText("");
+                                }
+                            });
+                        } finally {
+                            busy[0] = false;
+                        }
+                    }
+
+                    @Override
+                    public void insertString(FilterBypass fb, int offset, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        process(fb, offset, 0, string);
+                    }
+
+                    @Override
+                    public void replace(FilterBypass fb, int offset, int length, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        process(fb, offset, length, string == null ? "" : string);
+                    }
+
+                    @Override
+                    public void remove(FilterBypass fb, int offset, int length)
+                            throws javax.swing.text.BadLocationException {
+                        process(fb, offset, length, "");
                     }
                 });
     }
