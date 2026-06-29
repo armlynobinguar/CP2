@@ -11028,27 +11028,76 @@ public class MotorPH_GUI {
                 netGreen, true, 11));
         twoCol.add(right);
 
-        // ── Total strip ──
-        JPanel totalStrip = new JPanel(null);
+        // ── Total strip — vertical computation table ──
+        JPanel totalStrip = new JPanel();
+        totalStrip.setLayout(new javax.swing.BoxLayout(totalStrip, javax.swing.BoxLayout.Y_AXIS));
         totalStrip.setBackground(new Color(236, 241, 252));
-        totalStrip.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, divCol));
-        totalStrip.setPreferredSize(new java.awt.Dimension(0, BCRD_TOT_H));
+        totalStrip.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 1, 0, divCol),
+                BorderFactory.createEmptyBorder(8, 16, 10, 16)));
 
-        int h2 = BCRD_TOT_H / 2;
-        String totRow1 = "TOTAL  ·  " + mn + " " + yr + "    |    "
-                + String.format("%.2f", totalHours) + " hrs total";
-        JLabel totLbl1 = makeCutoffLabel(totRow1, TEXT_DARK_NAVY, true, 11);
-        totLbl1.setHorizontalAlignment(SwingConstants.CENTER);
-        totLbl1.setBounds(0, 3, 600, h2 - 1);
-        totalStrip.add(totLbl1);
+        // Header
+        JLabel totHdrLbl = makeCutoffLabel(
+                "TOTAL  ·  " + mn + " " + yr + "    |    "
+                + String.format("%.2f", totalHours) + " hrs total",
+                TEXT_DARK_NAVY, true, 11);
+        totHdrLbl.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
+        totHdrLbl.setHorizontalAlignment(SwingConstants.CENTER);
+        totalStrip.add(totHdrLbl);
+        totalStrip.add(javax.swing.Box.createVerticalStrut(8));
 
-        String totRow2 = "Gross: PHP " + String.format("%,.2f", previewResult.totalGross)
-                + "     Deductions: PHP " + String.format("%,.2f", previewResult.totalDeductions)
-                + "     NET PAY: PHP " + String.format("%,.2f", previewResult.totalNet);
-        JLabel totLbl2 = makeCutoffLabel(totRow2, netGreen, true, 11);
-        totLbl2.setHorizontalAlignment(SwingConstants.CENTER);
-        totLbl2.setBounds(0, h2 + 2, 600, h2 - 2);
-        totalStrip.add(totLbl2);
+        // Gross row
+        JPanel grossRow = new JPanel(new java.awt.BorderLayout());
+        grossRow.setOpaque(false);
+        grossRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 20));
+        grossRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        grossRow.add(makeCutoffLabel("Gross Pay", TEXT_MUTED, false, 11), java.awt.BorderLayout.WEST);
+        grossRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalGross),
+                TEXT_DARK_NAVY, false, 11), java.awt.BorderLayout.EAST);
+        totalStrip.add(grossRow);
+        totalStrip.add(javax.swing.Box.createVerticalStrut(3));
+
+        // Deductions row
+        JPanel dedRow = new JPanel(new java.awt.BorderLayout());
+        dedRow.setOpaque(false);
+        dedRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 20));
+        dedRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        dedRow.add(makeCutoffLabel("−  Deductions", deductCol, false, 11), java.awt.BorderLayout.WEST);
+        dedRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalDeductions),
+                deductCol, false, 11), java.awt.BorderLayout.EAST);
+        totalStrip.add(dedRow);
+        totalStrip.add(javax.swing.Box.createVerticalStrut(4));
+
+        // Divider line
+        JPanel totDivider = new JPanel();
+        totDivider.setBackground(new Color(180, 196, 220));
+        totDivider.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 1));
+        totDivider.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        totalStrip.add(totDivider);
+        totalStrip.add(javax.swing.Box.createVerticalStrut(4));
+
+        // Net Pay row
+        JPanel netRow = new JPanel(new java.awt.BorderLayout());
+        netRow.setOpaque(false);
+        netRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 22));
+        netRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        netRow.add(makeCutoffLabel("=  Net Pay", netGreen, true, 12), java.awt.BorderLayout.WEST);
+        netRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", previewResult.totalNet),
+                netGreen, true, 12), java.awt.BorderLayout.EAST);
+        totalStrip.add(netRow);
+        totalStrip.add(javax.swing.Box.createVerticalStrut(3));
+
+        // Average Net Pay row
+        double avgNet = n > 0 ? previewResult.totalNet / n : 0;
+        JPanel avgRow = new JPanel(new java.awt.BorderLayout());
+        avgRow.setOpaque(false);
+        avgRow.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 18));
+        avgRow.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        avgRow.add(makeCutoffLabel("Avg. Net Pay / Employee", TEXT_MUTED, false, 10),
+                java.awt.BorderLayout.WEST);
+        avgRow.add(makeCutoffLabel("PHP " + String.format("%,.2f", avgNet), TEXT_MUTED, false, 10),
+                java.awt.BorderLayout.EAST);
+        totalStrip.add(avgRow);
 
         // Stack the two-column panel + total strip in CENTER
         JPanel centerPanel = new JPanel(new java.awt.BorderLayout());
@@ -11073,15 +11122,45 @@ public class MotorPH_GUI {
         btnCopy.addActionListener(e -> copyPayslipToClipboard());
         exportRow.add(btnCopy);
 
-        JButton btnTxt = new JButton("Download .txt");
-        styleStandardButton(btnTxt);
-        btnTxt.addActionListener(e -> exportPayrollTextToFile());
-        exportRow.add(btnTxt);
-
         JButton btnPdf = new JButton("Download .pdf");
         styleStandardButton(btnPdf);
         btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
         exportRow.add(btnPdf);
+
+        JButton btnExportCsv = new JButton("Export Payroll Summary");
+        styleStandardButton(btnExportCsv);
+        btnExportCsv.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Export Payroll Summary");
+            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + mn + yr + ".csv"));
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "CSV File (*.csv)", "csv"));
+            if (chooser.showSaveDialog(dlg) != JFileChooser.APPROVE_OPTION) return;
+            java.io.File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new java.io.File(target.getAbsolutePath() + ".csv");
+            }
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(
+                    new java.io.OutputStreamWriter(
+                            new java.io.FileOutputStream(target),
+                            java.nio.charset.StandardCharsets.UTF_8))) {
+                pw.println("Payroll Summary");
+                pw.println("Period," + mn + " " + yr);
+                pw.println("Total Employees," + n);
+                pw.println("Total Gross Pay," + String.format("%.2f", previewResult.totalGross));
+                pw.println("Total Deductions," + String.format("%.2f", previewResult.totalDeductions));
+                pw.println("Net Pay," + String.format("%.2f", previewResult.totalNet));
+                pw.println("Average Net Pay per Employee," + String.format("%.2f", avgNet));
+                JOptionPane.showMessageDialog(dlg,
+                        "Payroll summary exported successfully.\n" + target.getName(),
+                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dlg,
+                        "Could not export file: " + ex.getMessage(),
+                        "Export Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        exportRow.add(btnExportCsv);
 
         southPanel.add(exportRow);
 
