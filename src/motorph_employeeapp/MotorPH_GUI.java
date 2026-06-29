@@ -6357,28 +6357,9 @@ public class MotorPH_GUI {
         }
 
         SalaryComputationModule.BulkPayrollResult result = executeBatchPayrollComputation(
-                actualMonth, year, true);
+                actualMonth, year, false);
         if (result.computedCount > 0) {
-            batchPayrollComputedOnce = true;
-            if (result.savedToFile) {
-                if (employeeTableModel != null) {
-                    refreshEmployeeTable();
-                }
-                JOptionPane.showMessageDialog(frame,
-                        result.computedCount + " salary record(s) computed and saved to Employee Details CSV.\n\n"
-                                + "Gross: PHP " + String.format("%,.2f", result.totalGross) + "\n"
-                                + "Deductions: PHP " + String.format("%,.2f", result.totalDeductions) + "\n"
-                                + "Net: PHP " + String.format("%,.2f", result.totalNet),
-                        "Payroll Complete", JOptionPane.INFORMATION_MESSAGE);
-                showToast(result.computedCount + " salary record(s) computed and saved.");
-            } else {
-                JOptionPane.showMessageDialog(frame,
-                        "Payroll was computed but the CSV file could not be saved.\n\n"
-                                + "Close any program using the file and try again.",
-                        "Save Failed", JOptionPane.ERROR_MESSAGE);
-                showToast(result.computedCount + " record(s) computed (CSV save failed).",
-                        new Color(180, 90, 40));
-            }
+            showPayrollReviewDialog(result, actualMonth, year);
         } else {
             clearBatchPayrollOutput();
             JOptionPane.showMessageDialog(frame,
@@ -10944,6 +10925,223 @@ public class MotorPH_GUI {
         }
         html.append("</ul></body></html>");
         JOptionPane.showMessageDialog(parent, html.toString(), title, messageType);
+    }
+
+    private static void showPayrollReviewDialog(SalaryComputationModule.BulkPayrollResult previewResult,
+            String month, String year) {
+
+        // Aggregate cutoff totals from per-employee summaries
+        double totalHoursFirst = 0, totalGrossFirst = 0;
+        double totalHoursSecond = 0, totalGrossSecond = 0;
+        double totalSSS = 0, totalPhilHealth = 0, totalPagIbig = 0, totalTax = 0;
+        for (SalaryComputationModule.EmployeePayrollSummary s : previewResult.summaries) {
+            if (!s.computed) continue;
+            totalHoursFirst  += s.hoursFirst;
+            totalGrossFirst  += s.grossFirst;
+            totalHoursSecond += s.hoursSecond;
+            totalGrossSecond += s.grossSecond;
+            totalSSS         += s.sss;
+            totalPhilHealth  += s.philHealth;
+            totalPagIbig     += s.pagIbig;
+            totalTax         += s.tax;
+        }
+        double totalHours    = totalHoursFirst + totalHoursSecond;
+        double totalNetSecond = totalGrossSecond - previewResult.totalDeductions;
+
+        String mn = previewResult.summaries.isEmpty() ? "" : previewResult.summaries.get(0).monthName;
+        String yr = previewResult.summaries.isEmpty() ? "" : previewResult.summaries.get(0).year;
+        int    n  = previewResult.computedCount;
+
+        JDialog dlg = new JDialog(frame, "Payroll Summary — " + mn + " " + yr, true);
+        dlg.setLayout(new java.awt.BorderLayout());
+        dlg.setResizable(false);
+        dlg.getContentPane().setBackground(PALETTE_WHITE);
+
+        // ── Header strip ──
+        JPanel hdrStrip = new JPanel(new java.awt.BorderLayout());
+        hdrStrip.setBackground(TEXT_DARK_NAVY);
+        hdrStrip.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+
+        JLabel hdrLbl = new JLabel("Payroll Summary  ·  " + mn + " " + yr + "  ·  " + n + " employees");
+        hdrLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        hdrLbl.setForeground(PALETTE_WHITE);
+        hdrStrip.add(hdrLbl, java.awt.BorderLayout.WEST);
+        dlg.add(hdrStrip, java.awt.BorderLayout.NORTH);
+
+        // ── Two-column cutoff panel ──
+        Color colBg    = new Color(245, 248, 254);
+        Color divCol   = new Color(200, 210, 230);
+        Color deductCol = new Color(180, 60, 40);
+        Color netGreen  = new Color(22, 130, 70);
+
+        JPanel twoCol = new JPanel(new java.awt.GridLayout(1, 2, 0, 0));
+        twoCol.setBackground(colBg);
+        twoCol.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, divCol));
+
+        // Left — 1st cutoff (no deductions)
+        JPanel left = new JPanel();
+        left.setLayout(new javax.swing.BoxLayout(left, javax.swing.BoxLayout.Y_AXIS));
+        left.setBackground(colBg);
+        left.setBorder(BorderFactory.createEmptyBorder(10, 14, 12, 10));
+
+        left.add(makeCutoffLabel("1ST CUTOFF  ·  " + mn + " 1–15, " + yr, ACCENT_BLUE, true, 11));
+        left.add(javax.swing.Box.createVerticalStrut(10));
+        left.add(makeCutoffLabel("Employees :  " + n, TEXT_DARK_NAVY, false, 11));
+        left.add(javax.swing.Box.createVerticalStrut(4));
+        left.add(makeCutoffLabel("Total Hours :  " + String.format("%.2f", totalHoursFirst) + " hrs",
+                TEXT_DARK_NAVY, false, 11));
+        left.add(javax.swing.Box.createVerticalStrut(4));
+        left.add(makeCutoffLabel("Total Gross :  PHP " + String.format("%,.2f", totalGrossFirst),
+                TEXT_DARK_NAVY, false, 11));
+        left.add(javax.swing.Box.createVerticalStrut(10));
+        left.add(makeCutoffLabel("Net Pay :  PHP " + String.format("%,.2f", totalGrossFirst),
+                netGreen, true, 11));
+        left.add(makeCutoffLabel("(no deductions)", TEXT_MUTED, false, 10));
+        twoCol.add(left);
+
+        // Right — 2nd cutoff with deductions
+        JPanel right = new JPanel();
+        right.setLayout(new javax.swing.BoxLayout(right, javax.swing.BoxLayout.Y_AXIS));
+        right.setBackground(colBg);
+        right.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 1, 0, 0, divCol),
+                BorderFactory.createEmptyBorder(10, 14, 12, 14)));
+
+        right.add(makeCutoffLabel("2ND CUTOFF  ·  " + mn + " 16–31, " + yr, ACCENT_BLUE, true, 11));
+        right.add(javax.swing.Box.createVerticalStrut(4));
+        right.add(makeCutoffLabel("Employees :  " + n, TEXT_DARK_NAVY, false, 11));
+        right.add(makeCutoffLabel("Total Hours :  " + String.format("%.2f", totalHoursSecond) + " hrs",
+                TEXT_DARK_NAVY, false, 11));
+        right.add(makeCutoffLabel("Total Gross :  PHP " + String.format("%,.2f", totalGrossSecond),
+                TEXT_DARK_NAVY, false, 11));
+        right.add(javax.swing.Box.createVerticalStrut(4));
+        right.add(makeCutoffLabel("SSS :  PHP " + String.format("%,.2f", totalSSS), deductCol, false, 11));
+        right.add(makeCutoffLabel("PhilHealth :  PHP " + String.format("%,.2f", totalPhilHealth),
+                deductCol, false, 11));
+        right.add(makeCutoffLabel("Pag-IBIG :  PHP " + String.format("%,.2f", totalPagIbig),
+                deductCol, false, 11));
+        right.add(makeCutoffLabel("Tax :  PHP " + String.format("%,.2f", totalTax), deductCol, false, 11));
+        right.add(javax.swing.Box.createVerticalStrut(4));
+        right.add(makeCutoffLabel("Total Deductions :  PHP "
+                + String.format("%,.2f", previewResult.totalDeductions), TEXT_DARK_NAVY, true, 11));
+        right.add(makeCutoffLabel("Net Pay :  PHP " + String.format("%,.2f", totalNetSecond),
+                netGreen, true, 11));
+        twoCol.add(right);
+
+        // ── Total strip ──
+        JPanel totalStrip = new JPanel(null);
+        totalStrip.setBackground(new Color(236, 241, 252));
+        totalStrip.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, divCol));
+        totalStrip.setPreferredSize(new java.awt.Dimension(0, BCRD_TOT_H));
+
+        int h2 = BCRD_TOT_H / 2;
+        String totRow1 = "TOTAL  ·  " + mn + " " + yr + "    |    "
+                + String.format("%.2f", totalHours) + " hrs total";
+        JLabel totLbl1 = makeCutoffLabel(totRow1, TEXT_DARK_NAVY, true, 11);
+        totLbl1.setHorizontalAlignment(SwingConstants.CENTER);
+        totLbl1.setBounds(0, 3, 600, h2 - 1);
+        totalStrip.add(totLbl1);
+
+        String totRow2 = "Gross: PHP " + String.format("%,.2f", previewResult.totalGross)
+                + "     Deductions: PHP " + String.format("%,.2f", previewResult.totalDeductions)
+                + "     NET PAY: PHP " + String.format("%,.2f", previewResult.totalNet);
+        JLabel totLbl2 = makeCutoffLabel(totRow2, netGreen, true, 11);
+        totLbl2.setHorizontalAlignment(SwingConstants.CENTER);
+        totLbl2.setBounds(0, h2 + 2, 600, h2 - 2);
+        totalStrip.add(totLbl2);
+
+        // Stack the two-column panel + total strip in CENTER
+        JPanel centerPanel = new JPanel(new java.awt.BorderLayout());
+        centerPanel.setBackground(PALETTE_WHITE);
+        centerPanel.add(twoCol, java.awt.BorderLayout.CENTER);
+        centerPanel.add(totalStrip, java.awt.BorderLayout.SOUTH);
+        dlg.add(centerPanel, java.awt.BorderLayout.CENTER);
+
+        // ── SOUTH: export buttons + action buttons ──
+        JPanel southPanel = new JPanel();
+        southPanel.setLayout(new javax.swing.BoxLayout(southPanel, javax.swing.BoxLayout.Y_AXIS));
+        southPanel.setBackground(APP_BG);
+        southPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, CARD_BORDER_COLOR));
+
+        // Export row
+        JPanel exportRow = new JPanel(new java.awt.GridLayout(1, 3, 8, 0));
+        exportRow.setBackground(APP_BG);
+        exportRow.setBorder(BorderFactory.createEmptyBorder(10, 14, 6, 14));
+
+        JButton btnCopy = new JButton("Copy to Clipboard");
+        styleStandardButton(btnCopy);
+        btnCopy.addActionListener(e -> copyPayslipToClipboard());
+        exportRow.add(btnCopy);
+
+        JButton btnTxt = new JButton("Download .txt");
+        styleStandardButton(btnTxt);
+        btnTxt.addActionListener(e -> exportPayrollTextToFile());
+        exportRow.add(btnTxt);
+
+        JButton btnPdf = new JButton("Download .pdf");
+        styleStandardButton(btnPdf);
+        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
+        exportRow.add(btnPdf);
+
+        southPanel.add(exportRow);
+
+        // Action row: Process Payroll (right-aligned)
+        JPanel actionRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0));
+        actionRow.setBackground(APP_BG);
+        actionRow.setBorder(BorderFactory.createEmptyBorder(4, 14, 12, 14));
+
+        JButton btnProcess = new JButton("Process Payroll");
+        btnProcess.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnProcess.setForeground(PALETTE_WHITE);
+        btnProcess.setBackground(ACCENT_BLUE);
+        btnProcess.setOpaque(true);
+        btnProcess.setBorderPainted(false);
+        btnProcess.setFocusPainted(false);
+        btnProcess.setPreferredSize(new java.awt.Dimension(152, BTN_HEIGHT));
+        btnProcess.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnProcess.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e)  { btnProcess.setBackground(HOVER_BLUE); }
+            @Override public void mouseExited(MouseEvent e)   { btnProcess.setBackground(ACCENT_BLUE); }
+            @Override public void mousePressed(MouseEvent e)  { btnProcess.setBackground(PRESSED_BLUE); }
+            @Override public void mouseReleased(MouseEvent e) { btnProcess.setBackground(HOVER_BLUE); }
+        });
+        btnProcess.addActionListener(e -> {
+            int choice = JOptionPane.showConfirmDialog(dlg,
+                    "<html>Process payroll for <b>" + n + " employee(s)</b>?<br><br>"
+                    + "This will save all computed salary records to the Employee Details CSV.<br>"
+                    + "This action cannot be undone.</html>",
+                    "Confirm Process Payroll",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (choice == JOptionPane.OK_OPTION) {
+                SalaryComputationModule.BulkPayrollResult saved =
+                        executeBatchPayrollComputation(month, year, true);
+                if (saved.savedToFile) {
+                    batchPayrollComputedOnce = true;
+                    if (employeeTableModel != null) {
+                        refreshEmployeeTable();
+                    }
+                    dlg.dispose();
+                    showToast(saved.computedCount + " salary record(s) computed and saved.");
+                } else {
+                    JOptionPane.showMessageDialog(dlg,
+                            "Payroll was computed but the CSV file could not be saved.\n\n"
+                            + "Close any program using the file and try again.",
+                            "Save Failed", JOptionPane.ERROR_MESSAGE);
+                    showToast(saved.computedCount + " record(s) computed (CSV save failed).",
+                            new Color(180, 90, 40));
+                }
+            }
+        });
+        actionRow.add(btnProcess);
+
+        southPanel.add(actionRow);
+        dlg.add(southPanel, java.awt.BorderLayout.SOUTH);
+
+        dlg.pack();
+        dlg.setMinimumSize(new java.awt.Dimension(580, dlg.getHeight()));
+        dlg.setLocationRelativeTo(frame);
+        dlg.getRootPane().setDefaultButton(btnProcess);
+        dlg.setVisible(true);
     }
 
     private static String formatPlainBulletList(List<String> items) {
