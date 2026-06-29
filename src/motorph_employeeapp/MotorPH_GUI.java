@@ -7927,9 +7927,6 @@ public class MotorPH_GUI {
                     attachIdFormat(tf, "XX-XXXXXXX-X");
                 } else if ("TIN #:".equals(row[0])) {
                     attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
-                        || "Phone:".equals(row[0])) {
-                    attachDigitsOnlyFilter(tf);
                 }
                 java.util.Set<String> _noValidate = new java.util.HashSet<>(
                         java.util.Arrays.asList("Employee #:", "Birthday:", "Status:", "Department:", "Position:"));
@@ -8384,23 +8381,27 @@ public class MotorPH_GUI {
                     return "Only letters, spaces, hyphens, and apostrophes are allowed.";
                 break;
             case "Supervisor:":
-                if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-.,']+"))
-                    return "Only letters, spaces, hyphens, commas, and periods are allowed.";
+                if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-.,'/]+"))
+                    return "Only letters, spaces, hyphens, commas, periods, and slashes are allowed.";
                 break;
             case "Address:":
                 if (!value.matches("[a-zA-Z0-9 ,.'\\-#/()\\.]+"))
                     return "Contains unsupported special characters.";
                 break;
             case "Phone:":
-                if (value.length() > 0 && (value.length() < 7 || value.length() > 11))
-                    return "Phone must be 7–11 digits (e.g. 09171234567).";
+                if (!value.matches("[0-9]+"))
+                    return "Phone must contain digits only (e.g. 09171234567).";
+                if (value.length() < 7 || value.length() > 11)
+                    return "Phone must be 7–11 digits.";
                 break;
             case "SSS #:":
                 if (value.length() > 0 && value.length() < 12)
                     return "SSS # format: XX-XXXXXXX-X — fill in all digits.";
                 break;
             case "PhilHealth #:":
-                if (value.length() > 0 && value.length() < 12)
+                if (!value.matches("[0-9]+"))
+                    return "PhilHealth # must contain digits only.";
+                if (value.length() < 12)
                     return "PhilHealth # must be 12 digits.";
                 break;
             case "TIN #:":
@@ -8408,7 +8409,9 @@ public class MotorPH_GUI {
                     return "TIN # format: XXX-XXX-XXX-XXX — fill in all digits.";
                 break;
             case "Pag-IBIG #:":
-                if (value.length() > 0 && value.length() < 12)
+                if (!value.matches("[0-9]+"))
+                    return "Pag-IBIG # must contain digits only.";
+                if (value.length() < 12)
                     return "Pag-IBIG # must be 12 digits.";
                 break;
             case "Basic Salary:":
