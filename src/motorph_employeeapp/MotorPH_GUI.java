@@ -7796,7 +7796,7 @@ public class MotorPH_GUI {
         root.add(strip);
 
         final int PAD = 14;
-        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 10, fy = 8;
+        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 20, fy = 8;
 
         JPanel form = new JPanel(null);
         form.setBackground(PALETTE_WHITE);
@@ -7831,6 +7831,7 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
         final JComboBox<String>[] deptComboRef = new JComboBox[1];
         final JComboBox<String>[] posComboRef = new JComboBox[1];
 
@@ -7929,10 +7930,17 @@ public class MotorPH_GUI {
                 } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
                         || "Phone:".equals(row[0])) {
                     attachDigitsOnlyFilter(tf);
-                } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
-                        || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
-                        || "Gross Semi-monthly:".equals(row[0])) {
-                    attachNumericValidation(tf);
+                }
+                java.util.Set<String> _noValidate = new java.util.HashSet<>(
+                        java.util.Arrays.asList("Employee #:", "Birthday:", "Status:", "Department:", "Position:"));
+                if (!_noValidate.contains(row[0])) {
+                    JLabel errLbl = new JLabel("");
+                    errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+                    errLbl.setForeground(new Color(200, 40, 40));
+                    errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
+                    form.add(errLbl);
+                    errorLabels.put(row[0], errLbl);
+                    attachInlineValidator(tf, errLbl, row[0]);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
@@ -8364,6 +8372,81 @@ public class MotorPH_GUI {
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
                 check();
             }
+        });
+    }
+
+    private static String validateAddEmployeeField(String fieldLabel, String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        switch (fieldLabel) {
+            case "Last Name:":
+            case "First Name:":
+                if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-'.]+"))
+                    return "Only letters, spaces, hyphens, and apostrophes are allowed.";
+                break;
+            case "Supervisor:":
+                if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-.,']+"))
+                    return "Only letters, spaces, hyphens, commas, and periods are allowed.";
+                break;
+            case "Address:":
+                if (!value.matches("[a-zA-Z0-9 ,.'\\-#/()\\.]+"))
+                    return "Contains unsupported special characters.";
+                break;
+            case "Phone:":
+                if (value.length() > 0 && (value.length() < 7 || value.length() > 11))
+                    return "Phone must be 7–11 digits (e.g. 09171234567).";
+                break;
+            case "SSS #:":
+                if (value.length() > 0 && value.length() < 12)
+                    return "SSS # format: XX-XXXXXXX-X — fill in all digits.";
+                break;
+            case "PhilHealth #:":
+                if (value.length() > 0 && value.length() < 12)
+                    return "PhilHealth # must be 12 digits.";
+                break;
+            case "TIN #:":
+                if (value.length() > 0 && value.length() < 11)
+                    return "TIN # format: XXX-XXX-XXX-XXX — fill in all digits.";
+                break;
+            case "Pag-IBIG #:":
+                if (value.length() > 0 && value.length() < 12)
+                    return "Pag-IBIG # must be 12 digits.";
+                break;
+            case "Basic Salary:":
+            case "Rice Subsidy:":
+            case "Phone Allowance:":
+            case "Clothing Allowance:":
+            case "Gross Semi-monthly:":
+            case "Hourly Rate:":
+                if (!value.isEmpty()
+                        && !EmployeeRecordsModule.isNaPlaceholder(value)
+                        && !value.matches("[0-9,]+(\\.[0-9]*)?"))
+                    return "Enter a valid amount (digits only, e.g. 15000 or 15,000.00).";
+                break;
+            default:
+                break;
+        }
+        return null;
+    }
+
+    private static void attachInlineValidator(JTextField tf, JLabel errLbl, String fieldLabel) {
+        tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void check() {
+                String err = validateAddEmployeeField(fieldLabel, tf.getText());
+                if (err != null) {
+                    tf.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(200, 40, 40), 1),
+                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                    errLbl.setText(err);
+                } else {
+                    tf.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
+                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                    errLbl.setText("");
+                }
+            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { check(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { check(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { check(); }
         });
     }
 
