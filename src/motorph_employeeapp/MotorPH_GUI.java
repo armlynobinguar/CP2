@@ -7923,6 +7923,15 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
+                if ("SSS #:".equals(row[0])) {
+                    attachMaxLength(tf, 12);
+                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
+                    attachMaxLength(tf, 12);
+                } else if ("TIN #:".equals(row[0])) {
+                    attachMaxLength(tf, 15);
+                } else if ("Phone:".equals(row[0])) {
+                    attachMaxLength(tf, 11);
+                }
                 java.util.Set<String> _noValidate = new java.util.HashSet<>(
                         java.util.Arrays.asList("Employee #:", "Birthday:", "Status:", "Department:", "Position:"));
                 if (!_noValidate.contains(row[0])) {
@@ -8450,6 +8459,34 @@ public class MotorPH_GUI {
             public void removeUpdate(javax.swing.event.DocumentEvent e) { check(); }
             public void changedUpdate(javax.swing.event.DocumentEvent e) { check(); }
         });
+    }
+
+    private static void attachMaxLength(JTextField tf, int max) {
+        ((javax.swing.text.AbstractDocument) tf.getDocument())
+                .setDocumentFilter(new javax.swing.text.DocumentFilter() {
+                    @Override
+                    public void insertString(FilterBypass fb, int offset, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        if (string != null && fb.getDocument().getLength() + string.length() <= max)
+                            super.insertString(fb, offset, string, attr);
+                    }
+                    @Override
+                    public void replace(FilterBypass fb, int offset, int length, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        if (string != null) {
+                            int newLen = fb.getDocument().getLength() - length + string.length();
+                            if (newLen <= max)
+                                super.replace(fb, offset, length, string, attr);
+                            else if (newLen > max && length < fb.getDocument().getLength()) {
+                                // Truncate paste to fit within max
+                                String truncated = string.substring(0, Math.max(0, max - (fb.getDocument().getLength() - length)));
+                                super.replace(fb, offset, length, truncated, attr);
+                            }
+                        }
+                    }
+                });
     }
 
     /**
