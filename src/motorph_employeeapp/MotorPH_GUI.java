@@ -7224,6 +7224,19 @@ public class MotorPH_GUI {
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
         List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
         errs.addAll(EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap)));
+        // Surface inline character/format errors not covered by the backend validator
+        java.util.Set<String> skipInline = new java.util.HashSet<>(java.util.Arrays.asList(
+                "Employee #:", "Birthday:", "Status:", "Department:", "Position:",
+                "SSS #:", "TIN #:")); // backend already validates these two
+        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
+            String key = entry.getKey();
+            if (skipInline.contains(key)) continue;
+            String inlineErr = validateAddEmployeeField(key, entry.getValue().getText());
+            if (inlineErr != null) {
+                String label = key.endsWith(":") ? key.substring(0, key.length() - 1) : key;
+                errs.add(label + ": " + inlineErr);
+            }
+        }
         return errs;
     }
 
