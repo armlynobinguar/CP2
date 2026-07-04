@@ -6655,41 +6655,80 @@ public class MotorPH_GUI {
         int    empCount    = computed.size();
 
         JDialog dlg = new JDialog(frame, "Payroll Summary — " + monthName + " " + year, true);
+        dlg.setResizable(false);
+        int totalW = 640;
+        dlg.setSize(totalW, 580);
+        // Realize the native peer now so getInsets() reflects the real window
+        // chrome (title bar + side borders) instead of assuming the dialog's
+        // content area is exactly totalW wide — otherwise left/right padding
+        // ends up asymmetric since the OS eats a few pixels on each side.
+        dlg.addNotify();
+        java.awt.Insets dlgInsets = dlg.getInsets();
         dlg.setLayout(null);
         dlg.getContentPane().setBackground(PALETTE_WHITE);
-        dlg.setSize(640, 520);
         dlg.setLocationRelativeTo(frame);
-        dlg.setResizable(false);
 
         int pad = 16;
-        int w   = 640 - pad * 2;
+        int w   = totalW - dlgInsets.left - dlgInsets.right - pad * 2;
 
         // Header
-        JPanel headerStrip = new JPanel(null);
+        int headerH = 60;
+        JPanel headerStrip = new JPanel(new java.awt.BorderLayout());
         headerStrip.setBackground(SIDEBAR_BG);
-        headerStrip.setBounds(0, 0, 640, 44);
-        JLabel headerLbl = new JLabel("  Payroll Summary  ·  " + monthName + " " + year
+        headerStrip.setBounds(0, 0, pad + w, headerH);
+        headerStrip.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
+
+        JLabel headerLbl = new JLabel("Payroll Summary  ·  " + monthName + " " + year
                 + "  ·  " + empCount + " employee" + (empCount == 1 ? "" : "s"));
         headerLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
         headerLbl.setForeground(PALETTE_WHITE);
-        headerLbl.setBounds(0, 10, 620, 24);
-        headerStrip.add(headerLbl);
+        headerStrip.add(headerLbl, java.awt.BorderLayout.WEST);
+
+        int totalTableEmployees = payrollSelectTableModel != null
+                ? payrollSelectTableModel.getRowCount() : empCount;
+
+        JPanel selPanel = new JPanel();
+        selPanel.setOpaque(false);
+        selPanel.setLayout(new javax.swing.BoxLayout(selPanel, javax.swing.BoxLayout.Y_AXIS));
+
+        JLabel selLbl = new JLabel("Selected Employees");
+        selLbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        selLbl.setForeground(new Color(190, 205, 235));
+        selLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        selPanel.add(selLbl);
+
+        JLabel selValLbl = new JLabel(empCount + " of " + totalTableEmployees);
+        selValLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        selValLbl.setForeground(PALETTE_WHITE);
+        selValLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        selPanel.add(selValLbl);
+
+        headerStrip.add(selPanel, java.awt.BorderLayout.EAST);
+
         dlg.add(headerStrip);
 
-        int twoColY = 52;
+        int twoColY = headerH + 8;
         int colH    = 210;
         int colW    = (w - 8) / 2;
 
         Color colBg   = new Color(245, 248, 254);
         Color divCol  = new Color(200, 210, 230);
+        Color borderCol = new Color(168, 184, 214);
         Color deductFg = new Color(180, 60, 40);
         Color greenFg  = new Color(22, 130, 70);
+
+        // Outer card frame behind the two cutoff columns + total strip
+        JPanel cardFrame = new JPanel(null);
+        cardFrame.setOpaque(false);
+        cardFrame.setBorder(BorderFactory.createLineBorder(borderCol, 1));
+        cardFrame.setBounds(pad - 1, twoColY - 1, w + 2, colH + 8 + 48 + 2);
+        dlg.add(cardFrame);
 
         // 1st cutoff column
         JPanel leftCol = new JPanel(new java.awt.GridLayout(5, 1, 0, 2));
         leftCol.setBackground(colBg);
         leftCol.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(divCol, 1),
+                BorderFactory.createLineBorder(borderCol, 1),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
         leftCol.setBounds(pad, twoColY, colW, colH);
         leftCol.add(makeCutoffLabel("1ST CUTOFF  ·  " + monthName + " 1–15, " + year, ACCENT_BLUE, true, 11));
@@ -6703,7 +6742,7 @@ public class MotorPH_GUI {
         JPanel rightCol = new JPanel(new java.awt.GridLayout(10, 1, 0, 2));
         rightCol.setBackground(colBg);
         rightCol.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(divCol, 1),
+                BorderFactory.createLineBorder(borderCol, 1),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
         rightCol.setBounds(pad + colW + 8, twoColY, colW, colH);
         rightCol.add(makeCutoffLabel("2ND CUTOFF  ·  " + monthName + " 16–31, " + year, ACCENT_BLUE, true, 11));
@@ -6722,7 +6761,7 @@ public class MotorPH_GUI {
         int totalStripY = twoColY + colH + 8;
         JPanel totalStrip = new JPanel(null);
         totalStrip.setBackground(new Color(236, 241, 252));
-        totalStrip.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, divCol));
+        totalStrip.setBorder(BorderFactory.createLineBorder(borderCol, 1));
         totalStrip.setBounds(pad, totalStripY, w, 48);
 
         JLabel totalRow1 = makeCutoffLabel(
@@ -6733,11 +6772,12 @@ public class MotorPH_GUI {
         totalRow1.setBounds(0, 4, w, 18);
         totalStrip.add(totalRow1);
 
-        JLabel totalRow2 = makeCutoffLabel(
-                "Gross: PHP " + String.format("%,.2f", totalGross)
-                + "     Deductions: PHP " + String.format("%,.2f", totalDeductions)
-                + "     NET PAY: PHP " + String.format("%,.2f", totalNetPay),
-                greenFg, true, 11);
+        JLabel totalRow2 = new JLabel(
+                "<html><span style='font-family:Segoe UI;font-size:11px;font-weight:bold;'>"
+                + "<font color='#168246'>Gross: PHP " + String.format("%,.2f", totalGross) + "</font>"
+                + "     <font color='#B43C28'>Deductions: PHP " + String.format("%,.2f", totalDeductions) + "</font>"
+                + "     <font color='#168246'>NET PAY: PHP " + String.format("%,.2f", totalNetPay) + "</font>"
+                + "</span></html>");
         totalRow2.setHorizontalAlignment(SwingConstants.CENTER);
         totalRow2.setBounds(0, 26, w, 18);
         totalStrip.add(totalRow2);
@@ -6766,13 +6806,41 @@ public class MotorPH_GUI {
                 + "  Total Deductions : PHP " + String.format("%,.2f", totalDeductions) + "\n"
                 + "  NET PAY      : PHP " + String.format("%,.2f", totalNetPay) + "\n";
 
-        // Export buttons row
-        int btnRowY = totalStripY + 60;
-        int btnGap  = 8;
-        int btnW3   = (w - btnGap * 2) / 3;
+        // CSV content for export
+        String csvText =
+                "Payroll Summary\n"
+                + "Period," + monthName + " " + year + "\n"
+                + "Employees," + empCount + "\n"
+                + "\n"
+                + "Section,Total Hours,Total Gross,SSS,PhilHealth,Pag-IBIG,Tax,Total Deductions,Net Pay\n"
+                + "1st Cutoff (Days 1-15)," + String.format("%.2f", totalHoursFirst)
+                        + "," + String.format("%.2f", totalGrossFirst)
+                        + ",0.00,0.00,0.00,0.00,0.00," + String.format("%.2f", netFirst) + "\n"
+                + "2nd Cutoff (Days 16-31)," + String.format("%.2f", totalHoursSecond)
+                        + "," + String.format("%.2f", totalGrossSecond)
+                        + "," + String.format("%.2f", totalSss)
+                        + "," + String.format("%.2f", totalPhilHealth)
+                        + "," + String.format("%.2f", totalPagIbig)
+                        + "," + String.format("%.2f", totalTax)
+                        + "," + String.format("%.2f", totalDeductions)
+                        + "," + String.format("%.2f", netSecond) + "\n"
+                + "TOTAL," + String.format("%.2f", totalHours)
+                        + "," + String.format("%.2f", totalGross)
+                        + "," + String.format("%.2f", totalSss)
+                        + "," + String.format("%.2f", totalPhilHealth)
+                        + "," + String.format("%.2f", totalPagIbig)
+                        + "," + String.format("%.2f", totalTax)
+                        + "," + String.format("%.2f", totalDeductions)
+                        + "," + String.format("%.2f", totalNetPay) + "\n";
+
+        // Export buttons — 2x2 grid
+        int btnRowY  = totalStripY + 60;
+        int btnGap   = 8;
+        int btnW2    = (w - btnGap) / 2;
+        int btnRow2Y = btnRowY + BTN_HEIGHT + btnGap;
 
         JButton btnCopy = new JButton("Copy to Clipboard");
-        btnCopy.setBounds(pad, btnRowY, btnW3, BTN_HEIGHT);
+        btnCopy.setBounds(pad, btnRowY, btnW2, BTN_HEIGHT);
         styleStandardButton(btnCopy);
         btnCopy.addActionListener(e -> {
             java.awt.datatransfer.StringSelection sel =
@@ -6783,7 +6851,7 @@ public class MotorPH_GUI {
         dlg.add(btnCopy);
 
         JButton btnTxt = new JButton("Download .txt");
-        btnTxt.setBounds(pad + btnW3 + btnGap, btnRowY, btnW3, BTN_HEIGHT);
+        btnTxt.setBounds(pad + btnW2 + btnGap, btnRowY, btnW2, BTN_HEIGHT);
         styleStandardButton(btnTxt);
         btnTxt.addActionListener(e -> {
             javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
@@ -6800,8 +6868,8 @@ public class MotorPH_GUI {
         });
         dlg.add(btnTxt);
 
-        JButton btnPdf = new JButton("Download .pdf");
-        btnPdf.setBounds(pad + (btnW3 + btnGap) * 2, btnRowY, btnW3, BTN_HEIGHT);
+        JButton btnPdf = new JButton("Download Payslips");
+        btnPdf.setBounds(pad, btnRow2Y, btnW2, BTN_HEIGHT);
         guiStyleAccentButton(btnPdf);
         btnPdf.addActionListener(e -> {
             javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
@@ -6825,12 +6893,44 @@ public class MotorPH_GUI {
         });
         dlg.add(btnPdf);
 
+        JButton btnExportCsv = new JButton("Export Payroll Summary");
+        btnExportCsv.setBounds(pad + btnW2 + btnGap, btnRow2Y, btnW2, BTN_HEIGHT);
+        guiStyleAccentButton(btnExportCsv);
+        btnExportCsv.addActionListener(e -> {
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            chooser.setDialogTitle("Export Payroll Summary");
+            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".csv"));
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "CSV File (*.csv)", "csv"));
+            if (chooser.showSaveDialog(dlg) != javax.swing.JFileChooser.APPROVE_OPTION) return;
+            java.io.File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new java.io.File(target.getAbsolutePath() + ".csv");
+            }
+            try (java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(
+                    new java.io.FileOutputStream(target), java.nio.charset.StandardCharsets.UTF_8)) {
+                osw.write(csvText);
+                showToast("Payroll summary exported: " + target.getName());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dlg, "Could not export file: " + ex.getMessage(),
+                        "Export Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        dlg.add(btnExportCsv);
+
         // Close button
+        int closeY = btnRow2Y + BTN_HEIGHT + btnGap;
         JButton btnClose = new JButton("Close");
-        btnClose.setBounds(pad, btnRowY + BTN_HEIGHT + btnGap, w, BTN_HEIGHT);
+        btnClose.setBounds(pad, closeY, w, BTN_HEIGHT);
         styleStandardButton(btnClose);
         btnClose.addActionListener(e -> dlg.dispose());
         dlg.add(btnClose);
+
+        // Trim the window to fit the content snugly instead of leaving dead
+        // space below the Close button.
+        int contentHeightNeeded = closeY + BTN_HEIGHT + pad;
+        dlg.setSize(totalW, contentHeightNeeded + dlgInsets.top + dlgInsets.bottom);
+        dlg.setLocationRelativeTo(frame);
 
         dlg.setVisible(true);
     }
@@ -7684,12 +7784,40 @@ public class MotorPH_GUI {
             String originalId) {
         List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
         errs.addAll(EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId));
+        errs.addAll(collectSubmitFormatErrors(fieldMap));
         return errs;
     }
 
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
         List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
         errs.addAll(EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap)));
+        errs.addAll(collectSubmitFormatErrors(fieldMap));
+        return errs;
+    }
+
+    /**
+     * Fields whose live/inline format rules ({@link #validateAddEmployeeField}) aren't
+     * already re-checked at submit time by {@link EmployeeRecordsModule#validateForm}
+     * (blank/numeric only) — so a submit with an invalid-but-non-blank value (e.g. "@@@"
+     * in Last Name) would otherwise save silently or only surface the one error that
+     * happens to also be checked elsewhere (like TIN's digit-count check).
+     */
+    private static final java.util.Set<String> SUBMIT_FORMAT_CHECK_FIELDS = new java.util.LinkedHashSet<>(
+            java.util.Arrays.asList("Last Name:", "First Name:", "Supervisor:", "Address:",
+                    "Phone:", "PhilHealth #:", "Pag-IBIG #:"));
+
+    /** Re-runs the same per-field format rules used for live inline validation at submit time. */
+    private static List<String> collectSubmitFormatErrors(java.util.Map<String, JTextField> fieldMap) {
+        List<String> errs = new java.util.ArrayList<>();
+        for (String label : SUBMIT_FORMAT_CHECK_FIELDS) {
+            JTextField tf = fieldMap.get(label);
+            if (tf == null) continue;
+            String msg = validateAddEmployeeField(label, tf.getText());
+            if (msg != null) {
+                String displayName = label.endsWith(":") ? label.substring(0, label.length() - 1) : label;
+                errs.add(displayName + ": " + msg);
+            }
+        }
         return errs;
     }
 
