@@ -78,16 +78,23 @@ public class EmployeeRecordsModule {
             errors.add("Employee Number \"" + form.empNo.trim() + "\" is already assigned to another record.");
         }
 
-        if (isBlank(form.lastName)) errors.add("Last Name is required.");
-        if (isBlank(form.firstName)) errors.add("First Name is required.");
+        if (isBlank(form.lastName)) {
+            errors.add("Last Name is required.");
+        } else if (!form.lastName.matches("[A-Za-z0-9 ]+")) {
+            errors.add("Last Name may only contain letters, numbers, and spaces.");
+        }
+        if (isBlank(form.firstName)) {
+            errors.add("First Name is required.");
+        } else if (!form.firstName.matches("[A-Za-z0-9 ]+")) {
+            errors.add("First Name may only contain letters, numbers, and spaces.");
+        }
         if (isBlank(form.sss)) errors.add("SSS Number is required.");
         if (isBlank(form.philHealth)) errors.add("PhilHealth Number is required.");
         if (isBlank(form.tin)) errors.add("TIN Number is required.");
         if (isBlank(form.pagIbig)) errors.add("Pag-IBIG Number is required.");
 
-        if (!isBlank(form.basicSalary) && !isNumeric(form.basicSalary)) {
-            errors.add("Basic Salary must be a valid number.");
-        }
+        // Basic Salary detailed validation is handled in the popup-specific validator
+        // (validateRequiredNumeric) to provide the more descriptive message.
         if (!isBlank(form.hourlyRate) && !isNumeric(form.hourlyRate)) {
             errors.add("Hourly Rate must be a valid number.");
         }
@@ -422,6 +429,24 @@ public class EmployeeRecordsModule {
         }
         if (isBlank(form.supervisor)) {
             errors.add("Supervisor is required.");
+        }
+        // Ensure phone and government ID fields contain only digits and hyphens.
+        // When invalid characters are present, add a sentinel error so the GUI can
+        // show a focused popup dialog explaining the rule.
+        if (!isBlank(form.phone) && form.phone.matches(".*[^0-9\\-].*")) {
+            errors.add("Phone must contain digits and hyphens only.");
+        }
+        if (!isBlank(form.sss) && form.sss.matches(".*[^0-9\\-].*")) {
+            errors.add("SSS Number must contain digits and hyphens only.");
+        }
+        if (!isBlank(form.philHealth) && form.philHealth.matches(".*[^0-9\\-].*")) {
+            errors.add("PhilHealth Number must contain digits and hyphens only.");
+        }
+        if (!isBlank(form.tin) && form.tin.matches(".*[^0-9\\-].*")) {
+            errors.add("TIN Number must contain digits and hyphens only.");
+        }
+        if (!isBlank(form.pagIbig) && form.pagIbig.matches(".*[^0-9\\-].*")) {
+            errors.add("Pag-IBIG Number must contain digits and hyphens only.");
         }
         validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
         validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);

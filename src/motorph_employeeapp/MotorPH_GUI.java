@@ -7283,16 +7283,25 @@ public class MotorPH_GUI {
             String originalId) {
         List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
         errs.addAll(EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId));
+        errs.addAll(collectPopupInlineValidationErrors(fieldMap));
         return errs;
     }
 
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
         List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
         errs.addAll(EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap)));
-        // Surface inline character/format errors not covered by the backend validator
+        errs.addAll(collectPopupInlineValidationErrors(fieldMap));
+        return errs;
+    }
+
+    private static List<String> collectPopupInlineValidationErrors(java.util.Map<String, JTextField> fieldMap) {
+        List<String> errs = new java.util.ArrayList<>();
         java.util.Set<String> skipInline = new java.util.HashSet<>(java.util.Arrays.asList(
                 "Employee #:", "Birthday:", "Status:", "Department:", "Position:",
-                "SSS #:", "TIN #:")); // backend already validates these two
+                "Last Name:", "First Name:", "Phone:", "SSS #:", "PhilHealth #:",
+                "TIN #:", "Pag-IBIG #:", "Basic Salary:", "Rice Subsidy:",
+                "Phone Allowance:", "Clothing Allowance:", "Gross Semi-monthly:",
+                "Hourly Rate:"));
         for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
             String key = entry.getKey();
             if (skipInline.contains(key)) continue;
@@ -7744,18 +7753,15 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
-                if ("SSS #:".equals(row[0])) {
-                    attachIdFormat(tf, "XX-XXXXXXX-X");
-                } else if ("TIN #:".equals(row[0])) {
-                    attachIdFormat(tf, "XXX-XXX-XXX-XXX");
-                } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
-                        || "Phone:".equals(row[0])) {
-                    attachDigitsOnlyFilter(tf);
-                } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
+                // Do not attach DocumentFilters for phone/government ID fields so users
+                // can physically type any characters. Inline validators will still run
+                // and save-time validation enforces digits-and-hyphen rules.
+                if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
                         || "Gross Semi-monthly:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
+                attachDynamicFieldValidator(tf, row[0]);
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
                 fy += rowH + rowGap;
@@ -8010,19 +8016,9 @@ public class MotorPH_GUI {
                     errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    // SSS # and TIN # get auto-hyphen formatting; all others use the inline validator
-                    if ("SSS #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[]{2, 9}, 10);
-                    } else if ("TIN #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[]{3, 6, 9}, 12);
-                    } else {
-                        if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
-                            attachMaxLength(tf, 12);
-                        } else if ("Phone:".equals(row[0])) {
-                            attachMaxLength(tf, 11);
-                        }
-                        attachInlineValidator(tf, errLbl, row[0]);
-                    }
+                    // Allow any characters to be typed into phone/ID fields; do not attach
+                    // DocumentFilters. Use inline validation only so typing is unrestricted.
+                    attachInlineValidator(tf, errLbl, row[0]);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
@@ -8462,8 +8458,8 @@ public class MotorPH_GUI {
         switch (fieldLabel) {
             case "Last Name:":
             case "First Name:":
-                if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-'.]+"))
-                    return "Only letters, spaces, hyphens, and apostrophes are allowed.";
+                if (!value.matches("[A-Za-z0-9 ]+"))
+                    return "Only letters, numbers, and spaces are allowed.";
                 break;
             case "Supervisor:":
                 if (!value.matches("[a-zA-ZÀ-ɏÑñ \\-.,'/]+"))
@@ -8474,10 +8470,10 @@ public class MotorPH_GUI {
                     return "Contains unsupported special characters.";
                 break;
             case "Phone:":
-                if (!value.matches("[0-9]+"))
-                    return "Phone must contain digits only (e.g. 09171234567).";
-                if (value.length() < 7 || value.length() > 11)
-                    return "Phone must be 7–11 digits.";
+                if (!value.matches("[0-9\\-]+"))
+                    return "Phone must contain digits and hyphens only (e.g. 0917-123-4567).";
+                if (value.length() < 7 || value.length() > 15)
+                    return "Phone must be 7–15 characters using digits and hyphens.";
                 break;
             case "SSS #:":
                 if (!value.matches("[0-9\\-]+"))
@@ -8486,10 +8482,10 @@ public class MotorPH_GUI {
                     return "SSS # format: XX-XXXXXXX-X — fill in all digits.";
                 break;
             case "PhilHealth #:":
-                if (!value.matches("[0-9]+"))
-                    return "PhilHealth # must contain digits only.";
+                if (!value.matches("[0-9\\-]+"))
+                    return "PhilHealth # must contain digits and hyphens only.";
                 if (value.length() < 12)
-                    return "PhilHealth # must be 12 digits.";
+                    return "PhilHealth # must be 12 characters using digits and hyphens.";
                 break;
             case "TIN #:":
                 if (!value.matches("[0-9\\-]+"))
@@ -8498,10 +8494,10 @@ public class MotorPH_GUI {
                     return "TIN # format: XXX-XXX-XXX-XXX — fill in all digits.";
                 break;
             case "Pag-IBIG #:":
-                if (!value.matches("[0-9]+"))
-                    return "Pag-IBIG # must contain digits only.";
+                if (!value.matches("[0-9\\-]+"))
+                    return "Pag-IBIG # must contain digits and hyphens only.";
                 if (value.length() < 12)
-                    return "Pag-IBIG # must be 12 digits.";
+                    return "Pag-IBIG # must be 12 characters using digits and hyphens.";
                 break;
             case "Basic Salary:":
             case "Rice Subsidy:":
@@ -8534,6 +8530,27 @@ public class MotorPH_GUI {
                             BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
                             BorderFactory.createEmptyBorder(4, 8, 4, 8)));
                     errLbl.setText("");
+                }
+            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { check(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { check(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { check(); }
+        });
+    }
+
+    private static void attachDynamicFieldValidator(JTextField tf, String fieldLabel) {
+        if (tf == null || !tf.isEditable()) {
+            return;
+        }
+        tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void check() {
+                String err = validateAddEmployeeField(fieldLabel, tf.getText());
+                if (err != null) {
+                    tf.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(BORDER_ERROR, 2),
+                            BorderFactory.createEmptyBorder(3, 7, 3, 7)));
+                } else {
+                    resetPopupFieldBorder(tf);
                 }
             }
             public void insertUpdate(javax.swing.event.DocumentEvent e) { check(); }
