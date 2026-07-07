@@ -1441,22 +1441,13 @@ public class MotorPH_GUI {
     }
 
     private static void addBatchPayrollExportButtons(JPanel panel, int y, int width, int x) {
-        int exportW = (width - 8) / 2;
-
-        JButton btnCopy = new JButton("Copy to Clipboard");
-        btnCopy.setBounds(x, y, exportW, BTN_HEIGHT);
-        styleStandardButton(btnCopy);
-        btnCopy.addActionListener(e -> copyPayslipToClipboard());
-        panel.add(btnCopy);
-
-        JButton btnExportTxt = new JButton("Download .txt");
-        btnExportTxt.setBounds(x + exportW + 8, y, exportW, BTN_HEIGHT);
-        styleStandardButton(btnExportTxt);
-        btnExportTxt.addActionListener(e -> exportPayrollTextToFile());
-        panel.add(btnExportTxt);
-
+        int buttonW = (width - 8) / 2;
+        int topButtonH = BTN_HEIGHT;
+        int bottomY = y + topButtonH + 8;
+        
+        // Top: Generate Summary button (big, full width, blue accent)
         JButton btnSummary = new JButton("Generate Summary");
-        btnSummary.setBounds(x, y + BTN_HEIGHT + 6, exportW, BTN_HEIGHT);
+        btnSummary.setBounds(x, y, width, topButtonH);
         guiStyleAccentButton(btnSummary);
         btnSummary.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnSummary.addActionListener(e -> {
@@ -1464,7 +1455,6 @@ public class MotorPH_GUI {
             try {
                 if (lastBatchSummaries == null || lastBatchSummaries.isEmpty()) {
                     System.out.println("[DEBUG] lastBatchSummaries is empty or null. Showing warning.");
-                    // Pass 'null' instead of 'frame' to guarantee the popup displays even if the main frame reference is out of scope
                     JOptionPane.showMessageDialog(null,
                             "Please click 'Calculate Payroll' first before generating the summary.",
                             "No Summary Available", JOptionPane.WARNING_MESSAGE);
@@ -1479,19 +1469,26 @@ public class MotorPH_GUI {
             }
         });
         panel.add(btnSummary);
+        
+        // Bottom row: Export to CSV (left) and Copy to Clipboard (right), equal size
+        JButton btnExportCsv = new JButton("Export to CSV");
+        btnExportCsv.setBounds(x, bottomY, buttonW, topButtonH);
+        styleStandardButton(btnExportCsv);
+        btnExportCsv.addActionListener(e -> exportBatchPayrollToCSV());
+        panel.add(btnExportCsv);
 
-        JButton btnPdf = new JButton("Download .pdf");
-        btnPdf.setBounds(x + exportW + 8, y + BTN_HEIGHT + 6, exportW, BTN_HEIGHT);
-        styleStandardButton(btnPdf);
-        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
-        panel.add(btnPdf);
+        JButton btnCopy = new JButton("Copy to Clipboard");
+        btnCopy.setBounds(x + buttonW + 8, bottomY, buttonW, topButtonH);
+        styleStandardButton(btnCopy);
+        btnCopy.addActionListener(e -> copyPayslipToClipboard());
+        panel.add(btnCopy);
     }
 
     private static void addBatchPayrollOutputBlock(JPanel panel, int y, int width, int blockHeight) {
         initPayrollResultArea();
 
         int exportGap = 10;
-        int exportH = BTN_HEIGHT * 2 + 6;
+        int exportH = BTN_HEIGHT * 2 + 8;
         int scrollH = Math.max(120, blockHeight - exportH - exportGap);
         JScrollPane outScroll = new JScrollPane(richPane != null ? richPane : txtResultArea);
         outScroll.setBounds(PAYROLL_PAD, y, width - PAYROLL_PAD * 2, scrollH);
@@ -3739,6 +3736,101 @@ public class MotorPH_GUI {
                     "Could not save file: " + ex.getMessage(),
                     "Export Failed", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    /**
+     * Procedural method to export batch payroll summaries to CSV format.
+     * 
+     * Opens a JFileChooser, loops through lastBatchSummaries, writes each row
+     * as comma-separated values, and handles file I/O.
+     */
+    private static void exportBatchPayrollToCSV() {
+        if (lastBatchSummaries == null || lastBatchSummaries.isEmpty()) {
+            showToast("No payroll data to export — calculate payroll first.", new Color(180, 90, 40));
+            return;
+        }
+        
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Save Payroll to CSV");
+        chooser.setSelectedFile(new File("Payroll_Export.csv"));
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV File (*.csv)", "csv"));
+        
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        
+        File targetFile = chooser.getSelectedFile();
+        if (!targetFile.getName().toLowerCase().endsWith(".csv")) {
+            targetFile = new File(targetFile.getAbsolutePath() + ".csv");
+        }
+        
+        try (java.io.FileWriter fileWriter = new java.io.FileWriter(targetFile)) {
+            // Write CSV header row
+            StringBuilder headerRow = new StringBuilder();
+            headerRow.append("Employee ID,Employee Name,Birthday,Month,Year,");
+            headerRow.append("Hours Worked (1-15),Gross (1-15),Hours Worked (16-31),Gross (16-31),");
+            headerRow.append("Total Hours,Total Gross,SSS,PhilHealth,Pag-IBIG,Withholding Tax,");
+            headerRow.append("Total Deductions,Net Pay");
+            fileWriter.write(headerRow.toString());
+            fileWriter.write("\n");
+            
+            // Loop through each payroll summary and write as CSV row
+            for (int i = 0; i < lastBatchSummaries.size(); i++) {
+                SalaryComputationModule.EmployeePayrollSummary summary = lastBatchSummaries.get(i);
+                
+                StringBuilder row = new StringBuilder();
+                // Build CSV row with all fields, properly escaped
+                row.append(escapeCSVField(summary.employeeId)).append(",");
+                row.append(escapeCSVField(summary.employeeName)).append(",");
+                row.append(escapeCSVField(summary.birthday)).append(",");
+                row.append(escapeCSVField(summary.monthName)).append(",");
+                row.append(escapeCSVField(summary.year)).append(",");
+                row.append(formatNumberForCSV(summary.hoursFirst)).append(",");
+                row.append(formatNumberForCSV(summary.grossFirst)).append(",");
+                row.append(formatNumberForCSV(summary.hoursSecond)).append(",");
+                row.append(formatNumberForCSV(summary.grossSecond)).append(",");
+                row.append(formatNumberForCSV(summary.hoursWorked)).append(",");
+                row.append(formatNumberForCSV(summary.grossPay)).append(",");
+                row.append(formatNumberForCSV(summary.sss)).append(",");
+                row.append(formatNumberForCSV(summary.philHealth)).append(",");
+                row.append(formatNumberForCSV(summary.pagIbig)).append(",");
+                row.append(formatNumberForCSV(summary.tax)).append(",");
+                row.append(formatNumberForCSV(summary.totalDeductions)).append(",");
+                row.append(formatNumberForCSV(summary.netPay));
+                
+                fileWriter.write(row.toString());
+                fileWriter.write("\n");
+            }
+            
+            fileWriter.flush();
+            showToast("CSV exported successfully: " + targetFile.getName());
+        } catch (java.io.IOException ex) {
+            JOptionPane.showMessageDialog(frame,
+                    "Could not save CSV file: " + ex.getMessage(),
+                    "Export Failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Procedural helper to escape CSV field values.
+     * Wraps fields in quotes if they contain commas, quotes, or newlines.
+     */
+    private static String escapeCSVField(String field) {
+        if (field == null) {
+            return "";
+        }
+        if (field.contains(",") || field.contains("\"") || field.contains("\n")) {
+            return "\"" + field.replace("\"", "\"\"") + "\"";
+        }
+        return field;
+    }
+
+    /**
+     * Procedural helper to format double values for CSV.
+     * Rounds to 2 decimal places.
+     */
+    private static String formatNumberForCSV(double value) {
+        return String.format("%.2f", value);
     }
 
     /**
@@ -11686,7 +11778,7 @@ public class MotorPH_GUI {
         southPanel.setBackground(APP_BG);
         southPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, CARD_BORDER_COLOR));
 
-        JPanel exportRow = new JPanel(new java.awt.GridLayout(1, 3, 8, 0));
+        JPanel exportRow = new JPanel(new java.awt.GridLayout(1, 2, 8, 0));
         exportRow.setBackground(APP_BG);
         exportRow.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
@@ -11695,54 +11787,13 @@ public class MotorPH_GUI {
         btnCopy.addActionListener(e -> copyPayslipToClipboard());
         exportRow.add(btnCopy);
 
-        JButton btnPdf = new JButton("Download Payslips");
-        styleStandardButton(btnPdf);
-        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
-        exportRow.add(btnPdf);
-
         JButton btnExportCsv = new JButton("Export Payroll Summary");
         styleStandardButton(btnExportCsv);
-        btnExportCsv.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle("Export Payroll Summary");
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + year + ".csv"));
-            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "CSV File (*.csv)", "csv"));
-            if (chooser.showSaveDialog(dlg) != JFileChooser.APPROVE_OPTION) return;
-            java.io.File target = chooser.getSelectedFile();
-            if (!target.getName().toLowerCase().endsWith(".csv")) {
-                target = new java.io.File(target.getAbsolutePath() + ".csv");
-            }
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(
-                    new java.io.OutputStreamWriter(
-                            new java.io.FileOutputStream(target),
-                            java.nio.charset.StandardCharsets.UTF_8))) {
-                pw.println("Payroll Summary");
-                pw.println("Period," + monthName + " " + year);
-                pw.println("Employee Count," + employeeCount[0]);
-                pw.println("Total Hours 1-15," + String.format("%.2f", totalHoursFirst[0]));
-                pw.println("Total Gross 1-15," + String.format("%.2f", totalGrossFirst[0]));
-                pw.println("Total Hours 16-31," + String.format("%.2f", totalHoursSecond[0]));
-                pw.println("Total Gross 16-31," + String.format("%.2f", totalGrossSecond[0]));
-                pw.println("SSS," + String.format("%.2f", totalSSS[0]));
-                pw.println("PhilHealth," + String.format("%.2f", totalPhilHealth[0]));
-                pw.println("Pag-IBIG," + String.format("%.2f", totalPagIbig[0]));
-                pw.println("Tax," + String.format("%.2f", totalTax[0]));
-                pw.println("Total Deductions," + String.format("%.2f", totalDeductions[0]));
-                pw.println("Net Pay 16-31," + String.format("%.2f", totalNetSecond[0]));
-                pw.println("Overall Gross Pay," + String.format("%.2f", overallGross[0]));
-                pw.println("Overall Deductions," + String.format("%.2f", totalDeductions[0]));
-                pw.println("Overall Net Pay," + String.format("%.2f", overallNet[0]));
-                pw.println("Avg Net Pay per Employee," + String.format("%.2f", avgNet[0]));
-                JOptionPane.showMessageDialog(dlg,
-                        "Payroll summary exported successfully.\n" + target.getName(),
-                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(dlg,
-                        "Could not export file: " + ex.getMessage(),
-                        "Export Failed", JOptionPane.ERROR_MESSAGE);
-            }
-        });
+        btnExportCsv.addActionListener(e -> exportSummaryToCSV(dlg, monthName, year,
+                employeeCount[0], totalHoursFirst[0], totalGrossFirst[0],
+                totalHoursSecond[0], totalGrossSecond[0], totalSSS[0], totalPhilHealth[0],
+                totalPagIbig[0], totalTax[0], totalDeductions[0], totalNetSecond[0],
+                overallGross[0], overallNet[0], avgNet[0]));
         exportRow.add(btnExportCsv);
         southPanel.add(exportRow);
 
@@ -11757,6 +11808,65 @@ public class MotorPH_GUI {
             JOptionPane.showMessageDialog(null,
                 "An error occurred while opening the payroll summary. Check the console for details.",
                 "Dialog Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Procedural method to export payroll summary totals to CSV.
+     * Called from modal dialog when user clicks "Export Payroll Summary" button.
+     * Takes all summary values as parameters and writes them to a CSV file.
+     */
+    private static void exportSummaryToCSV(JDialog parentDialog, String monthName, String year,
+            int employeeCount, double totalHoursFirst, double totalGrossFirst,
+            double totalHoursSecond, double totalGrossSecond,
+            double totalSSS, double totalPhilHealth, double totalPagIbig, double totalTax,
+            double totalDeductions, double totalNetSecond, double overallGross,
+            double overallNet, double avgNet) {
+        
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export Payroll Summary");
+        chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + year + ".csv"));
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "CSV File (*.csv)", "csv"));
+        
+        if (chooser.showSaveDialog(parentDialog) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        
+        java.io.File target = chooser.getSelectedFile();
+        if (!target.getName().toLowerCase().endsWith(".csv")) {
+            target = new java.io.File(target.getAbsolutePath() + ".csv");
+        }
+        
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(
+                new java.io.OutputStreamWriter(
+                        new java.io.FileOutputStream(target),
+                        java.nio.charset.StandardCharsets.UTF_8))) {
+            pw.println("Payroll Summary");
+            pw.println("Period," + monthName + " " + year);
+            pw.println("Employee Count," + employeeCount);
+            pw.println("Total Hours 1-15," + String.format("%.2f", totalHoursFirst));
+            pw.println("Total Gross 1-15," + String.format("%.2f", totalGrossFirst));
+            pw.println("Total Hours 16-31," + String.format("%.2f", totalHoursSecond));
+            pw.println("Total Gross 16-31," + String.format("%.2f", totalGrossSecond));
+            pw.println("SSS," + String.format("%.2f", totalSSS));
+            pw.println("PhilHealth," + String.format("%.2f", totalPhilHealth));
+            pw.println("Pag-IBIG," + String.format("%.2f", totalPagIbig));
+            pw.println("Tax," + String.format("%.2f", totalTax));
+            pw.println("Total Deductions," + String.format("%.2f", totalDeductions));
+            pw.println("Net Pay 16-31," + String.format("%.2f", totalNetSecond));
+            pw.println("Overall Gross Pay," + String.format("%.2f", overallGross));
+            pw.println("Overall Deductions," + String.format("%.2f", totalDeductions));
+            pw.println("Overall Net Pay," + String.format("%.2f", overallNet));
+            pw.println("Avg Net Pay per Employee," + String.format("%.2f", avgNet));
+            
+            JOptionPane.showMessageDialog(parentDialog,
+                    "Payroll summary exported successfully.\n" + target.getName(),
+                    "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(parentDialog,
+                    "Could not export file: " + ex.getMessage(),
+                    "Export Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 
