@@ -399,17 +399,14 @@ public class EmployeeRecordsModule {
     }
 
     /**
-     * Extra validation rules for Add/Edit popups beyond {@link #validateForm}:
-     * required birthday/address/phone, numeric allowances, and gov-ID format checks.
+    * Extra validation rules for Add/Edit popups beyond {@link #validateForm}:
+    * required birthday/phone, numeric allowances, and gov-ID format checks.
      */
     private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
         if (isBlank(form.birthday)) {
             errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
         } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
             errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
-        }
-        if (isBlank(form.address)) {
-            errors.add("Address is required.");
         }
         if (isBlank(form.phone)) {
             errors.add("Phone number is required.");
