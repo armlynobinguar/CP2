@@ -8020,17 +8020,11 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
 
     private static List<String> validateEmployeeEditPopup(java.util.Map<String, JTextField> fieldMap,
             String originalId) {
-        List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
-        errs.addAll(EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId));
-        errs.addAll(collectSubmitFormatErrors(fieldMap));
-        return errs;
+        return EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId);
     }
 
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
-        List<String> errs = new java.util.ArrayList<>(checkCompensationFieldsBlank(fieldMap));
-        errs.addAll(EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap)));
-        errs.addAll(collectSubmitFormatErrors(fieldMap));
-        return errs;
+        return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
     }
 
     /**
@@ -9283,7 +9277,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 if (!value.isEmpty()
                         && !EmployeeRecordsModule.isNaPlaceholder(value)
                         && !value.matches("[0-9,]+(\\.[0-9]*)?"))
-                    return "Enter a valid amount (digits only, e.g. 15000 or 15,000.00).";
+                    return "Enter a valid amount (commas/periods allowed, or use NA / 000 for zero).";
                 break;
             default:
                 break;
@@ -11969,11 +11963,13 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
 
     private static void showBulletErrorDialog(Component parent, List<String> items,
             String title, int messageType) {
+        java.util.List<String> uniqueItems = new java.util.ArrayList<>(
+            new java.util.LinkedHashSet<>(items));
         StringBuilder html = new StringBuilder(
                 "<html><body style='width:320px;font-family:Segoe UI;font-size:13px;color:rgb(28,57,112);'>");
         html.append("<b>Please fix the following:</b>");
         html.append("<ul style='margin-top:8px;margin-bottom:0;padding-left:22px;'>");
-        for (String item : items) {
+        for (String item : uniqueItems) {
             html.append("<li>").append(escapeHtml(item)).append("</li>");
         }
         html.append("</ul></body></html>");

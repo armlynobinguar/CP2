@@ -8,7 +8,7 @@ package motorph_employeeapp;
  *
  * <p>Startup sequence:</p>
  * <ol>
- *   <li>Show modal login ({@link MotorPH_GUI#showCustomLoginDialog()}).</li>
+ *   <li>modal login ({@link MotorPH_GUI#showCustomLoginDialog()}).</li>
  *   <li>On success, launch main GUI ({@link MotorPH_GUI#initialize()}).</li>
  *   <li>On cancel/failure, exit JVM with code 0.</li>
  * </ol>

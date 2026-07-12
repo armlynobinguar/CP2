@@ -65,9 +65,14 @@ public class EmployeeRecordsModule {
      * Validates the employee record form before add or update.
      */
     public static List<String> validateForm(RecordFormData form, boolean isUpdate, String originalId) {
-        List<String> errors = new ArrayList<>();
+        java.util.LinkedHashSet<String> errors = new java.util.LinkedHashSet<>();
 
-        if (form.empNo == null || form.empNo.trim().isEmpty()) {
+        if (form == null) {
+            errors.add("Form data is missing.");
+            return new ArrayList<>(errors);
+        }
+
+        if (isBlank(form.empNo)) {
             errors.add("Employee Number is required.");
         } else if (!form.empNo.trim().matches("\\d+")) {
             errors.add("Employee Number must be numeric.");
@@ -80,19 +85,41 @@ public class EmployeeRecordsModule {
 
         if (isBlank(form.lastName)) errors.add("Last Name is required.");
         if (isBlank(form.firstName)) errors.add("First Name is required.");
-        if (isBlank(form.sss)) errors.add("SSS Number is required.");
-        if (isBlank(form.philHealth)) errors.add("PhilHealth Number is required.");
-        if (isBlank(form.tin)) errors.add("TIN Number is required.");
-        if (isBlank(form.pagIbig)) errors.add("Pag-IBIG Number is required.");
+        if (isBlank(form.birthday)) {
+            errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
+        } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
+        }
 
-        if (!isBlank(form.basicSalary) && !isNumeric(form.basicSalary)) {
-            errors.add("Basic Salary must be a valid number.");
+        if (isBlank(form.phone)) {
+            errors.add("Phone number is required.");
+        } else if (!form.phone.trim().matches("[0-9\\-]+")) {
+            errors.add("Phone number must contain digits and dashes only.");
+        }
+
+        validateDigitsAndDashes(form.sss, "SSS Number", errors);
+        validateDigitsAndDashes(form.philHealth, "PhilHealth Number", errors);
+        validateDigitsAndDashes(form.tin, "TIN Number", errors);
+        validateDigitsAndDashes(form.pagIbig, "Pag-IBIG Number", errors);
+
+        if (isBlank(form.status)) errors.add("Status is required.");
+        if (isBlank(form.position)) errors.add("Position is required.");
+        if (isBlank(form.department)) errors.add("Department is required.");
+        if (isBlank(form.supervisor)) errors.add("Supervisor is required.");
+
+        validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
+        validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
+        validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
+        validateRequiredNumeric(form.clothingAllowance, "Clothing Allowance", errors);
+
+        if (!isBlank(form.grossSemiMonthly) && !isNumeric(form.grossSemiMonthly)) {
+            errors.add("Gross Semi-monthly must be a valid number.");
         }
         if (!isBlank(form.hourlyRate) && !isNumeric(form.hourlyRate)) {
             errors.add("Hourly Rate must be a valid number.");
         }
 
-        return errors;
+        return new ArrayList<>(errors);
     }
 
     /**
@@ -214,18 +241,14 @@ public class EmployeeRecordsModule {
      * Validates all fields on the Add Employee popup before writing to CSV.
      */
     public static List<String> validateAddPopup(RecordFormData form) {
-        List<String> errors = new ArrayList<>(validateForm(form, false, null));
-        addExtendedPopupValidation(form, errors);
-        return errors;
+        return validateForm(form, false, null);
     }
 
     /**
      * Validates all fields on the Edit Employee popup before updating CSV.
      */
     public static List<String> validateEditPopup(RecordFormData form, String originalId) {
-        List<String> errors = new ArrayList<>(validateForm(form, true, originalId));
-        addExtendedPopupValidation(form, errors);
-        return errors;
+        return validateForm(form, true, originalId);
     }
 
     /**
@@ -398,58 +421,22 @@ public class EmployeeRecordsModule {
         if (changed) FileHandlerModule.rewriteEmployeeFile(all);
     }
 
-    /**
-    * Extra validation rules for Add/Edit popups beyond {@link #validateForm}:
-    * required birthday/phone, numeric allowances, and gov-ID format checks.
-     */
-    private static void addExtendedPopupValidation(RecordFormData form, List<String> errors) {
-        if (isBlank(form.birthday)) {
-            errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
-        } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
-            errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
-        }
-        if (isBlank(form.phone)) {
-            errors.add("Phone number is required.");
-        }
-        if (isBlank(form.position)) {
-            errors.add("Position is required.");
-        }
-        if (isBlank(form.department)) {
-            errors.add("Department is required.");
-        }
-        if (isBlank(form.supervisor)) {
-            errors.add("Supervisor is required.");
-        }
-        validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
-        validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
-        validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
-        validateRequiredNumeric(form.clothingAllowance, "Clothing Allowance", errors);
-        validateRequiredNumeric(form.grossSemiMonthly, "Gross Semi-monthly", errors);
-        validateIdFormatComplete(form.sss, "XX-XXXXXXX-X", "SSS Number", errors);
-        validateIdFormatComplete(form.tin, "XXX-XXX-XXX-XXX", "TIN Number", errors);
-    }
-
     /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */
-    private static void validateRequiredNumeric(String value, String displayName, List<String> errors) {
+    private static void validateRequiredNumeric(String value, String displayName, java.util.Set<String> errors) {
         String normalized = normalizeNumericInput(value);
-        if (!isNumeric(normalized)) {
-            errors.add(displayName + " must be a valid number (or enter NA / 000 for zero).");
+        if (isBlank(value) || !isNumeric(normalized)) {
+            errors.add(displayName + " must be a valid number (commas/periods allowed, or enter NA / 000 for zero).");
         }
     }
 
-    /**
-     * Validates government ID fields have enough digits for the expected pattern
-     * (e.g. SSS XX-XXXXXXX-X, TIN XXX-XXX-XXX-XXX).
-     */
-    private static void validateIdFormatComplete(String value, String pattern, String displayName,
-            List<String> errors) {
+    /** Ensures a government ID style field contains digits and dashes only. */
+    private static void validateDigitsAndDashes(String value, String displayName, java.util.Set<String> errors) {
         if (isBlank(value)) {
+            errors.add(displayName + " is required.");
             return;
         }
-        int expectedDigits = pattern.replace("-", "").length();
-        int actualDigits = value.replaceAll("[^0-9]", "").length();
-        if (actualDigits < expectedDigits) {
-            errors.add(displayName + " must follow the format " + pattern + ".");
+        if (!value.trim().matches("[0-9\\-]+")) {
+            errors.add(displayName + " must contain digits and dashes only.");
         }
     }
 
