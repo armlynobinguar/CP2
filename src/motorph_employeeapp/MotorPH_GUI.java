@@ -5689,10 +5689,13 @@ public class MotorPH_GUI {
         px = addPayrollToolbarField(periodBar, px, rowY, "Year", txtYear, 72);
         txtYear.setText("2024");
 
+        // 1. Compute Coordinates for Layout Buttons
         int btnW = 152;
         int summaryBtnW = 148;
         int btnGap = 8;
         int btnComputeX = periodBar.getWidth() - btnW - summaryBtnW - btnGap - 12;
+
+        // 2. Build and Add Calculate Button
         JButton btnComputeSalaries = new JButton("Calculate Payroll");
         btnComputeSalaries.setBounds(btnComputeX, rowY + 16, btnW, FIELD_HEIGHT);
         guiStyleAccentButton(btnComputeSalaries);
@@ -5700,6 +5703,7 @@ public class MotorPH_GUI {
         btnComputeSalaries.addActionListener(e -> runComputeAllSalaries());
         periodBar.add(btnComputeSalaries);
 
+        // 3. Build and Add Generate Summary Button (Moved Early for Null-Safety Validation)
         btnGenerateSummary = new JButton("Generate Summary");
         btnGenerateSummary.setBounds(btnComputeX + btnW + btnGap, rowY + 16, summaryBtnW, FIELD_HEIGHT);
         guiStyleAccentButton(btnGenerateSummary);
@@ -5707,15 +5711,18 @@ public class MotorPH_GUI {
         btnGenerateSummary.addActionListener(new java.awt.event.ActionListener() {
             @Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
-                showBatchSummaryDialog();
+                showPayrollSummaryDialog(); // Directly targets the Breakdown Overview Cards
             }
         });
         periodBar.add(btnGenerateSummary);
 
+        // 4. Attach Safe Period Modification Listeners
         java.awt.event.ActionListener batchPeriodChanged = e -> {
             scheduleBatchPayrollResultsSync();
             batchPayrollComputedOnce = false;
-            if (btnGenerateSummary != null) btnGenerateSummary.setEnabled(false);
+            if (btnGenerateSummary != null) {
+                btnGenerateSummary.setEnabled(false);
+            }
         };
         monthCombo.addActionListener(batchPeriodChanged);
         txtYear.addActionListener(batchPeriodChanged);
@@ -5824,8 +5831,7 @@ public class MotorPH_GUI {
         btnPayrollBatchFilter.addActionListener(e -> showPayrollBatchFilterDialog());
         txtPayrollEmpSearch.addKeyListener(new KeyListener() {
             @Override
-            public void keyTyped(KeyEvent e) {
-            }
+            public void keyTyped(KeyEvent e) {}
 
             @Override
             public void keyPressed(KeyEvent e) {
@@ -5835,8 +5841,7 @@ public class MotorPH_GUI {
             }
 
             @Override
-            public void keyReleased(KeyEvent e) {
-            }
+            public void keyReleased(KeyEvent e) {}
         });
         payrollSelectTableModel.addTableModelListener(e -> {
             if (e.getType() == TableModelEvent.UPDATE
@@ -5863,9 +5868,7 @@ public class MotorPH_GUI {
 
         addPayrollOutputBlock(rightPanel, PAYROLL_PAD, rightW, panelH - PAYROLL_PAD * 2,
                 "Gross Pay", "Deductions", "Net Pay");
-
     }
-
     private static void setupHrSinglePayrollContent(JPanel panel, int panelW, int panelH) {
         final int rightW = (int) (panelW * 0.60);
         final int leftW = panelW - rightW;
@@ -6632,22 +6635,7 @@ public class MotorPH_GUI {
         dlg.setVisible(true);
     }
 
-    private static void showPayrollSummaryDialog() {
-        java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed = new java.util.ArrayList<>();
-        for (SalaryComputationModule.EmployeePayrollSummary s : lastBatchSummaries) {
-            if (s.computed) computed.add(s);
-        }
-        if (computed.isEmpty()) {
-            JOptionPane.showMessageDialog(frame,
-                    "No payroll data available.\nPlease select employees and click Calculate Payroll first.",
-                    "No Data", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        String monthName = computed.get(0).monthName;
-        String year      = computed.get(0).year;
-
-    private static void showBatchSummaryDialog() {
+private static void showPayrollSummaryDialog() {
         java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed = new java.util.ArrayList<>();
         for (SalaryComputationModule.EmployeePayrollSummary s : lastBatchSummaries) {
             if (s.computed) {
@@ -6662,89 +6650,293 @@ public class MotorPH_GUI {
         }
 
         String monthName = computed.get(0).monthName;
-        String year = computed.get(0).year;
+        String year      = computed.get(0).year;
 
-        JDialog dlg = new JDialog(frame, "Batch Summary — " + monthName + " " + year, true);
+        double totalHoursFirst = 0, totalHoursSecond = 0;
+        double totalGrossFirst = 0, totalGrossSecond = 0;
+        double totalSss = 0, totalPhilHealth = 0;
+        double totalPagIbig = 0, totalTax = 0;
+        double totalDeductions = 0, totalNetPay = 0;
+
+        for (SalaryComputationModule.EmployeePayrollSummary s : computed) {
+            totalHoursFirst  += s.hoursFirst;
+            totalHoursSecond += s.hoursSecond;
+            totalGrossFirst  += s.grossFirst;
+            totalGrossSecond += s.grossSecond;
+            totalSss         += s.sss;
+            totalPhilHealth  += s.philHealth;
+            totalPagIbig     += s.pagIbig;
+            totalTax         += s.tax;
+            totalDeductions  += s.totalDeductions;
+            totalNetPay      += s.netPay;
+        }
+
+        double totalGross  = totalGrossFirst + totalGrossSecond;
+        double totalHours  = totalHoursFirst + totalHoursSecond;
+        int    empCount    = computed.size();
+
+        JDialog dlg = new JDialog(frame, "Payroll Summary — " + monthName + " " + year, true);
         dlg.setResizable(false);
-        dlg.setSize(760, 520);
+        int totalW = 640;
+        dlg.setSize(totalW, 580);
+        dlg.addNotify();
+        java.awt.Insets dlgInsets = dlg.getInsets();
         dlg.setLayout(null);
         dlg.getContentPane().setBackground(PALETTE_WHITE);
         dlg.setLocationRelativeTo(frame);
 
-        JPanel header = new JPanel(new java.awt.BorderLayout());
-        header.setBackground(SIDEBAR_BG);
-        header.setBounds(0, 0, 760, 58);
-        header.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
+        int pad = 16;
+        int w   = totalW - dlgInsets.left - dlgInsets.right - pad * 2;
 
-        JLabel title = new JLabel("Payroll Summary  ·  " + monthName + " " + year + "  ·  " + computed.size() + " employees");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        title.setForeground(PALETTE_WHITE);
-        header.add(title, java.awt.BorderLayout.WEST);
+        int headerH = 60;
+        JPanel headerStrip = new JPanel(new java.awt.BorderLayout());
+        headerStrip.setBackground(SIDEBAR_BG);
+        headerStrip.setBounds(0, 0, pad + w, headerH);
+        headerStrip.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
 
-        dlg.add(header);
+        JLabel headerLbl = new JLabel("Payroll Summary  ·  " + monthName + " " + year
+                + "  ·  " + empCount + " employee" + (empCount == 1 ? "" : "s"));
+        headerLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        headerLbl.setForeground(PALETTE_WHITE);
+        headerStrip.add(headerLbl, java.awt.BorderLayout.WEST);
 
-        String[] columns = { "Employee ID", "Name", "Total Gross", "Total Deductions", "Final Net Pay" };
-        Object[][] rows = new Object[computed.size()][columns.length];
-        for (int i = 0; i < computed.size(); i++) {
-            SalaryComputationModule.EmployeePayrollSummary s = computed.get(i);
-            rows[i][0] = s.employeeId;
-            rows[i][1] = s.employeeName;
-            rows[i][2] = String.format("PHP %,.2f", s.grossFirst + s.grossSecond);
-            rows[i][3] = String.format("PHP %,.2f", s.totalDeductions);
-            rows[i][4] = String.format("PHP %,.2f", s.netPay);
-        }
+        int totalTableEmployees = payrollSelectTableModel != null
+                ? payrollSelectTableModel.getRowCount() : empCount;
 
-        DefaultTableModel model = new DefaultTableModel(rows, columns) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
+        JPanel selPanel = new JPanel();
+        selPanel.setOpaque(false);
+        selPanel.setLayout(new javax.swing.BoxLayout(selPanel, javax.swing.BoxLayout.Y_AXIS));
+
+        JLabel selLbl = new JLabel("Selected Employees");
+        selLbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        selLbl.setForeground(new Color(190, 205, 235));
+        selLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        selPanel.add(selLbl);
+
+        JLabel selValLbl = new JLabel(empCount + " of " + totalTableEmployees);
+        selValLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        selValLbl.setForeground(PALETTE_WHITE);
+        selValLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
+        selPanel.add(selValLbl);
+
+        headerStrip.add(selPanel, java.awt.BorderLayout.EAST);
+        dlg.add(headerStrip);
+
+        int twoColY = headerH + 8;
+        int colH    = 210;
+        int colW    = (w - 8) / 2;
+
+        Color colBg   = new Color(245, 248, 254);
+        Color borderCol = new Color(168, 184, 214);
+        Color deductFg = new Color(180, 60, 40);
+        Color greenFg  = new Color(22, 130, 70);
+
+        JPanel cardFrame = new JPanel(null);
+        cardFrame.setOpaque(false);
+        cardFrame.setBorder(BorderFactory.createLineBorder(borderCol, 1));
+        cardFrame.setBounds(pad - 1, twoColY - 1, w + 2, colH + 8 + 48 + 2);
+        dlg.add(cardFrame);
+
+        JPanel leftCol = new JPanel(new java.awt.GridLayout(5, 1, 0, 2));
+        leftCol.setBackground(colBg);
+        leftCol.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(borderCol, 1),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        leftCol.setBounds(pad, twoColY, colW, colH);
+        leftCol.add(makeCutoffLabel("1ST CUTOFF  ·  " + monthName + " 1–15, " + year, ACCENT_BLUE, true, 11));
+        leftCol.add(makeCutoffLabel("Employees  :  " + empCount, TEXT_DARK_NAVY, false, 11));
+        leftCol.add(makeCutoffLabel("Total Hours  :  " + String.format("%.2f", totalHoursFirst) + " hrs", TEXT_DARK_NAVY, false, 11));
+        leftCol.add(makeCutoffLabel("Total Gross  :  PHP " + String.format("%,.2f", totalGrossFirst), TEXT_DARK_NAVY, false, 11));
+        leftCol.add(makeCutoffLabel("Net Pay  :  PHP " + String.format("%,.2f", totalGrossFirst) + "  (no deductions)", greenFg, true, 11));
+        dlg.add(leftCol);
+
+        JPanel rightCol = new JPanel(new java.awt.GridLayout(10, 1, 0, 2));
+        rightCol.setBackground(colBg);
+        rightCol.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(borderCol, 1),
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        rightCol.setBounds(pad + colW + 8, twoColY, colW, colH);
+        rightCol.add(makeCutoffLabel("2ND CUTOFF  ·  " + monthName + " 16–31, " + year, ACCENT_BLUE, true, 11));
+        rightCol.add(makeCutoffLabel("Employees  :  " + empCount, TEXT_DARK_NAVY, false, 11));
+        rightCol.add(makeCutoffLabel("Total Hours  :  " + String.format("%.2f", totalHoursSecond) + " hrs", TEXT_DARK_NAVY, false, 11));
+        rightCol.add(makeCutoffLabel("Total Gross  :  PHP " + String.format("%,.2f", totalGrossSecond), TEXT_DARK_NAVY, false, 11));
+        rightCol.add(makeCutoffLabel("SSS  :  PHP " + String.format("%,.2f", totalSss), deductFg, false, 11));
+        rightCol.add(makeCutoffLabel("PhilHealth  :  PHP " + String.format("%,.2f", totalPhilHealth), deductFg, false, 11));
+        rightCol.add(makeCutoffLabel("Pag-IBIG  :  PHP " + String.format("%,.2f", totalPagIbig), deductFg, false, 11));
+        rightCol.add(makeCutoffLabel("Tax  :  PHP " + String.format("%,.2f", totalTax), deductFg, false, 11));
+        rightCol.add(makeCutoffLabel("Total Deductions  :  PHP " + String.format("%,.2f", totalDeductions), TEXT_DARK_NAVY, true, 11));
+        rightCol.add(makeCutoffLabel("Net Pay  :  PHP " + String.format("%,.2f", totalGrossSecond - totalDeductions), greenFg, true, 11));
+        dlg.add(rightCol);
+
+        int totalStripY = twoColY + colH + 8;
+        JPanel totalStrip = new JPanel(null);
+        totalStrip.setBackground(new Color(236, 241, 252));
+        totalStrip.setBorder(BorderFactory.createLineBorder(borderCol, 1));
+        totalStrip.setBounds(pad, totalStripY, w, 48);
+
+        JLabel totalRow1 = makeCutoffLabel(
+                "TOTAL  ·  " + monthName + " " + year + "    |    "
+                + String.format("%.2f", totalHours) + " hrs total",
+                TEXT_DARK_NAVY, true, 11);
+        totalRow1.setHorizontalAlignment(SwingConstants.CENTER);
+        totalRow1.setBounds(0, 4, w, 18);
+        totalStrip.add(totalRow1);
+
+        JLabel totalRow2 = new JLabel(
+                "<html><span style='font-family:Segoe UI;font-size:11px;font-weight:bold;'>"
+                + "<font color='#168246'>Gross: PHP " + String.format("%,.2f", totalGross) + "</font>"
+                + "     <font color='#B43C28'>Deductions: PHP " + String.format("%,.2f", totalDeductions) + "</font>"
+                + "     <font color='#168246'>NET PAY: PHP " + String.format("%,.2f", totalNetPay) + "</font>"
+                + "</span></html>");
+        totalRow2.setHorizontalAlignment(SwingConstants.CENTER);
+        totalRow2.setBounds(0, 26, w, 18);
+        totalStrip.add(totalRow2);
+        dlg.add(totalStrip);
+
+        String summaryText =
+                "PAYROLL SUMMARY — " + monthName + " " + year + "\n"
+                + "Employees: " + empCount + "\n\n"
+                + "1ST CUTOFF (Days 1–15)\n"
+                + "  Total Hours  : " + String.format("%.2f", totalHoursFirst) + " hrs\n"
+                + "  Total Gross  : PHP " + String.format("%,.2f", totalGrossFirst) + "\n"
+                + "  Net Pay      : PHP " + String.format("%,.2f", totalGrossFirst) + " (no deductions)\n\n"
+                + "2ND CUTOFF (Days 16–31)\n"
+                + "  Total Hours  : " + String.format("%.2f", totalHoursSecond) + " hrs\n"
+                + "  Total Gross  : PHP " + String.format("%,.2f", totalGrossSecond) + "\n"
+                + "  SSS          : PHP " + String.format("%,.2f", totalSss) + "\n"
+                + "  PhilHealth   : PHP " + String.format("%,.2f", totalPhilHealth) + "\n"
+                + "  Pag-IBIG     : PHP " + String.format("%,.2f", totalPagIbig) + "\n"
+                + "  Tax          : PHP " + String.format("%,.2f", totalTax) + "\n"
+                + "  Total Deductions : PHP " + String.format("%,.2f", totalDeductions) + "\n"
+                + "  Net Pay      : PHP " + String.format("%,.2f", totalGrossSecond - totalDeductions) + "\n\n"
+                + "TOTAL\n"
+                + "  Total Hours  : " + String.format("%.2f", totalHours) + " hrs\n"
+                + "  Total Gross  : PHP " + String.format("%,.2f", totalGross) + "\n"
+                + "  Total Deductions : PHP " + String.format("%,.2f", totalDeductions) + "\n"
+                + "  NET PAY      : PHP " + String.format("%,.2f", totalNetPay) + "\n";
+
+        String csvText =
+                "Payroll Summary\n"
+                + "Period," + monthName + " " + year + "\n"
+                + "Employees," + empCount + "\n"
+                + "\n"
+                + "Section,Total Hours,Total Gross,SSS,PhilHealth,Pag-IBIG,Tax,Total Deductions,Net Pay\n"
+                + "1st Cutoff (Days 1-15)," + String.format("%.2f", totalHoursFirst)
+                        + "," + String.format("%.2f", totalGrossFirst)
+                        + ",0.00,0.00,0.00,0.00,0.00," + String.format("%.2f", totalGrossFirst) + "\n"
+                + "2nd Cutoff (Days 16-31)," + String.format("%.2f", totalHoursSecond)
+                        + "," + String.format("%.2f", totalGrossSecond)
+                        + "," + String.format("%.2f", totalSss)
+                        + "," + String.format("%.2f", totalPhilHealth)
+                        + "," + String.format("%.2f", totalPagIbig)
+                        + "," + String.format("%.2f", totalTax)
+                        + "," + String.format("%.2f", totalDeductions)
+                        + "," + String.format("%.2f", totalGrossSecond - totalDeductions) + "\n"
+                + "TOTAL," + String.format("%.2f", totalHours)
+                        + "," + String.format("%.2f", totalGross)
+                        + "," + String.format("%.2f", totalSss)
+                        + "," + String.format("%.2f", totalPhilHealth)
+                        + "," + String.format("%.2f", totalPagIbig)
+                        + "," + String.format("%.2f", totalTax)
+                        + "," + String.format("%.2f", totalDeductions)
+                        + "," + String.format("%.2f", totalNetPay) + "\n";
+
+        int btnRowY  = totalStripY + 60;
+        int btnGap   = 8;
+        int btnW2    = (w - btnGap) / 2;
+        int btnRow2Y = btnRowY + BTN_HEIGHT + btnGap;
+
+        JButton btnCopy = new JButton("Copy to Clipboard");
+        btnCopy.setBounds(pad, btnRowY, btnW2, BTN_HEIGHT);
+        styleStandardButton(btnCopy);
+        btnCopy.addActionListener(e -> {
+            java.awt.datatransfer.StringSelection sel =
+                    new java.awt.datatransfer.StringSelection(summaryText);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, sel);
+            showToast("Summary copied to clipboard.");
+        });
+        dlg.add(btnCopy);
+
+JButton btnTxt = new JButton("Download .txt");
+        btnTxt.setBounds(pad + btnW2 + btnGap, btnRowY, btnW2, BTN_HEIGHT);
+        styleStandardButton(btnTxt);
+        btnTxt.addActionListener(e -> {
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".txt"));
+            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                // 🟢 Fixed: Changed from setSelectedFile() to getSelectedFile()
+                try (java.io.FileWriter fw = new java.io.FileWriter(chooser.getSelectedFile())) {
+                    fw.write(summaryText);
+                    showToast("Summary saved: " + chooser.getSelectedFile().getName());
+                } catch (java.io.IOException ex) {
+                    JOptionPane.showMessageDialog(dlg, "Could not save file: " + ex.getMessage(),
+                            "Export Failed", JOptionPane.ERROR_MESSAGE);
+                }
             }
-        };
-        JTable table = new JTable(model);
-        applyModernTableStyle(table);
-        table.setRowHeight(28);
-        table.getTableHeader().setReorderingAllowed(false);
+        });
+        dlg.add(btnTxt);
 
-        JScrollPane scroll = new JScrollPane(table);
-        scroll.setBounds(16, 72, 728, 338);
-        styleEmployeeRecordsScrollPane(scroll);
-        dlg.add(scroll);
-
-        String csvText = buildBatchSummaryCsv(computed, monthName, year);
-
-        JButton btnPdf = new JButton("Download as PDF");
-        btnPdf.setBounds(16, 424, 178, BTN_HEIGHT);
+        JButton btnPdf = new JButton("Download Payslips");
+        btnPdf.setBounds(pad, btnRow2Y, btnW2, BTN_HEIGHT);
         guiStyleAccentButton(btnPdf);
-        btnPdf.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                exportBatchSummaryPdf(computed, monthName, year, dlg);
+        btnPdf.addActionListener(e -> {
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".pdf"));
+            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                java.io.File target = chooser.getSelectedFile();
+                if (!target.getName().toLowerCase().endsWith(".pdf"))
+                    target = new java.io.File(target.getAbsolutePath() + ".pdf");
+                try {
+                    byte[] pdf = buildBatchSummaryPdf(computed, monthName, year);
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
+                        fos.write(pdf);
+                    }
+                    showToast("Summary PDF saved: " + target.getName());
+                    try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dlg, "Could not save PDF: " + ex.getMessage(),
+                            "Export Failed", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
         dlg.add(btnPdf);
 
-        JButton btnCsv = new JButton("Download as CSV");
-        btnCsv.setBounds(202, 424, 178, BTN_HEIGHT);
-        styleStandardButton(btnCsv);
-        btnCsv.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                exportBatchSummaryCsv(csvText, monthName, year, dlg);
+        JButton btnExportCsv = new JButton("Export Payroll Summary");
+        btnExportCsv.setBounds(pad + btnW2 + btnGap, btnRow2Y, btnW2, BTN_HEIGHT);
+        guiStyleAccentButton(btnExportCsv);
+        btnExportCsv.addActionListener(e -> {
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            chooser.setDialogTitle("Export Payroll Summary");
+            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".csv"));
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV File (*.csv)", "csv"));
+            if (chooser.showSaveDialog(dlg) != javax.swing.JFileChooser.APPROVE_OPTION) return;
+            java.io.File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new java.io.File(target.getAbsolutePath() + ".csv");
+            }
+            try (java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(
+                    new java.io.FileOutputStream(target), java.nio.charset.StandardCharsets.UTF_8)) {
+                osw.write(csvText);
+                showToast("Payroll summary exported: " + target.getName());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dlg, "Could not export file: " + ex.getMessage(),
+                        "Export Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
-        dlg.add(btnCsv);
+        dlg.add(btnExportCsv);
 
+        int closeY = btnRow2Y + BTN_HEIGHT + btnGap;
         JButton btnClose = new JButton("Close");
-        btnClose.setBounds(590, 424, 154, BTN_HEIGHT);
+        btnClose.setBounds(pad, closeY, w, BTN_HEIGHT);
         styleStandardButton(btnClose);
-        btnClose.addActionListener(new java.awt.event.ActionListener() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                dlg.dispose();
-            }
-        });
+        btnClose.addActionListener(e -> dlg.dispose());
         dlg.add(btnClose);
 
+        int contentHeightNeeded = closeY + BTN_HEIGHT + pad;
+        dlg.setSize(totalW, contentHeightNeeded + dlgInsets.top + dlgInsets.bottom);
+        dlg.setLocationRelativeTo(frame);
+
+        // 🟢 Force this card view modal layout window visible!
         dlg.setVisible(true);
     }
 
@@ -6826,7 +7018,7 @@ public class MotorPH_GUI {
         }
     }
 
-    private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed,
+private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed,
             String monthName, String year) throws java.io.IOException {
         StringBuilder cs = new StringBuilder();
         final int pageLeft = 50;
@@ -6849,9 +7041,9 @@ public class MotorPH_GUI {
         for (SalaryComputationModule.EmployeePayrollSummary s : computed) {
             pdfDrawText(cs, pageLeft, y, s.employeeId, 8.5f, false, 0f, 0f, 0f);
             pdfDrawText(cs, 125, y, s.employeeName, 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 300, y, "PHP " + payFmt(s.grossFirst + s.grossSecond), 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 405, y, "PHP " + payFmt(s.totalDeductions), 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 520, y, "PHP " + payFmt(s.netPay), 8.5f, false, 0f, 0f, 0f);
+            pdfDrawText(cs, 300, y, String.format("PHP %,.2f", s.grossFirst + s.grossSecond), 8.5f, false, 0f, 0f, 0f);
+            pdfDrawText(cs, 405, y, String.format("PHP %,.2f", s.totalDeductions), 8.5f, false, 0f, 0f, 0f);
+            pdfDrawText(cs, 520, y, String.format("PHP %,.2f", s.netPay), 8.5f, false, 0f, 0f, 0f);
             y -= 14;
             if (y < 120) {
                 break;
@@ -6903,312 +7095,6 @@ public class MotorPH_GUI {
         String trailer = "trailer\n<</Size 7 /Root 1 0 R>>\nstartxref\n" + xrefPos + "\n%%EOF";
         out.write(trailer.getBytes("ISO-8859-1"));
         return out.toByteArray();
-    }
-
-        double totalHoursFirst = 0, totalHoursSecond = 0;
-        double totalGrossFirst = 0, totalGrossSecond = 0;
-        double totalSss = 0, totalPhilHealth = 0;
-        double totalPagIbig = 0, totalTax = 0;
-        double totalDeductions = 0, totalNetPay = 0;
-
-        for (SalaryComputationModule.EmployeePayrollSummary s : computed) {
-            totalHoursFirst  += s.hoursFirst;
-            totalHoursSecond += s.hoursSecond;
-            totalGrossFirst  += s.grossFirst;
-            totalGrossSecond += s.grossSecond;
-            totalSss         += s.sss;
-            totalPhilHealth  += s.philHealth;
-            totalPagIbig     += s.pagIbig;
-            totalTax         += s.tax;
-            totalDeductions  += s.totalDeductions;
-            totalNetPay      += s.netPay;
-        }
-
-        double totalGross  = totalGrossFirst + totalGrossSecond;
-        double totalHours  = totalHoursFirst + totalHoursSecond;
-        double netFirst    = totalGrossFirst;
-        double netSecond   = totalGrossSecond - totalDeductions;
-        int    empCount    = computed.size();
-
-        JDialog dlg = new JDialog(frame, "Payroll Summary — " + monthName + " " + year, true);
-        dlg.setResizable(false);
-        int totalW = 640;
-        dlg.setSize(totalW, 580);
-        // Realize the native peer now so getInsets() reflects the real window
-        // chrome (title bar + side borders) instead of assuming the dialog's
-        // content area is exactly totalW wide — otherwise left/right padding
-        // ends up asymmetric since the OS eats a few pixels on each side.
-        dlg.addNotify();
-        java.awt.Insets dlgInsets = dlg.getInsets();
-        dlg.setLayout(null);
-        dlg.getContentPane().setBackground(PALETTE_WHITE);
-        dlg.setLocationRelativeTo(frame);
-
-        int pad = 16;
-        int w   = totalW - dlgInsets.left - dlgInsets.right - pad * 2;
-
-        // Header
-        int headerH = 60;
-        JPanel headerStrip = new JPanel(new java.awt.BorderLayout());
-        headerStrip.setBackground(SIDEBAR_BG);
-        headerStrip.setBounds(0, 0, pad + w, headerH);
-        headerStrip.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
-
-        JLabel headerLbl = new JLabel("Payroll Summary  ·  " + monthName + " " + year
-                + "  ·  " + empCount + " employee" + (empCount == 1 ? "" : "s"));
-        headerLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        headerLbl.setForeground(PALETTE_WHITE);
-        headerStrip.add(headerLbl, java.awt.BorderLayout.WEST);
-
-        int totalTableEmployees = payrollSelectTableModel != null
-                ? payrollSelectTableModel.getRowCount() : empCount;
-
-        JPanel selPanel = new JPanel();
-        selPanel.setOpaque(false);
-        selPanel.setLayout(new javax.swing.BoxLayout(selPanel, javax.swing.BoxLayout.Y_AXIS));
-
-        JLabel selLbl = new JLabel("Selected Employees");
-        selLbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        selLbl.setForeground(new Color(190, 205, 235));
-        selLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
-        selPanel.add(selLbl);
-
-        JLabel selValLbl = new JLabel(empCount + " of " + totalTableEmployees);
-        selValLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        selValLbl.setForeground(PALETTE_WHITE);
-        selValLbl.setAlignmentX(java.awt.Component.RIGHT_ALIGNMENT);
-        selPanel.add(selValLbl);
-
-        headerStrip.add(selPanel, java.awt.BorderLayout.EAST);
-
-        dlg.add(headerStrip);
-
-        int twoColY = headerH + 8;
-        int colH    = 210;
-        int colW    = (w - 8) / 2;
-
-        Color colBg   = new Color(245, 248, 254);
-        Color divCol  = new Color(200, 210, 230);
-        Color borderCol = new Color(168, 184, 214);
-        Color deductFg = new Color(180, 60, 40);
-        Color greenFg  = new Color(22, 130, 70);
-
-        // Outer card frame behind the two cutoff columns + total strip
-        JPanel cardFrame = new JPanel(null);
-        cardFrame.setOpaque(false);
-        cardFrame.setBorder(BorderFactory.createLineBorder(borderCol, 1));
-        cardFrame.setBounds(pad - 1, twoColY - 1, w + 2, colH + 8 + 48 + 2);
-        dlg.add(cardFrame);
-
-        // 1st cutoff column
-        JPanel leftCol = new JPanel(new java.awt.GridLayout(5, 1, 0, 2));
-        leftCol.setBackground(colBg);
-        leftCol.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(borderCol, 1),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
-        leftCol.setBounds(pad, twoColY, colW, colH);
-        leftCol.add(makeCutoffLabel("1ST CUTOFF  ·  " + monthName + " 1–15, " + year, ACCENT_BLUE, true, 11));
-        leftCol.add(makeCutoffLabel("Employees  :  " + empCount, TEXT_DARK_NAVY, false, 11));
-        leftCol.add(makeCutoffLabel("Total Hours  :  " + String.format("%.2f", totalHoursFirst) + " hrs", TEXT_DARK_NAVY, false, 11));
-        leftCol.add(makeCutoffLabel("Total Gross  :  PHP " + String.format("%,.2f", totalGrossFirst), TEXT_DARK_NAVY, false, 11));
-        leftCol.add(makeCutoffLabel("Net Pay  :  PHP " + String.format("%,.2f", netFirst) + "  (no deductions)", greenFg, true, 11));
-        dlg.add(leftCol);
-
-        // 2nd cutoff column
-        JPanel rightCol = new JPanel(new java.awt.GridLayout(10, 1, 0, 2));
-        rightCol.setBackground(colBg);
-        rightCol.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(borderCol, 1),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
-        rightCol.setBounds(pad + colW + 8, twoColY, colW, colH);
-        rightCol.add(makeCutoffLabel("2ND CUTOFF  ·  " + monthName + " 16–31, " + year, ACCENT_BLUE, true, 11));
-        rightCol.add(makeCutoffLabel("Employees  :  " + empCount, TEXT_DARK_NAVY, false, 11));
-        rightCol.add(makeCutoffLabel("Total Hours  :  " + String.format("%.2f", totalHoursSecond) + " hrs", TEXT_DARK_NAVY, false, 11));
-        rightCol.add(makeCutoffLabel("Total Gross  :  PHP " + String.format("%,.2f", totalGrossSecond), TEXT_DARK_NAVY, false, 11));
-        rightCol.add(makeCutoffLabel("SSS  :  PHP " + String.format("%,.2f", totalSss), deductFg, false, 11));
-        rightCol.add(makeCutoffLabel("PhilHealth  :  PHP " + String.format("%,.2f", totalPhilHealth), deductFg, false, 11));
-        rightCol.add(makeCutoffLabel("Pag-IBIG  :  PHP " + String.format("%,.2f", totalPagIbig), deductFg, false, 11));
-        rightCol.add(makeCutoffLabel("Tax  :  PHP " + String.format("%,.2f", totalTax), deductFg, false, 11));
-        rightCol.add(makeCutoffLabel("Total Deductions  :  PHP " + String.format("%,.2f", totalDeductions), TEXT_DARK_NAVY, true, 11));
-        rightCol.add(makeCutoffLabel("Net Pay  :  PHP " + String.format("%,.2f", netSecond), greenFg, true, 11));
-        dlg.add(rightCol);
-
-        // Total strip
-        int totalStripY = twoColY + colH + 8;
-        JPanel totalStrip = new JPanel(null);
-        totalStrip.setBackground(new Color(236, 241, 252));
-        totalStrip.setBorder(BorderFactory.createLineBorder(borderCol, 1));
-        totalStrip.setBounds(pad, totalStripY, w, 48);
-
-        JLabel totalRow1 = makeCutoffLabel(
-                "TOTAL  ·  " + monthName + " " + year + "    |    "
-                + String.format("%.2f", totalHours) + " hrs total",
-                TEXT_DARK_NAVY, true, 11);
-        totalRow1.setHorizontalAlignment(SwingConstants.CENTER);
-        totalRow1.setBounds(0, 4, w, 18);
-        totalStrip.add(totalRow1);
-
-        JLabel totalRow2 = new JLabel(
-                "<html><span style='font-family:Segoe UI;font-size:11px;font-weight:bold;'>"
-                + "<font color='#168246'>Gross: PHP " + String.format("%,.2f", totalGross) + "</font>"
-                + "     <font color='#B43C28'>Deductions: PHP " + String.format("%,.2f", totalDeductions) + "</font>"
-                + "     <font color='#168246'>NET PAY: PHP " + String.format("%,.2f", totalNetPay) + "</font>"
-                + "</span></html>");
-        totalRow2.setHorizontalAlignment(SwingConstants.CENTER);
-        totalRow2.setBounds(0, 26, w, 18);
-        totalStrip.add(totalRow2);
-        dlg.add(totalStrip);
-
-        // Plain text for export
-        String summaryText =
-                "PAYROLL SUMMARY — " + monthName + " " + year + "\n"
-                + "Employees: " + empCount + "\n\n"
-                + "1ST CUTOFF (Days 1–15)\n"
-                + "  Total Hours  : " + String.format("%.2f", totalHoursFirst) + " hrs\n"
-                + "  Total Gross  : PHP " + String.format("%,.2f", totalGrossFirst) + "\n"
-                + "  Net Pay      : PHP " + String.format("%,.2f", netFirst) + " (no deductions)\n\n"
-                + "2ND CUTOFF (Days 16–31)\n"
-                + "  Total Hours  : " + String.format("%.2f", totalHoursSecond) + " hrs\n"
-                + "  Total Gross  : PHP " + String.format("%,.2f", totalGrossSecond) + "\n"
-                + "  SSS          : PHP " + String.format("%,.2f", totalSss) + "\n"
-                + "  PhilHealth   : PHP " + String.format("%,.2f", totalPhilHealth) + "\n"
-                + "  Pag-IBIG     : PHP " + String.format("%,.2f", totalPagIbig) + "\n"
-                + "  Tax          : PHP " + String.format("%,.2f", totalTax) + "\n"
-                + "  Total Deductions : PHP " + String.format("%,.2f", totalDeductions) + "\n"
-                + "  Net Pay      : PHP " + String.format("%,.2f", netSecond) + "\n\n"
-                + "TOTAL\n"
-                + "  Total Hours  : " + String.format("%.2f", totalHours) + " hrs\n"
-                + "  Total Gross  : PHP " + String.format("%,.2f", totalGross) + "\n"
-                + "  Total Deductions : PHP " + String.format("%,.2f", totalDeductions) + "\n"
-                + "  NET PAY      : PHP " + String.format("%,.2f", totalNetPay) + "\n";
-
-        // CSV content for export
-        String csvText =
-                "Payroll Summary\n"
-                + "Period," + monthName + " " + year + "\n"
-                + "Employees," + empCount + "\n"
-                + "\n"
-                + "Section,Total Hours,Total Gross,SSS,PhilHealth,Pag-IBIG,Tax,Total Deductions,Net Pay\n"
-                + "1st Cutoff (Days 1-15)," + String.format("%.2f", totalHoursFirst)
-                        + "," + String.format("%.2f", totalGrossFirst)
-                        + ",0.00,0.00,0.00,0.00,0.00," + String.format("%.2f", netFirst) + "\n"
-                + "2nd Cutoff (Days 16-31)," + String.format("%.2f", totalHoursSecond)
-                        + "," + String.format("%.2f", totalGrossSecond)
-                        + "," + String.format("%.2f", totalSss)
-                        + "," + String.format("%.2f", totalPhilHealth)
-                        + "," + String.format("%.2f", totalPagIbig)
-                        + "," + String.format("%.2f", totalTax)
-                        + "," + String.format("%.2f", totalDeductions)
-                        + "," + String.format("%.2f", netSecond) + "\n"
-                + "TOTAL," + String.format("%.2f", totalHours)
-                        + "," + String.format("%.2f", totalGross)
-                        + "," + String.format("%.2f", totalSss)
-                        + "," + String.format("%.2f", totalPhilHealth)
-                        + "," + String.format("%.2f", totalPagIbig)
-                        + "," + String.format("%.2f", totalTax)
-                        + "," + String.format("%.2f", totalDeductions)
-                        + "," + String.format("%.2f", totalNetPay) + "\n";
-
-        // Export buttons — 2x2 grid
-        int btnRowY  = totalStripY + 60;
-        int btnGap   = 8;
-        int btnW2    = (w - btnGap) / 2;
-        int btnRow2Y = btnRowY + BTN_HEIGHT + btnGap;
-
-        JButton btnCopy = new JButton("Copy to Clipboard");
-        btnCopy.setBounds(pad, btnRowY, btnW2, BTN_HEIGHT);
-        styleStandardButton(btnCopy);
-        btnCopy.addActionListener(e -> {
-            java.awt.datatransfer.StringSelection sel =
-                    new java.awt.datatransfer.StringSelection(summaryText);
-            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, sel);
-            showToast("Summary copied to clipboard.");
-        });
-        dlg.add(btnCopy);
-
-        JButton btnTxt = new JButton("Download .txt");
-        btnTxt.setBounds(pad + btnW2 + btnGap, btnRowY, btnW2, BTN_HEIGHT);
-        styleStandardButton(btnTxt);
-        btnTxt.addActionListener(e -> {
-            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".txt"));
-            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
-                try (java.io.FileWriter fw = new java.io.FileWriter(chooser.getSelectedFile())) {
-                    fw.write(summaryText);
-                    showToast("Summary saved: " + chooser.getSelectedFile().getName());
-                } catch (java.io.IOException ex) {
-                    JOptionPane.showMessageDialog(dlg, "Could not save file: " + ex.getMessage(),
-                            "Export Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        dlg.add(btnTxt);
-
-        JButton btnPdf = new JButton("Download Payslips");
-        btnPdf.setBounds(pad, btnRow2Y, btnW2, BTN_HEIGHT);
-        guiStyleAccentButton(btnPdf);
-        btnPdf.addActionListener(e -> {
-            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".pdf"));
-            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
-                java.io.File target = chooser.getSelectedFile();
-                if (!target.getName().toLowerCase().endsWith(".pdf"))
-                    target = new java.io.File(target.getAbsolutePath() + ".pdf");
-                try {
-                    byte[] pdf = buildPayslipPdf();
-                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
-                        fos.write(pdf);
-                    }
-                    showToast("Summary PDF saved: " + target.getName());
-                    try { java.awt.Desktop.getDesktop().open(target); } catch (Exception ignored) {}
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(dlg, "Could not save PDF: " + ex.getMessage(),
-                            "Export Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        dlg.add(btnPdf);
-
-        JButton btnExportCsv = new JButton("Export Payroll Summary");
-        btnExportCsv.setBounds(pad + btnW2 + btnGap, btnRow2Y, btnW2, BTN_HEIGHT);
-        guiStyleAccentButton(btnExportCsv);
-        btnExportCsv.addActionListener(e -> {
-            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-            chooser.setDialogTitle("Export Payroll Summary");
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".csv"));
-            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "CSV File (*.csv)", "csv"));
-            if (chooser.showSaveDialog(dlg) != javax.swing.JFileChooser.APPROVE_OPTION) return;
-            java.io.File target = chooser.getSelectedFile();
-            if (!target.getName().toLowerCase().endsWith(".csv")) {
-                target = new java.io.File(target.getAbsolutePath() + ".csv");
-            }
-            try (java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(
-                    new java.io.FileOutputStream(target), java.nio.charset.StandardCharsets.UTF_8)) {
-                osw.write(csvText);
-                showToast("Payroll summary exported: " + target.getName());
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(dlg, "Could not export file: " + ex.getMessage(),
-                        "Export Failed", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        dlg.add(btnExportCsv);
-
-        // Close button
-        int closeY = btnRow2Y + BTN_HEIGHT + btnGap;
-        JButton btnClose = new JButton("Close");
-        btnClose.setBounds(pad, closeY, w, BTN_HEIGHT);
-        styleStandardButton(btnClose);
-        btnClose.addActionListener(e -> dlg.dispose());
-        dlg.add(btnClose);
-
-        // Trim the window to fit the content snugly instead of leaving dead
-        // space below the Close button.
-        int contentHeightNeeded = closeY + BTN_HEIGHT + pad;
-        dlg.setSize(totalW, contentHeightNeeded + dlgInsets.top + dlgInsets.bottom);
-        dlg.setLocationRelativeTo(frame);
-
-        dlg.setVisible(true);
     }
 
     /**
@@ -12609,4 +12495,15 @@ public class MotorPH_GUI {
         frame.repaint();
         frame.setVisible(true); // Always refreshed at the end to force accurate UI updates
     }
+
+    private static JLabel makeCutoffLabel(String text, Color fgColor, boolean isBold, int fontSize) {
+    JLabel label = new JLabel(text);
+    label.setForeground(fgColor);
+    if (isBold) {
+        label.setFont(new Font("Segoe UI", Font.BOLD, fontSize));
+    } else {
+        label.setFont(new Font("Segoe UI", Font.PLAIN, fontSize));
+    }
+    return label;
+}
 }
