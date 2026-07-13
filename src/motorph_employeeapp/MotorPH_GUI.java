@@ -8027,6 +8027,104 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
     }
 
+    public static boolean isNameTextValid(String str) {
+        if (str == null) {
+            return true;
+        }
+        String text = str.trim();
+        if (text.isEmpty()) {
+            return true;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (Character.isLetter(ch) || ch == ' ' || ch == '-' || ch == '\'') {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean isEditPopupNameValueValid(String value) {
+        return isNameTextValid(value);
+    }
+
+    private static boolean isEditPopupNameValueChanged(String currentValue, String originalValue) {
+        String current = currentValue == null ? "" : currentValue.trim();
+        String original = originalValue == null ? "" : originalValue.trim();
+        return !current.equals(original);
+    }
+
+    private static List<String> collectEditPopupNameErrors(java.util.Map<String, JTextField> fieldMap,
+            String[] emp) {
+        List<String> errs = new java.util.ArrayList<>();
+        JTextField lastNameField = fieldMap.get("Last Name:");
+        JTextField firstNameField = fieldMap.get("First Name:");
+        String originalLastName = safeColumn(emp, EmployeeModule.LAST_NAME);
+        String originalFirstName = safeColumn(emp, EmployeeModule.FIRST_NAME);
+
+        if (lastNameField != null) {
+            String currentLastName = lastNameField.getText() == null ? "" : lastNameField.getText().trim();
+            if (isEditPopupNameValueChanged(currentLastName, originalLastName)
+                    && !isEditPopupNameValueValid(currentLastName)) {
+                errs.add("Last Name must contain letters, spaces, hyphens, and apostrophes only.");
+            }
+        }
+
+        if (firstNameField != null) {
+            String currentFirstName = firstNameField.getText() == null ? "" : firstNameField.getText().trim();
+            if (isEditPopupNameValueChanged(currentFirstName, originalFirstName)
+                    && !isEditPopupNameValueValid(currentFirstName)) {
+                errs.add("First Name must contain letters, spaces, hyphens, and apostrophes only.");
+            }
+        }
+
+        return errs;
+    }
+
+    private static void applyEditPopupNameFieldBorders(java.util.Map<String, JTextField> fieldMap, String[] emp) {
+        JTextField lastNameField = fieldMap.get("Last Name:");
+        JTextField firstNameField = fieldMap.get("First Name:");
+        String originalLastName = safeColumn(emp, EmployeeModule.LAST_NAME);
+        String originalFirstName = safeColumn(emp, EmployeeModule.FIRST_NAME);
+
+        if (lastNameField != null) {
+            String currentLastName = lastNameField.getText() == null ? "" : lastNameField.getText().trim();
+            if (!isEditPopupNameValueChanged(currentLastName, originalLastName)) {
+                resetPopupFieldBorder(lastNameField);
+            } else if (isEditPopupNameValueValid(currentLastName)) {
+                setPopupFieldValid(lastNameField);
+            } else {
+                setPopupFieldError(lastNameField);
+            }
+        }
+
+        if (firstNameField != null) {
+            String currentFirstName = firstNameField.getText() == null ? "" : firstNameField.getText().trim();
+            if (!isEditPopupNameValueChanged(currentFirstName, originalFirstName)) {
+                resetPopupFieldBorder(firstNameField);
+            } else if (isEditPopupNameValueValid(currentFirstName)) {
+                setPopupFieldValid(firstNameField);
+            } else {
+                setPopupFieldError(firstNameField);
+            }
+        }
+    }
+
+    private static void updateEditPopupNameFieldBorder(JTextField field, String originalValue) {
+        if (field == null) {
+            return;
+        }
+        String currentValue = field.getText() == null ? "" : field.getText().trim();
+        if (!isEditPopupNameValueChanged(currentValue, originalValue)) {
+            resetPopupFieldBorder(field);
+        } else if (isNameTextValid(currentValue)) {
+            setPopupFieldValid(field);
+        } else {
+            setPopupFieldError(field);
+        }
+    }
+
     /**
      * Fields whose live/inline format rules ({@link #validateAddEmployeeField}) aren't
      * already re-checked at submit time by {@link EmployeeRecordsModule#validateForm}
@@ -8531,6 +8629,26 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 attachPopupFieldErrorClear(entry.getValue());
             }
         }
+        JTextField lastNameField = fieldMap.get("Last Name:");
+        JTextField firstNameField = fieldMap.get("First Name:");
+        final String originalLastName = safeColumn(emp, EmployeeModule.LAST_NAME);
+        final String originalFirstName = safeColumn(emp, EmployeeModule.FIRST_NAME);
+        if (lastNameField != null) {
+            lastNameField.addFocusListener(new java.awt.event.FocusAdapter() {
+                @Override
+                public void focusLost(java.awt.event.FocusEvent e) {
+                    updateEditPopupNameFieldBorder(lastNameField, originalLastName);
+                }
+            });
+        }
+        if (firstNameField != null) {
+            firstNameField.addFocusListener(new java.awt.event.FocusAdapter() {
+                @Override
+                public void focusLost(java.awt.event.FocusEvent e) {
+                    updateEditPopupNameFieldBorder(firstNameField, originalFirstName);
+                }
+            });
+        }
         if (deptComboRef[0] != null && posComboRef[0] != null) {
             wireDepartmentPositionSupervisor(
                     deptComboRef[0], posComboRef[0],
@@ -8561,7 +8679,31 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
+            resetEditPopupFieldBorders(fieldMap);
+
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
+            JTextField saveLastNameField = fieldMap.get("Last Name:");
+            JTextField saveFirstNameField = fieldMap.get("First Name:");
+            String originalLastNameValue = safeColumn(emp, EmployeeModule.LAST_NAME);
+            String originalFirstNameValue = safeColumn(emp, EmployeeModule.FIRST_NAME);
+            String currentLastNameValue = saveLastNameField == null || saveLastNameField.getText() == null
+                    ? "" : saveLastNameField.getText().trim();
+            String currentFirstNameValue = saveFirstNameField == null || saveFirstNameField.getText() == null
+                    ? "" : saveFirstNameField.getText().trim();
+            if (isEditPopupNameValueChanged(currentLastNameValue, originalLastNameValue)
+                    && !isNameTextValid(currentLastNameValue)) {
+                validationErrors.add("Last Name must contain letters, spaces, hyphens, and apostrophes only.");
+            }
+            if (isEditPopupNameValueChanged(currentFirstNameValue, originalFirstNameValue)
+                    && !isNameTextValid(currentFirstNameValue)) {
+                validationErrors.add("First Name must contain letters, spaces, hyphens, and apostrophes only.");
+            }
+            validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
+            validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
+
+            markEditPopupFieldErrors(validationErrors, fieldMap);
+            applyEditPopupNameFieldBorders(fieldMap, emp);
+
             if (!validationErrors.isEmpty()) {
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
