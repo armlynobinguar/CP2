@@ -925,7 +925,7 @@ public class MotorPH_GUI {
             { "Period", formatBatchCutoffPeriod(s.monthName, s.year, 1, 15) },
             { "Hours", String.format("%.2f", s.hoursFirst) },
             { "Gross", String.format("PHP %,.2f", s.grossFirst) },
-            { "Net Pay", String.format("PHP %,.2f", s.netPay) }
+            { "Net Pay", String.format("<html><span style='color:#168246;font-weight:bold;'>PHP %,.2f</span></html>", s.grossFirst) }
         }, pw);
         firstCutoff.setBounds(0, 0, pw, 154);
         details.add(firstCutoff);
@@ -934,12 +934,12 @@ public class MotorPH_GUI {
             { "Period", formatBatchCutoffPeriod(s.monthName, s.year, 16, 31) },
             { "Hours", String.format("%.2f", s.hoursSecond) },
             { "Gross", String.format("PHP %,.2f", s.grossSecond) },
-            { "SSS", String.format("PHP %,.2f", s.sss) },
-            { "PhilHealth", String.format("PHP %,.2f", s.philHealth) },
-            { "Pag-IBIG", String.format("PHP %,.2f", s.pagIbig) },
-            { "Withholding Tax", String.format("PHP %,.2f", s.tax) },
-            { "Total Deductions", String.format("PHP %,.2f", s.totalDeductions) },
-            { "Net Pay", String.format("PHP %,.2f", s.netPay) }
+            { "<html>&nbsp;&nbsp;&nbsp;SSS</html>", String.format("PHP %,.2f", s.sss) },
+            { "<html>&nbsp;&nbsp;&nbsp;PhilHealth</html>", String.format("PHP %,.2f", s.philHealth) },
+            { "<html>&nbsp;&nbsp;&nbsp;Pag-IBIG</html>", String.format("PHP %,.2f", s.pagIbig) },
+            { "<html>&nbsp;&nbsp;&nbsp;Withholding Tax</html>", String.format("PHP %,.2f", s.tax) },
+            { "<html>&nbsp;&nbsp;&nbsp;Total Deductions</html>", String.format("PHP %,.2f", s.totalDeductions) },
+            { "Net Pay", String.format("<html><span style='color:#168246;font-weight:bold;'>PHP %,.2f</span></html>", s.grossSecond - s.totalDeductions) }
         }, pw);
         secondCutoff.setBounds(0, 164, pw, 248);
         details.add(secondCutoff);
@@ -1010,7 +1010,9 @@ public class MotorPH_GUI {
 
         int y = 42;
         for (String[] row : rows) {
-            JLabel keyLbl = new JLabel(row[0] + ":");
+            String keyText = row[0] == null ? "" : row[0];
+            boolean isHtmlKey = keyText.trim().toLowerCase().startsWith("<html>");
+            JLabel keyLbl = new JLabel(isHtmlKey ? keyText : keyText + ":");
             keyLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
             keyLbl.setForeground(TEXT_MUTED);
             keyLbl.setBounds(14, y, 156, 18);
@@ -1048,13 +1050,16 @@ public class MotorPH_GUI {
 
         int y = 42;
         for (String[] row : rows) {
-            JLabel keyLbl = new JLabel(row[0] + ":");
+            String keyText = row[0] == null ? "" : row[0];
+            boolean useHtmlKey = keyText.trim().toLowerCase().startsWith("<html>");
+            JLabel keyLbl = new JLabel(useHtmlKey ? keyText : keyText + ":");
             keyLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
             keyLbl.setForeground(TEXT_MUTED);
             keyLbl.setBounds(14, y, 156, 18);
             section.add(keyLbl);
 
-            JLabel valueLbl = new JLabel(row.length > 1 && row[1] != null && !row[1].trim().isEmpty() ? row[1] : "—");
+            String valueText = row.length > 1 && row[1] != null && !row[1].trim().isEmpty() ? row[1] : "—";
+            JLabel valueLbl = new JLabel(valueText);
             valueLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
             valueLbl.setForeground(TEXT_DARK_NAVY);
             valueLbl.setBounds(170, y, pw - 212, 18);
@@ -6694,8 +6699,7 @@ private static void showPayrollSummaryDialog() {
         headerStrip.setBounds(0, 0, pad + w, headerH);
         headerStrip.setBorder(BorderFactory.createEmptyBorder(0, 14, 0, 14));
 
-        JLabel headerLbl = new JLabel("Payroll Summary  ·  " + monthName + " " + year
-                + "  ·  " + empCount + " employee" + (empCount == 1 ? "" : "s"));
+        JLabel headerLbl = new JLabel("Payroll Summary  ·  " + monthName + " " + year);
         headerLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
         headerLbl.setForeground(PALETTE_WHITE);
         headerStrip.add(headerLbl, java.awt.BorderLayout.WEST);
@@ -8067,7 +8071,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             String currentLastName = lastNameField.getText() == null ? "" : lastNameField.getText().trim();
             if (isEditPopupNameValueChanged(currentLastName, originalLastName)
                     && !isEditPopupNameValueValid(currentLastName)) {
-                errs.add("Last Name must contain letters, spaces, hyphens, and apostrophes only.");
+                errs.add("Last Name must contain letters, spaces, hyphens and apostrophes only.");
             }
         }
 
@@ -8075,11 +8079,40 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             String currentFirstName = firstNameField.getText() == null ? "" : firstNameField.getText().trim();
             if (isEditPopupNameValueChanged(currentFirstName, originalFirstName)
                     && !isEditPopupNameValueValid(currentFirstName)) {
-                errs.add("First Name must contain letters, spaces, hyphens, and apostrophes only.");
+                errs.add("First Name must contain letters, spaces, hyphens and apostrophes only.");
             }
         }
 
         return errs;
+    }
+
+    private static List<String> reorderEditPopupErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        List<String> ordered = new java.util.ArrayList<>();
+        for (String err : errors) {
+            if (err != null && err.contains("Last Name")) {
+                if (!ordered.contains(err)) ordered.add(err);
+            }
+        }
+        for (String err : errors) {
+            if (err != null && err.contains("First Name")) {
+                if (!ordered.contains(err)) ordered.add(err);
+            }
+        }
+        for (String err : errors) {
+            if (err != null && err.contains("Phone")) {
+                if (!ordered.contains(err)) ordered.add(err);
+            }
+        }
+        for (String err : errors) {
+            if (err == null || err.contains("Last Name") || err.contains("First Name") || err.contains("Phone")) {
+                continue;
+            }
+            if (!ordered.contains(err)) ordered.add(err);
+        }
+        return ordered;
     }
 
     private static void applyEditPopupNameFieldBorders(java.util.Map<String, JTextField> fieldMap, String[] emp) {
@@ -8175,15 +8208,28 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
     }
 
     private static void markEditPopupFieldErrors(List<String> errors,
-            java.util.Map<String, JTextField> fieldMap) {
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JLabel> errorLabels) {
         for (String err : errors) {
             if (err.contains("Employee Number") || err.contains("Employee #")) {
                 setPopupFieldError(fieldMap.get("Employee #:"));
             }
-            if (err.contains("Last Name"))
+            if (err.contains("Last Name")) {
                 setPopupFieldError(fieldMap.get("Last Name:"));
-            if (err.contains("First Name"))
+                JLabel lbl = errorLabels.get("Last Name:");
+                if (lbl != null) {
+                    lbl.setText("Last Name must contain letters, spaces, hyphens and apostrophes only.");
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("First Name")) {
                 setPopupFieldError(fieldMap.get("First Name:"));
+                JLabel lbl = errorLabels.get("First Name:");
+                if (lbl != null) {
+                    lbl.setText("First Name must contain letters, spaces, hyphens and apostrophes only.");
+                    lbl.setVisible(true);
+                }
+            }
             if (err.contains("Birthday"))
                 setPopupFieldError(fieldMap.get("Birthday:"));
             if (err.contains("Address"))
@@ -8295,9 +8341,10 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         return proxy;
     }
 
+    @SuppressWarnings("unchecked")
     private static void wireDepartmentPositionSupervisor(
-            JComboBox<String> deptCombo,
-            JComboBox<String> posCombo,
+            JComboBox deptCombo,
+            JComboBox posCombo,
             JTextField supervisorField,
             JTextField deptProxy,
             JTextField posProxy) {
@@ -8312,7 +8359,8 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             boolean matched = false;
             if (currentPos != null && !currentPos.isEmpty()) {
                 for (int i = 0; i < posCombo.getItemCount(); i++) {
-                    if (currentPos.equalsIgnoreCase(posCombo.getItemAt(i))) {
+                    Object item = posCombo.getItemAt(i);
+                    if (item != null && currentPos.equalsIgnoreCase(item.toString())) {
                         posCombo.setSelectedIndex(i);
                         matched = true;
                         break;
@@ -8482,13 +8530,15 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
-        final JComboBox<String>[] deptComboRef = new JComboBox[1];
-        final JComboBox<String>[] posComboRef = new JComboBox[1];
+        final JComboBox[] deptComboRef = new JComboBox[1];
+        final JComboBox[] posComboRef = new JComboBox[1];
         final java.util.Set<String> digitsDashFields = new java.util.LinkedHashSet<>(
             java.util.Arrays.asList("Phone:", "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:"));
         final java.util.Set<String> currencyFields = new java.util.LinkedHashSet<>(
             java.util.Arrays.asList("Basic Salary:", "Rice Subsidy:", "Phone Allowance:",
                     "Clothing Allowance:"));
+        final java.util.Set<String> nameFields = new java.util.LinkedHashSet<>(
+            java.util.Arrays.asList("Last Name:", "First Name:"));
 
         for (String[] row : sections) {
             if (row.length == 1) {
@@ -8598,6 +8648,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 }
                 boolean needsDigitsDashCheck = digitsDashFields.contains(row[0]);
                 boolean needsCurrencyCheck = currencyFields.contains(row[0]);
+                boolean needsNameFieldValidation = nameFields.contains(row[0]);
                 if (needsDigitsDashCheck) {
                     JLabel errLbl = new JLabel("Use digits and dashes only.");
                     errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
@@ -8616,12 +8667,21 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
                     attachCurrencyValidation(tf, errLbl);
+                } else if (needsNameFieldValidation) {
+                    JLabel errLbl = new JLabel("");
+                    errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+                    errLbl.setForeground(new Color(200, 40, 40));
+                    errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
+                    errLbl.setVisible(false);
+                    form.add(errLbl);
+                    errorLabels.put(row[0], errLbl);
+                    attachNameFieldValidation(tf, errLbl, row[0]);
                 } else if ("Gross Semi-monthly:".equals(row[0])) {
                     attachNumericValidation(tf);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
-                fy += rowH + rowGap + ((needsDigitsDashCheck || needsCurrencyCheck) ? 16 : 0);
+                fy += rowH + rowGap + ((needsDigitsDashCheck || needsCurrencyCheck || needsNameFieldValidation) ? 16 : 0);
             }
         }
         for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
@@ -8682,26 +8742,11 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             resetEditPopupFieldBorders(fieldMap);
 
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
-            JTextField saveLastNameField = fieldMap.get("Last Name:");
-            JTextField saveFirstNameField = fieldMap.get("First Name:");
-            String originalLastNameValue = safeColumn(emp, EmployeeModule.LAST_NAME);
-            String originalFirstNameValue = safeColumn(emp, EmployeeModule.FIRST_NAME);
-            String currentLastNameValue = saveLastNameField == null || saveLastNameField.getText() == null
-                    ? "" : saveLastNameField.getText().trim();
-            String currentFirstNameValue = saveFirstNameField == null || saveFirstNameField.getText() == null
-                    ? "" : saveFirstNameField.getText().trim();
-            if (isEditPopupNameValueChanged(currentLastNameValue, originalLastNameValue)
-                    && !isNameTextValid(currentLastNameValue)) {
-                validationErrors.add("Last Name must contain letters, spaces, hyphens, and apostrophes only.");
-            }
-            if (isEditPopupNameValueChanged(currentFirstNameValue, originalFirstNameValue)
-                    && !isNameTextValid(currentFirstNameValue)) {
-                validationErrors.add("First Name must contain letters, spaces, hyphens, and apostrophes only.");
-            }
             validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
+            validationErrors = reorderEditPopupErrors(validationErrors);
             validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
 
-            markEditPopupFieldErrors(validationErrors, fieldMap);
+            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
             applyEditPopupNameFieldBorders(fieldMap, emp);
 
             if (!validationErrors.isEmpty()) {
@@ -8817,8 +8862,8 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
-        final JComboBox<String>[] deptComboRef = new JComboBox[1];
-        final JComboBox<String>[] posComboRef = new JComboBox[1];
+        final JComboBox[] deptComboRef = new JComboBox[1];
+        final JComboBox[] posComboRef = new JComboBox[1];
 
         for (String[] row : sections) {
             if (row.length == 1) {
@@ -8972,7 +9017,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             resetEditPopupFieldBorders(fieldMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -9331,6 +9376,60 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 refresh();
             }
         });
+    }
+
+    private static void attachNameFieldValidation(JTextField tf, JLabel errorLabel, String fieldLabel) {
+        if (tf == null) {
+            return;
+        }
+        tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void refresh() {
+                checkNameFieldValidation(tf, errorLabel, fieldLabel);
+            }
+
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+        });
+    }
+
+    private static boolean checkNameFieldValidation(JTextField field, JLabel errorLabel,
+            String fieldLabel) {
+        if (field == null) {
+            return true;
+        }
+        String text = field.getText() == null ? "" : field.getText().trim();
+        if (text.isEmpty()) {
+            resetPopupFieldBorder(field);
+            if (errorLabel != null) {
+                errorLabel.setVisible(false);
+            }
+            return true;
+        }
+        boolean valid = isNameTextValid(text);
+        if (valid) {
+            setPopupFieldValid(field);
+            if (errorLabel != null) {
+                errorLabel.setVisible(false);
+            }
+        } else {
+            setPopupFieldError(field);
+            if (errorLabel != null) {
+                errorLabel.setText(fieldLabel.startsWith("Last Name")
+                        ? "Last Name must contain letters, spaces, hyphens and apostrophes only."
+                        : "First Name must contain letters, spaces, hyphens and apostrophes only.");
+                errorLabel.setVisible(true);
+            }
+        }
+        return valid;
     }
 
     private static void attachCurrencyValidation(JTextField tf, JLabel errorLabel) {
@@ -12153,7 +12252,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         hdrStrip.setBackground(TEXT_DARK_NAVY);
         hdrStrip.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
 
-        JLabel hdrLbl = new JLabel("Payroll Summary  ·  " + mn + " " + yr + "  ·  " + n + " employees");
+        JLabel hdrLbl = new JLabel("Payroll Summary  ·  " + mn + " " + yr);
         hdrLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
         hdrLbl.setForeground(PALETTE_WHITE);
         hdrStrip.add(hdrLbl, java.awt.BorderLayout.WEST);
