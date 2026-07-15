@@ -97,10 +97,10 @@ public class EmployeeRecordsModule {
             errors.add("Phone number must contain digits and dashes only.");
         }
 
-        validateDigitsAndDashes(form.sss, "SSS Number", errors);
-        validateDigitsAndDashes(form.philHealth, "PhilHealth Number", errors);
-        validateDigitsAndDashes(form.tin, "TIN Number", errors);
-        validateDigitsAndDashes(form.pagIbig, "Pag-IBIG Number", errors);
+        validateDigitsAndDashes(form.sss, "SSS Number", 10, errors);
+        validateDigitsAndDashes(form.philHealth, "PhilHealth Number", 12, errors);
+        validateDigitsAndDashes(form.tin, "TIN Number", 12, errors);
+        validateDigitsAndDashes(form.pagIbig, "Pag-IBIG Number", 12, errors);
 
         if (isBlank(form.status)) errors.add("Status is required.");
         if (isBlank(form.position)) errors.add("Position is required.");
@@ -429,15 +429,54 @@ public class EmployeeRecordsModule {
         }
     }
 
-    /** Ensures a government ID style field contains digits and dashes only. */
-    private static void validateDigitsAndDashes(String value, String displayName, java.util.Set<String> errors) {
+    /** Ensures a government ID style field contains only digits and dashes and respects digit limits. */
+    private static void validateDigitsAndDashes(String value, String displayName,
+            int digitLimit, java.util.Set<String> errors) {
         if (isBlank(value)) {
             errors.add(displayName + " is required.");
             return;
         }
-        if (!value.trim().matches("[0-9\\-]+")) {
-            errors.add(displayName + " must contain digits and dashes only.");
+        String trimmed = value.trim();
+        int digits = 0;
+        boolean validChars = true;
+        for (int i = 0; i < trimmed.length(); i++) {
+            char ch = trimmed.charAt(i);
+            if (Character.isDigit(ch)) {
+                digits++;
+            } else if (ch == '-') {
+                // allowed separator
+            } else {
+                validChars = false;
+                break;
+            }
         }
+        if (!validChars || digits > digitLimit) {
+            if ("SSS Number".equals(displayName)) {
+                errors.add("SSS Number must use numbers and hyphens only. It must not exceed 10 numbers.");
+            } else if ("TIN Number".equals(displayName)) {
+                errors.add("TIN Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+            } else if ("PhilHealth Number".equals(displayName)) {
+                errors.add("Philhealth Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+            } else if ("Pag-IBIG Number".equals(displayName)) {
+                errors.add("PAGIBIG Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+            } else {
+                errors.add("Use numbers, and hyphens only. This must not exceed "
+                        + digitLimit + " numbers.");
+            }
+        }
+    }
+
+    private static int countDigits(String value) {
+        if (value == null) {
+            return 0;
+        }
+        int count = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isDigit(value.charAt(i))) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

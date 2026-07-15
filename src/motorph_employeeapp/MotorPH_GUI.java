@@ -7887,10 +7887,20 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
     }
 
     private static boolean isDigitsAndDashesOnly(String text) {
-        return text == null || text.trim().matches("[0-9-]*");
+        if (text == null) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (!Character.isDigit(ch) && ch != '-') {
+                return false;
+            }
+        }
+        return true;
     }
 
-    private static boolean checkFieldValidation(JTextField field, JLabel errorLabel) {
+    private static boolean checkFieldValidation(JTextField field, JLabel errorLabel,
+            String fieldLabel) {
         if (field == null) {
             return true;
         }
@@ -7902,21 +7912,81 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             }
             return true;
         }
-        boolean valid = isDigitsAndDashesOnly(text);
+        boolean validChars = isDigitsAndDashesOnly(text);
+        int digitCount = countDigits(text);
+        int limit = govIdDigitLimit(fieldLabel);
+        boolean tooManyDigits = limit > 0 && digitCount > limit;
+        boolean valid = validChars && !tooManyDigits;
         if (valid) {
             setPopupFieldValid(field);
             if (errorLabel != null) {
                 errorLabel.setVisible(false);
-                errorLabel.setText("Use digits and dashes only.");
             }
         } else {
             setPopupFieldError(field);
             if (errorLabel != null) {
+                if ("SSS #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers, and hyphens only. This must not exceed 10 numbers.");
+                } else if ("PhilHealth #:".equals(fieldLabel)
+                        || "TIN #:".equals(fieldLabel)
+                        || "Pag-IBIG #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers, and hyphens only. This must not exceed 12 numbers.");
+                } else if ("Phone:".equals(fieldLabel)) {
+                    errorLabel.setText("Use digits and dashes only.");
+                } else {
+                    errorLabel.setText("Use digits and dashes only.");
+                }
                 errorLabel.setVisible(true);
-                errorLabel.setText("Use digits and dashes only.");
             }
         }
         return valid;
+    }
+
+    private static int countDigits(String value) {
+        if (value == null) {
+            return 0;
+        }
+        int count = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isDigit(value.charAt(i))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int govIdDigitLimit(String fieldLabel) {
+        if ("SSS #:".equals(fieldLabel)) {
+            return 10;
+        }
+        if ("PhilHealth #:".equals(fieldLabel)
+                || "TIN #:".equals(fieldLabel)
+                || "Pag-IBIG #:".equals(fieldLabel)) {
+            return 12;
+        }
+        return -1;
+    }
+
+    private static void markGovIdPopupField(JTextField field, JLabel errorLabel,
+            int digitLimit) {
+        if (field == null) {
+            return;
+        }
+        String text = field.getText() == null ? "" : field.getText().trim();
+        if (text.isEmpty()) {
+            return;
+        }
+        boolean validChars = isDigitsAndDashesOnly(text);
+        int digits = countDigits(text);
+        if (!validChars || digits > digitLimit) {
+            setPopupFieldError(field);
+            if (errorLabel != null) {
+                errorLabel.setText(digitLimit == 10
+                        ? "This must not exceed 10 numbers."
+                        : "This must not exceed 12 numbers.");
+                errorLabel.setVisible(true);
+            }
+        }
     }
 
     private static boolean isCurrencyValueValid(String text) {
@@ -8236,14 +8306,10 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 setPopupFieldError(fieldMap.get("Address:"));
             if (err.contains("Phone"))
                 setPopupFieldError(fieldMap.get("Phone:"));
-            if (err.contains("SSS"))
-                setPopupFieldError(fieldMap.get("SSS #:"));
-            if (err.contains("PhilHealth"))
-                setPopupFieldError(fieldMap.get("PhilHealth #:"));
-            if (err.contains("TIN"))
-                setPopupFieldError(fieldMap.get("TIN #:"));
-            if (err.contains("Pag-IBIG"))
-                setPopupFieldError(fieldMap.get("Pag-IBIG #:"));
+            markGovIdPopupField(fieldMap.get("SSS #:"), errorLabels.get("SSS #:"), 10);
+            markGovIdPopupField(fieldMap.get("PhilHealth #:"), errorLabels.get("PhilHealth #:"), 12);
+            markGovIdPopupField(fieldMap.get("TIN #:"), errorLabels.get("TIN #:"), 12);
+            markGovIdPopupField(fieldMap.get("Pag-IBIG #:"), errorLabels.get("Pag-IBIG #:"), 12);
             if (err.contains("Department"))
                 setPopupFieldError(fieldMap.get("Department:"));
             if (err.contains("Position"))
@@ -8262,6 +8328,37 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
             if (err.contains("Hourly Rate"))
                 setPopupFieldError(fieldMap.get("Hourly Rate:"));
+        }
+        applyGovIdSubmitValidation(fieldMap, errorLabels);
+    }
+
+    private static void applyGovIdSubmitValidation(java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JLabel> errorLabels) {
+        validateGovIdSubmitField(fieldMap.get("SSS #:"), errorLabels.get("SSS #:"), 10);
+        validateGovIdSubmitField(fieldMap.get("PhilHealth #:"), errorLabels.get("PhilHealth #:"), 12);
+        validateGovIdSubmitField(fieldMap.get("TIN #:"), errorLabels.get("TIN #:"), 12);
+        validateGovIdSubmitField(fieldMap.get("Pag-IBIG #:"), errorLabels.get("Pag-IBIG #:"), 12);
+    }
+
+    private static void validateGovIdSubmitField(JTextField field, JLabel errorLabel,
+            int digitLimit) {
+        if (field == null) {
+            return;
+        }
+        String text = field.getText() == null ? "" : field.getText().trim();
+        if (text.isEmpty()) {
+            return;
+        }
+        boolean validChars = isDigitsAndDashesOnly(text);
+        int digits = countDigits(text);
+        if (!validChars || digits > digitLimit) {
+            setPopupFieldError(field);
+            if (errorLabel != null) {
+                errorLabel.setText(digitLimit == 10
+                        ? "Use numbers, and hyphens only. This must not exceed 10 numbers."
+                        : "Use numbers, and hyphens only. This must not exceed 12 numbers.");
+                errorLabel.setVisible(true);
+            }
         }
     }
 
@@ -8650,14 +8747,14 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 boolean needsCurrencyCheck = currencyFields.contains(row[0]);
                 boolean needsNameFieldValidation = nameFields.contains(row[0]);
                 if (needsDigitsDashCheck) {
-                    JLabel errLbl = new JLabel("Use digits and dashes only.");
+                    JLabel errLbl = new JLabel("");
                     errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
                     errLbl.setForeground(new Color(200, 40, 40));
                     errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
                     errLbl.setVisible(false);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    attachDigitsAndDashesValidation(tf, errLbl);
+                    attachDigitsAndDashesValidation(tf, errLbl, row[0]);
                 } else if (needsCurrencyCheck) {
                     JLabel errLbl = new JLabel("Use numbers, commas, and periods only.");
                     errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
@@ -9354,14 +9451,15 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         return btn;
     }
 
-    private static void attachDigitsAndDashesValidation(JTextField tf, JLabel errorLabel) {
+    private static void attachDigitsAndDashesValidation(JTextField tf, JLabel errorLabel,
+            String fieldLabel) {
         if (tf == null) {
             return;
         }
         tf.setToolTipText("Use digits and dashes only");
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
-                checkFieldValidation(tf, errorLabel);
+                checkFieldValidation(tf, errorLabel, fieldLabel);
             }
 
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
