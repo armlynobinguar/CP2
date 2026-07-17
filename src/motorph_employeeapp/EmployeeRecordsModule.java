@@ -207,11 +207,11 @@ public class EmployeeRecordsModule {
         public String address;
         /** Contact phone (CSV column {@link EmployeeModule#PHONE}). */
         public String phone;
-        /** SSS membership number, format XX-XXXXXXX-X (CSV column {@link EmployeeModule#SSS}). */
+        /** SSS membership number (CSV column {@link EmployeeModule#SSS}). */
         public String sss;
         /** PhilHealth number (CSV column {@link EmployeeModule#PHILHEALTH}). */
         public String philHealth;
-        /** BIR TIN, format XXX-XXX-XXX-XXX (CSV column {@link EmployeeModule#TIN}). */
+        /** BIR TIN, format  (CSV column {@link EmployeeModule#TIN}). */
         public String tin;
         /** Pag-IBIG number (CSV column {@link EmployeeModule#PAGIBIG}). */
         public String pagIbig;

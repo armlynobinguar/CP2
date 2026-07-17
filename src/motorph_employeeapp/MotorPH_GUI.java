@@ -778,7 +778,7 @@ public class MotorPH_GUI {
         javax.swing.text.StyleConstants.setForeground(rsNet, new Color(22, 130, 70));
 
         rsDeduct = richPane.addStyle("deduct", rsNormal);
-        javax.swing.text.StyleConstants.setForeground(rsDeduct, new Color(180, 60, 40));
+        javax.swing.text.StyleConstants.setForeground(rsDeduct, TEXT_DARK_NAVY);
 
         rpSet("Select employees and click Calculate Payroll to view payslip details.", rsMuted);
     }
@@ -814,39 +814,123 @@ public class MotorPH_GUI {
         if (richPane == null || !SalaryComputationModule.lastCalculationSucceeded) {
             return;
         }
-        rpAppend("  " + id + "  ·  " + name + "  \n", rsHeader);
+        richPane.setText("");
+        javax.swing.JPanel panel = buildSinglePayrollOutputPanel(id, name);
+        richPane.insertComponent(panel);
         rpAppend("\n", rsNormal);
-        rpAppend("  1ST CUTOFF (Days 1–15)\n", rsSectionTitle);
-        rpAppend("  Period:   " + SalaryComputationModule.lastMonthName + " 1–15, "
-                + SalaryComputationModule.lastYear + "\n", rsMuted);
-        rpAppend("  Hours:    " + String.format("%.2f", SalaryComputationModule.lastHoursFirst) + "\n",
-                rsNormal);
-        rpAppend("  Gross:    PHP " + String.format("%,.2f", SalaryComputationModule.lastGrossFirst) + "\n",
-                rsNormal);
-        rpAppend("  Net Pay:  ", rsBold);
-        rpAppend("PHP " + String.format("%,.2f", SalaryComputationModule.lastNetFirst) + "\n\n", rsNet);
+    }
 
-        rpAppend("  2ND CUTOFF (Days 16–31)\n", rsSectionTitle);
-        rpAppend("  Period:   " + SalaryComputationModule.lastMonthName + " 16–31, "
-                + SalaryComputationModule.lastYear + "\n", rsMuted);
-        rpAppend("  Hours:    " + String.format("%.2f", SalaryComputationModule.lastHoursSecond) + "\n",
-                rsNormal);
-        rpAppend("  Gross:    PHP " + String.format("%,.2f", SalaryComputationModule.lastGrossSecond) + "\n",
-                rsNormal);
-        rpAppend("  Deductions\n", rsBold);
-        rpAppend("    SSS:             PHP " + String.format("%,.2f", SalaryComputationModule.lastSss) + "\n",
-                rsDeduct);
-        rpAppend("    PhilHealth:      PHP " + String.format("%,.2f", SalaryComputationModule.lastPhilHealth)
-                + "\n", rsDeduct);
-        rpAppend("    Pag-IBIG:        PHP " + String.format("%,.2f", SalaryComputationModule.lastPagIbig) + "\n",
-                rsDeduct);
-        rpAppend("    Withholding Tax: PHP " + String.format("%,.2f", SalaryComputationModule.lastTax) + "\n",
-                rsDeduct);
-        rpAppend("  Total Deductions: PHP "
-                + String.format("%,.2f", SalaryComputationModule.lastTotalDeductions) + "\n", rsBold);
-        rpAppend("  Net Pay:  ", rsBold);
-        rpAppend("PHP " + String.format("%,.2f", SalaryComputationModule.lastNetSecond) + "\n", rsNet);
-        rpAppend("\n", rsNormal);
+    private static JPanel buildSinglePayrollOutputPanel(String id, String name) {
+        int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
+        int headerH = 84;
+        int gap = 12;
+        JPanel wrapper = new JPanel(null);
+        wrapper.setBackground(INPUT_BG);
+
+        JPanel header = new JPanel(null);
+        header.setBackground(ACCENT_BLUE);
+        header.setBounds(0, 0, pw, headerH);
+        JLabel nameLbl = new JLabel(name);
+        nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        nameLbl.setForeground(Color.WHITE);
+        nameLbl.setBounds(16, 20, pw - 32, 24);
+        header.add(nameLbl);
+        JLabel idLbl = new JLabel("Employee #" + id);
+        idLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        idLbl.setForeground(new Color(220, 236, 255));
+        idLbl.setBounds(16, 46, pw - 32, 16);
+        header.add(idLbl);
+        wrapper.add(header);
+
+        JPanel firstCard = buildSinglePayrollCutoffCard(
+                "1ST CUTOFF (Days 1–15)",
+                SalaryComputationModule.lastMonthName + " 1–15, " + SalaryComputationModule.lastYear,
+                SalaryComputationModule.lastHoursFirst,
+                SalaryComputationModule.lastGrossFirst,
+                SalaryComputationModule.lastNetFirst,
+                false,
+                0, 0, 0, 0, 0);
+        int firstY = headerH + gap;
+        firstCard.setBounds(0, firstY, pw, firstCard.getPreferredSize().height);
+        wrapper.add(firstCard);
+
+        JPanel secondCard = buildSinglePayrollCutoffCard(
+                "2ND CUTOFF (Days 16–31)",
+                SalaryComputationModule.lastMonthName + " 16–31, " + SalaryComputationModule.lastYear,
+                SalaryComputationModule.lastHoursSecond,
+                SalaryComputationModule.lastGrossSecond,
+                SalaryComputationModule.lastNetSecond,
+                true,
+                SalaryComputationModule.lastSss,
+                SalaryComputationModule.lastPhilHealth,
+                SalaryComputationModule.lastPagIbig,
+                SalaryComputationModule.lastTax,
+                SalaryComputationModule.lastTotalDeductions);
+        int secondY = firstY + firstCard.getPreferredSize().height + gap;
+        secondCard.setBounds(0, secondY, pw, secondCard.getPreferredSize().height);
+        wrapper.add(secondCard);
+
+        int totalH = secondY + secondCard.getPreferredSize().height;
+        wrapper.setPreferredSize(new java.awt.Dimension(pw, totalH));
+        return wrapper;
+    }
+
+    private static JPanel buildSinglePayrollCutoffCard(String title, String period, double hours,
+            double gross, double netPay, boolean includeDeductions,
+            double sss, double philHealth, double pagIbig, double tax,
+            double totalDeductions) {
+        int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
+        JPanel card = new JPanel(null);
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(229, 232, 238), 1),
+                        BorderFactory.createMatteBorder(0, 4, 0, 0, ACCENT_BLUE)),
+                BorderFactory.createEmptyBorder(14, 14, 14, 14)));
+
+        JLabel titleLbl = new JLabel(title);
+        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        titleLbl.setForeground(ACCENT_BLUE);
+        titleLbl.setBounds(10, 10, pw - 60, 18);
+        card.add(titleLbl);
+
+        JLabel periodLbl = new JLabel(period);
+        periodLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        periodLbl.setForeground(TEXT_MUTED);
+        periodLbl.setBounds(10, 32, pw - 60, 16);
+        card.add(periodLbl);
+
+        int y = 56;
+        y = addSinglePayrollRow(card, y, "Hours", String.format("%.2f", hours), false, null);
+        y = addSinglePayrollRow(card, y, "Gross", "PHP " + String.format("%,.2f", gross), false, null);
+        if (includeDeductions) {
+            y = addSinglePayrollRow(card, y, "SSS", "PHP " + String.format("%,.2f", sss), false, null);
+            y = addSinglePayrollRow(card, y, "PhilHealth", "PHP " + String.format("%,.2f", philHealth), false, null);
+            y = addSinglePayrollRow(card, y, "Pag-IBIG", "PHP " + String.format("%,.2f", pagIbig), false, null);
+            y = addSinglePayrollRow(card, y, "Withholding Tax", "PHP " + String.format("%,.2f", tax), false, null);
+            y = addSinglePayrollRow(card, y, "Total Deductions", "PHP " + String.format("%,.2f", totalDeductions), true, TEXT_DARK_NAVY);
+        }
+        y = addSinglePayrollRow(card, y, "Net Pay", "PHP " + String.format("%,.2f", netPay), true,
+                new Color(22, 130, 70));
+
+        card.setPreferredSize(new java.awt.Dimension(pw, y + 6));
+        return card;
+    }
+
+    private static int addSinglePayrollRow(JPanel panel, int y, String labelText, String valueText,
+            boolean boldValue, Color valueColor) {
+        JLabel keyLbl = new JLabel(labelText + ":");
+        keyLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        keyLbl.setForeground(TEXT_MUTED);
+        keyLbl.setBounds(10, y, 142, 18);
+        panel.add(keyLbl);
+
+        JLabel valueLbl = new JLabel(valueText);
+        valueLbl.setFont(new Font("Segoe UI", boldValue ? Font.BOLD : Font.PLAIN, 12));
+        valueLbl.setForeground(valueColor != null ? valueColor : TEXT_DARK_NAVY);
+        valueLbl.setBounds(162, y, 220, 18);
+        panel.add(valueLbl);
+        return y + 22;
     }
 
     private static void rpRenderSkippedEmployee(String id, String name) {
@@ -7479,7 +7563,10 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         inner.add(lblAddr);
         y += 18;
 
-        JTextField fldAddress = new JTextField(safeColumn(emp, EmployeeModule.ADDRESS));
+        final String originalAddress = safeColumn(emp, EmployeeModule.ADDRESS);
+        final String originalPhone = safeColumn(emp, EmployeeModule.PHONE);
+
+        JTextField fldAddress = new JTextField(originalAddress);
         fldAddress.setBounds(padX, y, contentW, FIELD_HEIGHT);
         styleInputField(fldAddress);
         inner.add(fldAddress);
@@ -7492,10 +7579,17 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         inner.add(lblPhone);
         y += 18;
 
-        JTextField fldPhone = new JTextField(safeColumn(emp, EmployeeModule.PHONE));
+        JTextField fldPhone = new JTextField(originalPhone);
         fldPhone.setBounds(padX, y, singleColumn ? contentW : halfW, FIELD_HEIGHT);
         styleInputField(fldPhone);
         inner.add(fldPhone);
+
+        JLabel lblPhoneWarning = new JLabel("Use numbers, and hyphens only.");
+        lblPhoneWarning.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblPhoneWarning.setForeground(new Color(180, 60, 40));
+        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 4, singleColumn ? contentW : halfW, 16);
+        lblPhoneWarning.setVisible(false);
+        inner.add(lblPhoneWarning);
         y += FIELD_HEIGHT + 24;
 
         // Buttons
@@ -7518,6 +7612,41 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         btnBack.addActionListener(e -> showDashboard());
         inner.add(btnBack);
 
+        fldAddress.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void refresh() {
+                String current = fldAddress.getText();
+                if (current.equals(originalAddress)) {
+                    fldAddress.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+                } else {
+                    fldAddress.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+                }
+            }
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+        });
+
+        fldPhone.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void refresh() {
+                String current = fldPhone.getText();
+                boolean valid = current.matches("^[0-9-]*$");
+                if (!valid) {
+                    fldPhone.setBorder(BorderFactory.createLineBorder(new Color(180, 60, 40), 2));
+                    lblPhoneWarning.setVisible(true);
+                } else {
+                    lblPhoneWarning.setVisible(false);
+                    if (current.equals(originalPhone)) {
+                        fldPhone.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+                    } else {
+                        fldPhone.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+                    }
+                }
+            }
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refresh(); }
+        });
+
         inner.setPreferredSize(new java.awt.Dimension(innerW, y));
 
         btnSave.addActionListener(e -> {
@@ -7528,6 +7657,9 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                 errs.add("Address cannot be empty.");
             if (newPhone.isEmpty())
                 errs.add("Phone number cannot be empty.");
+            if (!newPhone.matches("^[0-9-]*$")) {
+                errs.add("Phone number may only contain digits and hyphens.");
+            }
             if (!errs.isEmpty()) {
                 showBulletErrorDialog(frame, errs, "Validation Error", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -7932,9 +8064,9 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                         || "Pag-IBIG #:".equals(fieldLabel)) {
                     errorLabel.setText("Use numbers, and hyphens only. This must not exceed 12 numbers.");
                 } else if ("Phone:".equals(fieldLabel)) {
-                    errorLabel.setText("Use digits and dashes only.");
+                    errorLabel.setText("Use numbers, and hyphens only.");
                 } else {
-                    errorLabel.setText("Use digits and dashes only.");
+                    errorLabel.setText("Use numbers, and hyphens only.");
                 }
                 errorLabel.setVisible(true);
             }
