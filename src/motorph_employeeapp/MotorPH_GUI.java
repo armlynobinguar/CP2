@@ -901,16 +901,16 @@ public class MotorPH_GUI {
         card.add(periodLbl);
 
         int y = 56;
-        y = addSinglePayrollRow(card, y, "Hours", String.format("%.2f", hours), false, null);
-        y = addSinglePayrollRow(card, y, "Gross", "PHP " + String.format("%,.2f", gross), false, null);
+        y = addSinglePayrollRow(card, y, "Hours", String.format("%.2f", hours), false, false, null);
+        y = addSinglePayrollRow(card, y, "Gross", "PHP " + String.format("%,.2f", gross), false, false, null);
         if (includeDeductions) {
-            y = addSinglePayrollRow(card, y, "SSS", "PHP " + String.format("%,.2f", sss), false, null);
-            y = addSinglePayrollRow(card, y, "PhilHealth", "PHP " + String.format("%,.2f", philHealth), false, null);
-            y = addSinglePayrollRow(card, y, "Pag-IBIG", "PHP " + String.format("%,.2f", pagIbig), false, null);
-            y = addSinglePayrollRow(card, y, "Withholding Tax", "PHP " + String.format("%,.2f", tax), false, null);
-            y = addSinglePayrollRow(card, y, "Total Deductions", "PHP " + String.format("%,.2f", totalDeductions), true, TEXT_DARK_NAVY);
+            y = addSinglePayrollRow(card, y, "SSS", "PHP " + String.format("%,.2f", sss), false, true, null);
+            y = addSinglePayrollRow(card, y, "PhilHealth", "PHP " + String.format("%,.2f", philHealth), false, true, null);
+            y = addSinglePayrollRow(card, y, "Pag-IBIG", "PHP " + String.format("%,.2f", pagIbig), false, true, null);
+            y = addSinglePayrollRow(card, y, "Withholding Tax", "PHP " + String.format("%,.2f", tax), false, true, null);
+            y = addSinglePayrollRow(card, y, "Total Deductions", "PHP " + String.format("%,.2f", totalDeductions), true, false, TEXT_DARK_NAVY);
         }
-        y = addSinglePayrollRow(card, y, "Net Pay", "PHP " + String.format("%,.2f", netPay), true,
+        y = addSinglePayrollRow(card, y, "Net Pay", "PHP " + String.format("%,.2f", netPay), true, false,
                 new Color(22, 130, 70));
 
         card.setPreferredSize(new java.awt.Dimension(pw, y + 6));
@@ -918,11 +918,11 @@ public class MotorPH_GUI {
     }
 
     private static int addSinglePayrollRow(JPanel panel, int y, String labelText, String valueText,
-            boolean boldValue, Color valueColor) {
+            boolean boldValue, boolean indent, Color valueColor) {
         JLabel keyLbl = new JLabel(labelText + ":");
         keyLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         keyLbl.setForeground(TEXT_MUTED);
-        keyLbl.setBounds(10, y, 142, 18);
+        keyLbl.setBounds(indent ? 26 : 10, y, 142, 18);
         panel.add(keyLbl);
 
         JLabel valueLbl = new JLabel(valueText);
@@ -980,7 +980,7 @@ public class MotorPH_GUI {
 
         JLabel idLbl = new JLabel("Employee #" + s.employeeId);
         idLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        idLbl.setForeground(new Color(220, 236, 255));
+        idLbl.setForeground(java.awt.Color.WHITE);
         idLbl.setBounds(16, 38, pw - 120, 18);
         header.add(idLbl);
 
@@ -1009,7 +1009,7 @@ public class MotorPH_GUI {
             { "Period", formatBatchCutoffPeriod(s.monthName, s.year, 1, 15) },
             { "Hours", String.format("%.2f", s.hoursFirst) },
             { "Gross", String.format("PHP %,.2f", s.grossFirst) },
-            { "Net Pay", String.format("<html><span style='color:#168246;font-weight:bold;'>PHP %,.2f</span></html>", s.grossFirst) }
+            { "Net Pay", String.format("PHP %,.2f", s.grossFirst) }
         }, pw);
         firstCutoff.setBounds(0, 0, pw, 154);
         details.add(firstCutoff);
@@ -1018,12 +1018,12 @@ public class MotorPH_GUI {
             { "Period", formatBatchCutoffPeriod(s.monthName, s.year, 16, 31) },
             { "Hours", String.format("%.2f", s.hoursSecond) },
             { "Gross", String.format("PHP %,.2f", s.grossSecond) },
-            { "<html>&nbsp;&nbsp;&nbsp;SSS</html>", String.format("PHP %,.2f", s.sss) },
-            { "<html>&nbsp;&nbsp;&nbsp;PhilHealth</html>", String.format("PHP %,.2f", s.philHealth) },
-            { "<html>&nbsp;&nbsp;&nbsp;Pag-IBIG</html>", String.format("PHP %,.2f", s.pagIbig) },
-            { "<html>&nbsp;&nbsp;&nbsp;Withholding Tax</html>", String.format("PHP %,.2f", s.tax) },
-            { "<html>&nbsp;&nbsp;&nbsp;Total Deductions</html>", String.format("PHP %,.2f", s.totalDeductions) },
-            { "Net Pay", String.format("<html><span style='color:#168246;font-weight:bold;'>PHP %,.2f</span></html>", s.grossSecond - s.totalDeductions) }
+            { "SSS", String.format("PHP %,.2f", s.sss) },
+            { "PhilHealth", String.format("PHP %,.2f", s.philHealth) },
+            { "Pag-IBIG", String.format("PHP %,.2f", s.pagIbig) },
+            { "Withholding Tax", String.format("PHP %,.2f", s.tax) },
+            { "Total Deductions", String.format("PHP %,.2f", s.totalDeductions) },
+            { "Net Pay", String.format("PHP %,.2f", s.grossSecond - s.totalDeductions) }
         }, pw);
         secondCutoff.setBounds(0, 164, pw, 248);
         details.add(secondCutoff);
@@ -1067,7 +1067,7 @@ public class MotorPH_GUI {
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
-                header.setBackground(SIDEBAR_BG);
+                header.setBackground(ACCENT_BLUE);
             }
         });
 
@@ -1095,17 +1095,19 @@ public class MotorPH_GUI {
         int y = 42;
         for (String[] row : rows) {
             String keyText = row[0] == null ? "" : row[0];
-            boolean isHtmlKey = keyText.trim().toLowerCase().startsWith("<html>");
-            JLabel keyLbl = new JLabel(isHtmlKey ? keyText : keyText + ":");
-            keyLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            boolean isDeductionRow = keyText.equals("SSS") || keyText.equals("PhilHealth")
+                    || keyText.equals("Pag-IBIG") || keyText.equals("Withholding Tax");
+            boolean isNetPayRow = keyText.equals("Net Pay");
+            JLabel keyLbl = new JLabel(keyText + (isNetPayRow ? "" : ":"));
+            keyLbl.setFont(new Font("Segoe UI", isDeductionRow ? Font.PLAIN : Font.BOLD, 11));
             keyLbl.setForeground(TEXT_MUTED);
-            keyLbl.setBounds(14, y, 156, 18);
+            keyLbl.setBounds(isDeductionRow ? 30 : 14, y, 156, 18);
             section.add(keyLbl);
 
             String valueText = row.length > 1 && row[1] != null && !row[1].trim().isEmpty() ? row[1] : "—";
             JLabel valueLbl = new JLabel(valueText);
-            valueLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-            valueLbl.setForeground(TEXT_DARK_NAVY);
+            valueLbl.setFont(new Font("Segoe UI", isNetPayRow ? Font.BOLD : Font.PLAIN, 12));
+            valueLbl.setForeground(isNetPayRow ? new Color(22, 130, 70) : TEXT_DARK_NAVY);
             valueLbl.setBounds(170, y, pw - 212, 18);
             section.add(valueLbl);
             y += 22;
