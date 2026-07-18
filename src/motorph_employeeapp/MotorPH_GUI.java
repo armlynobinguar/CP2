@@ -9590,7 +9590,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
         if (tf == null) {
             return;
         }
-        tf.setToolTipText("Use digits and dashes only");
+        tf.setToolTipText("Use numbers and hyphens only");
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
                 checkFieldValidation(tf, errorLabel, fieldLabel);
@@ -9739,7 +9739,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
             case "TIN #:":
             case "Pag-IBIG #:":
                 if (!value.matches("[0-9\\-]+"))
-                    return "Use digits and dashes only.";
+                    return "Use numbers and hyphens only.";
                 break;
             case "Basic Salary:":
             case "Rice Subsidy:":
@@ -9852,7 +9852,7 @@ private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModul
                                     tf.setBorder(BorderFactory.createCompoundBorder(
                                             BorderFactory.createLineBorder(new Color(200, 40, 40), 1),
                                             BorderFactory.createEmptyBorder(4, 8, 4, 8)));
-                                    errLbl.setText("Only digits are accepted — hyphens are added automatically.");
+                                    errLbl.setText("Only numbers are accepted. Hyphens are added automatically.");
                                 } else {
                                     tf.setBorder(BorderFactory.createCompoundBorder(
                                             BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
