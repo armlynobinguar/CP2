@@ -466,19 +466,6 @@ public class EmployeeRecordsModule {
         }
     }
 
-    private static int countDigits(String value) {
-        if (value == null) {
-            return 0;
-        }
-        int count = 0;
-        for (int i = 0; i < value.length(); i++) {
-            if (Character.isDigit(value.charAt(i))) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     /**
      * Pads a CSV row to {@link EmployeeModule#COLUMN_COUNT} and defaults empty allowance
      * columns to {@code "0"} so downstream payroll math never sees blank strings.
