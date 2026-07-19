@@ -25,7 +25,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: none
 
       - name: Verify bundled CSV resources exist
         run: |
