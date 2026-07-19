@@ -2288,10 +2288,15 @@ public class MotorPH_GUI {
 
         btnSubmit.addActionListener(e -> {
             String desc = txtDesc.getText().trim();
+            java.util.List<String> issueErrors = new java.util.ArrayList<>();
             if (desc.isEmpty()) {
-                JOptionPane.showMessageDialog(dlg,
-                        "Please describe the issue so HR can investigate.",
-                        "Description Required", JOptionPane.WARNING_MESSAGE);
+                issueErrors.add("Please describe the issue so HR can investigate.");
+            } else if (desc.length() < 10) {
+                issueErrors.add("Description must be at least 10 characters.");
+            }
+            if (!issueErrors.isEmpty()) {
+                showBulletErrorDialog(dlg, issueErrors, "Description Required",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String issueType = String.valueOf(cmbType.getSelectedItem());
@@ -2901,7 +2906,9 @@ public class MotorPH_GUI {
     /** Shows a success popup dialog and closes the specified dialog. */
     private static void showPopupSuccessAndClose(JDialog dialog, String toastMessage,
             String dialogMessage, String dialogTitle) {
-        dialog.dispose();
+        if (dialog != null) {
+            dialog.dispose();
+        }
         SwingUtilities.invokeLater(() -> {
             showToast(toastMessage);
             JOptionPane.showMessageDialog(frame, dialogMessage, dialogTitle,
@@ -4284,6 +4291,11 @@ public class MotorPH_GUI {
         // FocusListener)
         attachPlaceholder(usernameField, "Enter username");
 
+        JLabel lblUserError = new JLabel(" ");
+        lblUserError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblUserError.setForeground(new Color(200, 40, 40));
+        lblUserError.setBounds(32, 61 + FIELD_HEIGHT + 2, 292, 14);
+
         // Password row (61 + 36 + 20 = 117)
         JLabel lblPass = new JLabel("Password");
         lblPass.setFont(LOGIN_APP_FONT_BOLD);
@@ -4315,6 +4327,11 @@ public class MotorPH_GUI {
             }
         });
         passwordField.setBounds(32, 143, 292, FIELD_HEIGHT);
+
+        JLabel lblPassError = new JLabel(" ");
+        lblPassError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblPassError.setForeground(new Color(200, 40, 40));
+        lblPassError.setBounds(32, 143 + FIELD_HEIGHT + 2, 292, 14);
 
         final JCheckBox chkShowPassword = new JCheckBox("Show password");
         chkShowPassword.setBounds(32, 191, 292, 22);
@@ -4357,15 +4374,19 @@ public class MotorPH_GUI {
                 String pass = new String(passwordField.getPassword());
 
                 resetLoginFieldBorders();
+                lblUserError.setText(" ");
+                lblPassError.setText(" ");
 
                 List<String> loginErrors = new ArrayList<>();
 
                 if (user.isEmpty()) {
                     setLoginFieldError(usernameField);
+                    lblUserError.setText("Username is required.");
                     loginErrors.add("Username is required.");
                 }
                 if (pass.isEmpty()) {
                     setLoginFieldError(passwordField);
+                    lblPassError.setText("Password is required.");
                     loginErrors.add("Password is required.");
                 }
 
@@ -4425,8 +4446,10 @@ public class MotorPH_GUI {
 
         formPanel.add(lblUser);
         formPanel.add(usernameField);
+        formPanel.add(lblUserError);
         formPanel.add(lblPass);
         formPanel.add(passwordField);
+        formPanel.add(lblPassError);
         formPanel.add(chkShowPassword);
         formPanel.add(lblDemoHint);
         formPanel.add(btnLogin);
@@ -7033,6 +7056,7 @@ public class MotorPH_GUI {
             errors.add("Only year 2024 is currently supported.");
         }
         if (!errors.isEmpty()) {
+            showToast(errors.get(0), new Color(180, 90, 40));
             showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -8286,24 +8310,31 @@ public class MotorPH_GUI {
         btnSave.addActionListener(e -> {
             String newAddr = fldAddress.getText().trim();
             String newPhone = fldPhone.getText().trim();
-            List<String> errs = new ArrayList<>();
-            if (newAddr.isEmpty())
-                errs.add("Address cannot be empty.");
-            if (newPhone.isEmpty())
-                errs.add("Phone number cannot be empty.");
-            if (!newPhone.matches("^[0-9-]*$")) {
-                errs.add("Phone number may only contain digits and hyphens.");
-            }
-            if (!errs.isEmpty()) {
-                showBulletErrorDialog(frame, errs, "Validation Error", JOptionPane.WARNING_MESSAGE);
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
+                    EmployeeRecordsModule.validateProfileContact(newAddr, newPhone);
+            if (!errors.isEmpty()) {
+                for (EmployeeRecordsModule.FieldValidationError err : errors) {
+                    if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
+                        fldAddress.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+                    }
+                    if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
+                        fldPhone.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+                    }
+                }
+                showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
+                        "Validation Error", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             emp[EmployeeModule.ADDRESS] = newAddr;
             emp[EmployeeModule.PHONE] = newPhone;
             if (FileHandlerModule.updateEmployeeRecord(linkedId, emp)) {
-                showToast("Profile updated successfully.");
+                showPopupSuccessAndClose(null,
+                        "Profile updated successfully.",
+                        "Your address and phone number were saved successfully.",
+                        "Save Successful");
             } else {
-                showToast("Failed to save changes.", new Color(180, 90, 40));
+                showToast("Failed to save changes. The file may be open in another program.",
+                        new Color(180, 90, 40));
             }
         });
 
@@ -8917,17 +8948,28 @@ public class MotorPH_GUI {
         return form;
     }
 
+    private static java.util.List<EmployeeRecordsModule.FieldValidationError> validateEmployeeEditPopupFields(
+            java.util.Map<String, JTextField> fieldMap, String originalId) {
+        return EmployeeRecordsModule.validateEditPopupFields(buildRecordFormFromPopup(fieldMap), originalId);
+    }
+
+    /** Validates the content of an employee add popup against specific criteria. */
+    private static java.util.List<EmployeeRecordsModule.FieldValidationError> validateEmployeeAddPopupFields(
+            java.util.Map<String, JTextField> fieldMap) {
+        return EmployeeRecordsModule.validateAddPopupFields(buildRecordFormFromPopup(fieldMap));
+    }
+
     /**
      * Validates the content of an employee edit popup against specific criteria.
      */
     private static List<String> validateEmployeeEditPopup(java.util.Map<String, JTextField> fieldMap,
             String originalId) {
-        return EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId);
+        return EmployeeRecordsModule.messagesFromErrors(validateEmployeeEditPopupFields(fieldMap, originalId));
     }
 
     /** Validates the content of an employee add popup against specific criteria. */
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
-        return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
+        return EmployeeRecordsModule.messagesFromErrors(validateEmployeeAddPopupFields(fieldMap));
     }
 
     /** Checks if a string represents a valid name text. */
@@ -9133,6 +9175,194 @@ public class MotorPH_GUI {
         }
     }
 
+    /** Marks invalid fields using structured field keys and updates the summary banner. */
+    private static void applyStructuredPopupErrors(
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JComboBox<?>> comboMap,
+            java.util.Map<String, JLabel> errorLabels,
+            JLabel validationSummary) {
+        updatePopupValidationSummary(validationSummary,
+                EmployeeRecordsModule.countDistinctFields(errors));
+        if (errors == null) {
+            return;
+        }
+        for (EmployeeRecordsModule.FieldValidationError error : errors) {
+            if (error == null) {
+                continue;
+            }
+            String label = EmployeeRecordsModule.popupLabelForFieldKey(error.fieldKey);
+            if (label.isEmpty()) {
+                continue;
+            }
+            JComboBox<?> combo = comboMap == null ? null : comboMap.get(label);
+            if (combo != null) {
+                setComboFieldError(combo);
+            } else {
+                JTextField tf = fieldMap.get(label);
+                if (tf != null) {
+                    setPopupFieldError(tf);
+                }
+            }
+            JLabel inline = errorLabels.get(label);
+            if (inline != null) {
+                inline.setText(error.message);
+                inline.setVisible(true);
+            }
+        }
+    }
+
+    private static void clearPopupValidationState(java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JComboBox<?>> comboMap,
+            java.util.Map<String, JLabel> errorLabels,
+            JLabel validationSummary) {
+        resetEditPopupFieldBorders(fieldMap);
+        if (comboMap != null) {
+            for (JComboBox<?> combo : comboMap.values()) {
+                resetComboFieldBorder(combo);
+            }
+        }
+        if (errorLabels != null) {
+            for (JLabel lbl : errorLabels.values()) {
+                if (lbl != null) {
+                    lbl.setVisible(false);
+                }
+            }
+        }
+        updatePopupValidationSummary(validationSummary, 0);
+    }
+
+    private static void setComboFieldError(JComboBox<?> combo) {
+        if (combo == null) {
+            return;
+        }
+        combo.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+    }
+
+    private static void resetComboFieldBorder(JComboBox<?> combo) {
+        if (combo == null) {
+            return;
+        }
+        combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+    }
+
+    private static void scrollPopupToFirstError(JScrollPane formScroll, JPanel form,
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JComboBox<?>> comboMap) {
+        if (errors == null || errors.isEmpty() || formScroll == null || form == null) {
+            return;
+        }
+        String label = EmployeeRecordsModule.popupLabelForFieldKey(errors.get(0).fieldKey);
+        java.awt.Component target = null;
+        if (comboMap != null && comboMap.get(label) != null) {
+            target = comboMap.get(label);
+        } else if (fieldMap != null) {
+            target = fieldMap.get(label);
+        }
+        if (target == null) {
+            return;
+        }
+        java.awt.Point loc = SwingUtilities.convertPoint(target.getParent(), target.getLocation(), form);
+        formScroll.getVerticalScrollBar().setValue(Math.max(0, loc.y - 24));
+        target.requestFocusInWindow();
+    }
+
+    private static String snapshotPopupForm(java.util.Map<String, JTextField> fieldMap) {
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
+            sb.append(entry.getKey()).append('=').append(getPopupFieldText(fieldMap, entry.getKey()))
+                    .append('|');
+        }
+        return sb.toString();
+    }
+
+    private static boolean confirmDiscardPopupChanges(JDialog dialog, String baseline,
+            java.util.Map<String, JTextField> fieldMap) {
+        if (baseline != null && baseline.equals(snapshotPopupForm(fieldMap))) {
+            return true;
+        }
+        return JOptionPane.showConfirmDialog(dialog,
+                "You have unsaved changes. Discard them?",
+                "Unsaved Changes",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
+    }
+
+    private static boolean confirmFormWarnings(java.awt.Component parent, java.util.List<String> warnings) {
+        if (warnings == null || warnings.isEmpty()) {
+            return true;
+        }
+        StringBuilder html = new StringBuilder(
+                "<html><b>Please review before saving:</b><ul>");
+        for (String warning : warnings) {
+            html.append("<li>").append(escapeHtml(warning)).append("</li>");
+        }
+        html.append("</ul>Save anyway?</html>");
+        return JOptionPane.showConfirmDialog(parent, html.toString(),
+                "Confirm Save",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
+    }
+
+    private static void wirePopupStructuredBlurValidation(String popupLabel, JTextField field,
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JComboBox<?>> comboMap,
+            java.util.Map<String, JLabel> errorLabels,
+            JLabel validationSummary,
+            boolean isUpdate, String originalId) {
+        if (field == null || !field.isEditable()) {
+            return;
+        }
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                String fieldKey = EmployeeRecordsModule.fieldKeyForPopupLabel(popupLabel);
+                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
+                java.util.List<EmployeeRecordsModule.FieldValidationError> fieldErrors =
+                        EmployeeRecordsModule.validateSingleField(fieldKey, formData, isUpdate, originalId);
+                if (fieldErrors.isEmpty()) {
+                    resetPopupFieldBorder(field);
+                    JLabel inline = errorLabels.get(popupLabel);
+                    if (inline != null) {
+                        inline.setVisible(false);
+                    }
+                    if (comboMap != null) {
+                        JComboBox<?> combo = comboMap.get(popupLabel);
+                        resetComboFieldBorder(combo);
+                    }
+                } else {
+                    applyStructuredPopupErrors(fieldErrors, fieldMap, comboMap, errorLabels, validationSummary);
+                }
+            }
+        });
+    }
+
+    private static void wireComboBlurValidation(JComboBox<?> combo, String popupLabel,
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JComboBox<?>> comboMap,
+            java.util.Map<String, JLabel> errorLabels,
+            JLabel validationSummary,
+            boolean isUpdate, String originalId) {
+        if (combo == null) {
+            return;
+        }
+        combo.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                String fieldKey = EmployeeRecordsModule.fieldKeyForPopupLabel(popupLabel);
+                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
+                java.util.List<EmployeeRecordsModule.FieldValidationError> fieldErrors =
+                        EmployeeRecordsModule.validateSingleField(fieldKey, formData, isUpdate, originalId);
+                if (fieldErrors.isEmpty()) {
+                    resetComboFieldBorder(combo);
+                } else {
+                    applyStructuredPopupErrors(fieldErrors, fieldMap, comboMap, errorLabels, validationSummary);
+                }
+            }
+        });
+    }
+
     /** Marks the fields in the edit popup that have validation errors. */
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap,
@@ -9140,65 +9370,19 @@ public class MotorPH_GUI {
         markEditPopupFieldErrors(errors, fieldMap, errorLabels, null);
     }
 
-    /** Marks invalid fields and optionally updates the validation summary banner. */
+    /** Legacy string-based highlighting; prefer {@link #applyStructuredPopupErrors}. */
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap,
             java.util.Map<String, JLabel> errorLabels,
             JLabel validationSummary) {
-        updatePopupValidationSummary(validationSummary, errors == null ? 0 : errors.size());
-        if (errors == null) {
-            return;
+        java.util.List<EmployeeRecordsModule.FieldValidationError> structured = new java.util.ArrayList<>();
+        if (errors != null) {
+            for (String message : errors) {
+                structured.add(new EmployeeRecordsModule.FieldValidationError(
+                        EmployeeRecordsModule.FieldKeys.GENERAL, message));
+            }
         }
-        for (String err : errors) {
-            if (err.contains("Employee Number") || err.contains("Employee #")) {
-                setPopupFieldError(fieldMap.get("Employee #:"));
-            }
-            if (err.contains("Last Name")) {
-                setPopupFieldError(fieldMap.get("Last Name:"));
-                JLabel lbl = errorLabels.get("Last Name:");
-                if (lbl != null) {
-                    lbl.setText("Last Name must contain letters, spaces, hyphens and apostrophes only.");
-                    lbl.setVisible(true);
-                }
-            }
-            if (err.contains("First Name")) {
-                setPopupFieldError(fieldMap.get("First Name:"));
-                JLabel lbl = errorLabels.get("First Name:");
-                if (lbl != null) {
-                    lbl.setText("First Name must contain letters, spaces, hyphens and apostrophes only.");
-                    lbl.setVisible(true);
-                }
-            }
-            if (err.contains("Birthday"))
-                setPopupFieldError(fieldMap.get("Birthday:"));
-            if (err.contains("Address"))
-                setPopupFieldError(fieldMap.get("Address:"));
-            if (err.contains("Phone"))
-                setPopupFieldError(fieldMap.get("Phone:"));
-            markGovIdPopupField(fieldMap.get("SSS #:"), errorLabels.get("SSS #:"), 10);
-            markGovIdPopupField(fieldMap.get("PhilHealth #:"), errorLabels.get("PhilHealth #:"), 12);
-            markGovIdPopupField(fieldMap.get("TIN #:"), errorLabels.get("TIN #:"), 12);
-            markGovIdPopupField(fieldMap.get("Pag-IBIG #:"), errorLabels.get("Pag-IBIG #:"), 12);
-            if (err.contains("Department"))
-                setPopupFieldError(fieldMap.get("Department:"));
-            if (err.contains("Position"))
-                setPopupFieldError(fieldMap.get("Position:"));
-            if (err.contains("Supervisor"))
-                setPopupFieldError(fieldMap.get("Supervisor:"));
-            if (err.contains("Basic Salary"))
-                setPopupFieldError(fieldMap.get("Basic Salary:"));
-            if (err.contains("Rice Subsidy"))
-                setPopupFieldError(fieldMap.get("Rice Subsidy:"));
-            if (err.contains("Phone Allowance"))
-                setPopupFieldError(fieldMap.get("Phone Allowance:"));
-            if (err.contains("Clothing Allowance"))
-                setPopupFieldError(fieldMap.get("Clothing Allowance:"));
-            if (err.contains("Gross Semi-monthly"))
-                setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
-            if (err.contains("Hourly Rate"))
-                setPopupFieldError(fieldMap.get("Hourly Rate:"));
-        }
-        applyGovIdSubmitValidation(fieldMap, errorLabels);
+        applyStructuredPopupErrors(structured, fieldMap, null, errorLabels, validationSummary);
     }
 
     private static void updatePopupValidationSummary(JLabel summaryLbl, int errorCount) {
@@ -9437,11 +9621,11 @@ public class MotorPH_GUI {
                 pushCsvSnapshotWithLog("REVERT", entry.employeeId, "Before revert of: " + entry.summary);
                 if (EmployeeRevisionModule.revert(entry)) {
                     refreshEmployeeTable();
-                    showToast("Employee records reverted successfully.");
-                    JOptionPane.showMessageDialog(dialog,
-                            "Employee records were restored to the selected revision.",
-                            "Revert Successful", JOptionPane.INFORMATION_MESSAGE);
-                    dialog.dispose();
+                    showPopupSuccessAndClose(dialog,
+                            "Employee records reverted successfully.",
+                            "Restored snapshot from " + entry.formattedTime() + ".\n"
+                                    + entry.summary + "\n\nThe employee table has been refreshed.",
+                            "Revert Successful");
                 } else {
                     JOptionPane.showMessageDialog(dialog,
                             "Could not revert to the selected revision.",
@@ -9525,6 +9709,7 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
         /** Reference to the department combo box in the edit popup. */
         final JComboBox[] deptComboRef = new JComboBox[1];
@@ -9567,6 +9752,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put("Status:", combo);
                     JTextField proxy = new JTextField((String) combo.getSelectedItem());
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -9591,6 +9777,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put("Department:", combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? dept : combo.getSelectedItem().toString());
@@ -9617,6 +9804,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put("Position:", combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? row[1] : combo.getSelectedItem().toString());
@@ -9727,6 +9915,18 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
+        final String popupBaseline = snapshotPopupForm(fieldMap);
+        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
+            wirePopupStructuredBlurValidation(entry.getKey(), entry.getValue(), fieldMap, comboMap,
+                    errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
+        }
+        wireComboBlurValidation(comboMap.get("Status:"), "Status:", fieldMap, comboMap, errorLabels,
+                lblValidationSummary, true, emp[EmployeeModule.ID]);
+        wireComboBlurValidation(comboMap.get("Department:"), "Department:", fieldMap, comboMap,
+                errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
+        wireComboBlurValidation(comboMap.get("Position:"), "Position:", fieldMap, comboMap,
+                errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
+
         // Buttons
         JButton btnSave = new JButton("Save Changes");
         guiStyleAccentButton(btnSave);
@@ -9737,19 +9937,19 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap);
-
-            List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
-            validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
-            validationErrors = reorderEditPopupErrors(validationErrors);
-            validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
-
-            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, lblValidationSummary);
-            applyEditPopupNameFieldBorders(fieldMap, emp);
+            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
+            java.util.List<EmployeeRecordsModule.FieldValidationError> validationErrors =
+                    validateEmployeeEditPopupFields(fieldMap, emp[EmployeeModule.ID]);
+            clearPopupValidationState(fieldMap, comboMap, errorLabels, lblValidationSummary);
+            applyStructuredPopupErrors(validationErrors, fieldMap, comboMap, errorLabels, lblValidationSummary);
 
             if (!validationErrors.isEmpty()) {
-                showBulletErrorDialog(dialog, validationErrors,
+                showBulletErrorDialog(dialog, EmployeeRecordsModule.messagesFromErrors(validationErrors),
                         "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
+                scrollPopupToFirstError(formScroll, form, validationErrors, fieldMap, comboMap);
+                return;
+            }
+            if (!confirmFormWarnings(dialog, EmployeeRecordsModule.collectFormWarnings(formData))) {
                 return;
             }
 
@@ -9759,7 +9959,6 @@ public class MotorPH_GUI {
             if (confirm != JOptionPane.YES_OPTION)
                 return;
 
-            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
             String[] updated = EmployeeRecordsModule.applyFormToRow(emp, formData);
             String computedHourly = EmployeeRecordsModule.computeHourlyRateFromGrossSemiMonthly(
                     updated[EmployeeModule.GROSS_SEMI_MONTHLY]);
@@ -9795,7 +9994,11 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> dialog.dispose());
+        btnCancel.addActionListener(ev -> {
+            if (confirmDiscardPopupChanges(dialog, popupBaseline, fieldMap)) {
+                dialog.dispose();
+            }
+        });
         root.add(btnSave);
         root.add(btnCancel);
         dialog.getRootPane().setDefaultButton(btnSave);
@@ -9869,6 +10072,7 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
         final JComboBox[] deptComboRef = new JComboBox[1];
         final JComboBox[] posComboRef = new JComboBox[1];
@@ -9896,6 +10100,7 @@ public class MotorPH_GUI {
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
                     form.add(combo);
+                    comboMap.put("Status:", combo);
                     JTextField proxy = new JTextField("Regular");
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -9911,6 +10116,7 @@ public class MotorPH_GUI {
                     combo.setBounds(fieldX, fy, fieldW, rowH);
                     combo.setSelectedItem(row[1]);
                     form.add(combo);
+                    comboMap.put("Department:", combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(row[1]);
                     combo.addItemListener(e -> {
@@ -9932,6 +10138,7 @@ public class MotorPH_GUI {
                     if (combo.getItemCount() > 0)
                         combo.setSelectedIndex(0);
                     form.add(combo);
+                    comboMap.put("Position:", combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? "" : combo.getSelectedItem().toString());
@@ -10014,6 +10221,18 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
+        final String addPopupBaseline = snapshotPopupForm(fieldMap);
+        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
+            wirePopupStructuredBlurValidation(entry.getKey(), entry.getValue(), fieldMap, comboMap,
+                    errorLabels, lblValidationSummary, false, null);
+        }
+        wireComboBlurValidation(comboMap.get("Status:"), "Status:", fieldMap, comboMap, errorLabels,
+                lblValidationSummary, false, null);
+        wireComboBlurValidation(comboMap.get("Department:"), "Department:", fieldMap, comboMap,
+                errorLabels, lblValidationSummary, false, null);
+        wireComboBlurValidation(comboMap.get("Position:"), "Position:", fieldMap, comboMap,
+                errorLabels, lblValidationSummary, false, null);
+
         JButton btnSave = new JButton("Add Employee");
         guiStyleAccentButton(btnSave);
         btnSave.setBounds(252, 520, 140, 34);
@@ -10023,12 +10242,19 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap);
-            List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
+            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
+            java.util.List<EmployeeRecordsModule.FieldValidationError> validationErrors =
+                    validateEmployeeAddPopupFields(fieldMap);
+            clearPopupValidationState(fieldMap, comboMap, errorLabels, lblValidationSummary);
+            applyStructuredPopupErrors(validationErrors, fieldMap, comboMap, errorLabels, lblValidationSummary);
+
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, lblValidationSummary);
-                showBulletErrorDialog(dialog, validationErrors,
+                showBulletErrorDialog(dialog, EmployeeRecordsModule.messagesFromErrors(validationErrors),
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
+                scrollPopupToFirstError(formScroll, form, validationErrors, fieldMap, comboMap);
+                return;
+            }
+            if (!confirmFormWarnings(dialog, EmployeeRecordsModule.collectFormWarnings(formData))) {
                 return;
             }
 
@@ -10040,7 +10266,6 @@ public class MotorPH_GUI {
                 return;
 
             try {
-                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
                 String[] newRow = EmployeeRecordsModule.buildFullRowFromForm(formData);
                 pushCsvSnapshotWithLog("ADD", empId, "Added employee #" + empId);
                 boolean ok = FileHandlerModule.appendEmployeeRecord(FileHandlerModule.joinCsvLine(newRow));
@@ -10068,7 +10293,11 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> dialog.dispose());
+        btnCancel.addActionListener(ev -> {
+            if (confirmDiscardPopupChanges(dialog, addPopupBaseline, fieldMap)) {
+                dialog.dispose();
+            }
+        });
         root.add(btnSave);
         root.add(btnCancel);
         dialog.getRootPane().setDefaultButton(btnSave);
@@ -11485,26 +11714,47 @@ public class MotorPH_GUI {
     }
 
     /** Marks the fields in the employee record form that have validation errors. */
-    private static void markEmployeeRecordFieldErrors(List<String> errors) {
-        for (String err : errors) {
-            if (err.contains("Employee Number"))
-                setFieldError(txtRecEmpNo);
-            if (err.contains("Last Name"))
-                setFieldError(txtRecLastName);
-            if (err.contains("First Name"))
-                setFieldError(txtRecFirstName);
-            if (err.contains("SSS"))
-                setFieldError(txtRecSSS);
-            if (err.contains("PhilHealth"))
-                setFieldError(txtRecPhilHealth);
-            if (err.contains("TIN"))
-                setFieldError(txtRecTIN);
-            if (err.contains("Pag-IBIG"))
-                setFieldError(txtRecPagIBIG);
-            if (err.contains("Basic Salary"))
-                setFieldError(txtRecBasicSalary);
-            if (err.contains("Hourly Rate"))
-                setFieldError(txtRecHourlyRate);
+    private static void markEmployeeRecordFieldErrors(
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors) {
+        resetEmployeeRecordFieldBorders();
+        if (errors == null) {
+            return;
+        }
+        for (EmployeeRecordsModule.FieldValidationError err : errors) {
+            if (err == null) {
+                continue;
+            }
+            switch (err.fieldKey) {
+                case EmployeeRecordsModule.FieldKeys.EMP_NO:
+                    setFieldError(txtRecEmpNo);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.LAST_NAME:
+                    setFieldError(txtRecLastName);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.FIRST_NAME:
+                    setFieldError(txtRecFirstName);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.SSS:
+                    setFieldError(txtRecSSS);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.PHILHEALTH:
+                    setFieldError(txtRecPhilHealth);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.TIN:
+                    setFieldError(txtRecTIN);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.PAGIBIG:
+                    setFieldError(txtRecPagIBIG);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.BASIC_SALARY:
+                    setFieldError(txtRecBasicSalary);
+                    break;
+                case EmployeeRecordsModule.FieldKeys.HOURLY_RATE:
+                    setFieldError(txtRecHourlyRate);
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -11512,19 +11762,24 @@ public class MotorPH_GUI {
     private static void runAddEmployeeRecord() {
         resetEmployeeRecordFieldBorders();
         EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm();
-        List<String> errors = EmployeeRecordsModule.validateForm(form, false, null);
+        EmployeeRecordsModule.sanitizeFormData(form);
+        java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateFormFields(form, false, null);
         if (!errors.isEmpty()) {
             markEmployeeRecordFieldErrors(errors);
-            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
+                    "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (!confirmFormWarnings(frame, EmployeeRecordsModule.collectFormWarnings(form))) {
             return;
         }
 
         String[] row = EmployeeRecordsModule.createNewRow(form);
         pushCsvSnapshot();
         if (!FileHandlerModule.appendEmployeeRecord(FileHandlerModule.joinCsvLine(row))) {
-            JOptionPane.showMessageDialog(frame,
-                    "Could not save the employee record. Please check file permissions.",
-                    "Save Failed", JOptionPane.ERROR_MESSAGE);
+            showToast("Could not save the employee record. Please check file permissions.",
+                    new Color(180, 90, 40));
             return;
         }
 
@@ -11532,7 +11787,11 @@ public class MotorPH_GUI {
         refreshEmployeeTable();
         clearEmployeeRecordForm();
         selectEmployeeInTable(newId);
-        showToast("Employee #" + newId + " added successfully.");
+        showPopupSuccessAndClose(null,
+                "Employee #" + newId + " added successfully.",
+                "Employee #" + newId + " (" + EmployeeModule.fullName(row)
+                        + ") was added successfully.\nThe employee table has been refreshed.",
+                "Add Successful");
     }
 
     /** Runs the process to update an existing employee record. */
@@ -11546,10 +11805,16 @@ public class MotorPH_GUI {
 
         resetEmployeeRecordFieldBorders();
         EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm();
-        List<String> errors = EmployeeRecordsModule.validateForm(form, true, selectedEmployeeId);
+        EmployeeRecordsModule.sanitizeFormData(form);
+        java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateFormFields(form, true, selectedEmployeeId);
         if (!errors.isEmpty()) {
             markEmployeeRecordFieldErrors(errors);
-            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
+            showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
+                    "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (!confirmFormWarnings(frame, EmployeeRecordsModule.collectFormWarnings(form))) {
             return;
         }
 
@@ -11579,7 +11844,11 @@ public class MotorPH_GUI {
             populateEmployeeRecordForm(FileHandlerModule.smartSplit(data));
         txtRecEmpNo.setEditable(false);
         updateEmployeeRecordActionState(true);
-        showToast("Employee #" + savedId + " updated successfully.");
+        showPopupSuccessAndClose(null,
+                "Employee #" + savedId + " updated successfully.",
+                "Employee record for #" + savedId + " (" + EmployeeModule.fullName(updated)
+                        + ") was saved successfully.",
+                "Save Successful");
     }
 
     /** Runs the process to delete an existing employee record. */

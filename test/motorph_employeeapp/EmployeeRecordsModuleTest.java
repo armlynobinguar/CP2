@@ -15,6 +15,10 @@ final class EmployeeRecordsModuleTest {
         testValidateBirthdaySanity();
         testValidatePhoneLength();
         testDuplicateGovernmentIds();
+        testInvalidPersonNameOnAdd();
+        testCollectFormWarnings();
+        testCountDistinctFields();
+        testPopupLabelMapping();
     }
 
     private static void testNormalizeNumericInput() {
@@ -45,31 +49,13 @@ final class EmployeeRecordsModuleTest {
     }
 
     private static void testValidateBirthdaySanity() {
-        EmployeeRecordsModule.RecordFormData form = new EmployeeRecordsModule.RecordFormData();
-        form.empNo = "99999";
-        form.lastName = "Test";
-        form.firstName = "User";
+        EmployeeRecordsModule.RecordFormData form = baseValidForm();
         form.birthday = "12/31/2099";
-        form.phone = "966-860-270";
-        form.sss = "11-1111111-1";
-        form.philHealth = "111111111111";
-        form.tin = "111-111-111-000";
-        form.pagIbig = "111111111111";
-        form.status = "Regular";
-        form.position = "Staff";
-        form.department = "Operations";
-        form.supervisor = "N/A";
-        form.basicSalary = "10000";
-        form.riceSubsidy = "0";
-        form.phoneAllowance = "0";
-        form.clothingAllowance = "0";
-        form.grossSemiMonthly = "5000";
-        form.hourlyRate = "0";
-
-        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateAddPopupFields(form);
         boolean hasFutureBirthday = false;
-        for (String err : errors) {
-            if (err.toLowerCase().contains("future")) {
+        for (EmployeeRecordsModule.FieldValidationError err : errors) {
+            if (err.message.toLowerCase().contains("future")) {
                 hasFutureBirthday = true;
             }
         }
@@ -79,10 +65,11 @@ final class EmployeeRecordsModuleTest {
     private static void testValidatePhoneLength() {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
         form.phone = "966-860-27011";
-        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateAddPopupFields(form);
         boolean hasPhoneError = false;
-        for (String err : errors) {
-            if (err.toLowerCase().contains("phone")) {
+        for (EmployeeRecordsModule.FieldValidationError err : errors) {
+            if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
                 hasPhoneError = true;
             }
         }
@@ -93,14 +80,57 @@ final class EmployeeRecordsModuleTest {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
         form.sss = "44-4506057-3";
         form.tin = "44-4506057-3";
-        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateAddPopupFields(form);
         boolean hasDuplicate = false;
-        for (String err : errors) {
-            if (err.toLowerCase().contains("duplicate")) {
+        for (EmployeeRecordsModule.FieldValidationError err : errors) {
+            if (err.message.toLowerCase().contains("duplicate")) {
                 hasDuplicate = true;
             }
         }
         TestSupport.assertTrue(hasDuplicate, "Duplicate government IDs should fail validation");
+    }
+
+    private static void testInvalidPersonNameOnAdd() {
+        EmployeeRecordsModule.RecordFormData form = baseValidForm();
+        form.firstName = "123";
+        List<EmployeeRecordsModule.FieldValidationError> errors =
+                EmployeeRecordsModule.validateAddPopupFields(form);
+        boolean hasNameError = false;
+        for (EmployeeRecordsModule.FieldValidationError err : errors) {
+            if (EmployeeRecordsModule.FieldKeys.FIRST_NAME.equals(err.fieldKey)) {
+                hasNameError = true;
+            }
+        }
+        TestSupport.assertTrue(hasNameError, "Numeric first name should fail validation");
+        TestSupport.assertFalse(EmployeeRecordsModule.isValidPersonName("123"), "isValidPersonName rejects digits");
+    }
+
+    private static void testCollectFormWarnings() {
+        EmployeeRecordsModule.RecordFormData form = baseValidForm();
+        form.basicSalary = "10000";
+        form.grossSemiMonthly = "9999";
+        List<String> warnings = EmployeeRecordsModule.collectFormWarnings(form);
+        TestSupport.assertFalse(warnings.isEmpty(), "Mismatched gross semi-monthly should warn");
+    }
+
+    private static void testCountDistinctFields() {
+        List<EmployeeRecordsModule.FieldValidationError> errors = new java.util.ArrayList<>();
+        errors.add(new EmployeeRecordsModule.FieldValidationError(
+                EmployeeRecordsModule.FieldKeys.PHONE, "Phone number is required."));
+        errors.add(new EmployeeRecordsModule.FieldValidationError(
+                EmployeeRecordsModule.FieldKeys.PHONE, "Phone number must contain exactly 9 digits."));
+        TestSupport.assertEquals(1, EmployeeRecordsModule.countDistinctFields(errors),
+                "Distinct field count ignores duplicate messages on same field");
+    }
+
+    private static void testPopupLabelMapping() {
+        TestSupport.assertEquals("Phone:",
+                EmployeeRecordsModule.popupLabelForFieldKey(EmployeeRecordsModule.FieldKeys.PHONE),
+                "Field key maps to popup label");
+        TestSupport.assertEquals(EmployeeRecordsModule.FieldKeys.PHONE,
+                EmployeeRecordsModule.fieldKeyForPopupLabel("Phone:"),
+                "Popup label maps to field key");
     }
 
     private static EmployeeRecordsModule.RecordFormData baseValidForm() {
@@ -118,11 +148,11 @@ final class EmployeeRecordsModuleTest {
         form.position = "Staff";
         form.department = "Operations";
         form.supervisor = "N/A";
-        form.basicSalary = "10000";
+        form.basicSalary = "20000";
         form.riceSubsidy = "0";
         form.phoneAllowance = "0";
         form.clothingAllowance = "0";
-        form.grossSemiMonthly = "5000";
+        form.grossSemiMonthly = "10000";
         form.hourlyRate = "0";
         return form;
     }
