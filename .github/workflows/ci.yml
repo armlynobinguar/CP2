@@ -2,15 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main, master, UIOverhaulV5]
+    branches:
+      - main
+      - master
+      - UIOverhaulV5
   pull_request:
-    branches: [main, master, UIOverhaulV5]
+    branches:
+      - main
+      - master
+      - UIOverhaulV5
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -21,7 +29,7 @@ jobs:
       - name: Compile and run tests
         run: ant test
 
-      - name: Verify CSV resources exist
+      - name: Verify bundled CSV resources exist
         run: |
           test -f "resources/MotorPH_Employee Data - Employee Details.csv"
           test -f "resources/MotorPH_Employee Data - Attendance Record.csv"
