@@ -237,4 +237,9 @@ public class EmployeeRevisionModule {
     private static String nz(String value) {
         return value == null ? "" : value.trim();
     }
+
+    /** Clears in-memory revision history (unit tests only). */
+    static void resetRevisionStateForTests() {
+        entries.clear();
+    }
 }

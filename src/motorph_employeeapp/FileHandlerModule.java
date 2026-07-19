@@ -2,6 +2,7 @@
 package motorph_employeeapp;
 
 import java.io.*;
+import java.nio.file.*;
 import java.util.*;
 
 /**
@@ -27,6 +28,17 @@ public class FileHandlerModule {
     /** Relative path to the employee master data CSV file. */
     public static final String EMPLOYEE_FILE = "resources/MotorPH_Employee Data - Employee Details.csv";
 
+    /** Optional override used by unit tests to avoid touching bundled project data. */
+    private static String testEmployeeFileOverride = null;
+
+    static void setTestEmployeeFileOverrideForTests(String absolutePath) {
+        testEmployeeFileOverride = absolutePath;
+    }
+
+    static void clearTestEmployeeFileOverrideForTests() {
+        testEmployeeFileOverride = null;
+    }
+
     /**
      * Resolves CSV paths whether the app is run from the project root, bin/, or IDE.
      *
@@ -39,6 +51,9 @@ public class FileHandlerModule {
      * @return absolute or relative + relative path string for FileReader
      */
     private static String resolveDataFile(String relativePath) {
+        if (testEmployeeFileOverride != null && EMPLOYEE_FILE.equals(relativePath)) {
+            return testEmployeeFileOverride;
+        }
         File direct = new File(relativePath);
         if (direct.isFile()) {
             return direct.getPath();
@@ -285,22 +300,21 @@ public class FileHandlerModule {
     /**
      * Appends a newly validated employee record line to the CSV file.
      *
-     * Opens the file in append mode, writes a newline, then the raw CSV line.
+     * Reads the current file, appends the row, and rewrites atomically so partial
+     * writes cannot corrupt the master CSV.
      *
      * @param rawCsvLine complete comma-separated row (no header)
      * @return true on success, false if IOException occurs
      */
     public static boolean appendEmployeeRecord(String rawCsvLine) {
-        try (FileWriter fw = new FileWriter(resolveDataFile(EMPLOYEE_FILE), true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
-            out.println(); // Ensure record starts on a new line after existing data
-            out.print(rawCsvLine);
-            return true;
-        } catch (IOException e) {
-            System.out.println("Error saving employee details to file: " + e.getMessage());
+        if (rawCsvLine == null || rawCsvLine.trim().isEmpty()) {
             return false;
         }
+        List<String[]> all = getAllEmployees();
+        String[] newRow = normalizeEmployeeRow(smartSplit(rawCsvLine));
+        EmployeeRecordsModule.clearPayrollOutputColumns(newRow);
+        all.add(newRow);
+        return rewriteEmployeeFile(all);
     }
 
     /**
@@ -328,15 +342,52 @@ public class FileHandlerModule {
      * @return true when the file is written successfully
      */
     public static boolean rewriteEmployeeFile(List<String[]> employees) {
-        String filePath = resolveDataFile(EMPLOYEE_FILE);
-        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(filePath)))) {
-            out.println(EMPLOYEE_FILE_HEADER);
+        List<String> lines = new ArrayList<>();
+        lines.add(EMPLOYEE_FILE_HEADER);
+        if (employees != null) {
             for (String[] row : employees) {
-                out.println(joinCsvLine(normalizeEmployeeRow(row)));
+                String[] normalized = normalizeEmployeeRow(row);
+                EmployeeRecordsModule.clearPayrollOutputColumns(normalized);
+                lines.add(joinCsvLine(normalized));
             }
-            return true;
+        }
+        return writeTextFileAtomically(resolveDataFile(EMPLOYEE_FILE), lines, true);
+    }
+
+    /**
+     * Writes text lines to a temp file, optionally backs up the target, then replaces atomically.
+     */
+    static boolean writeTextFileAtomically(String filePath, List<String> lines, boolean createBackup) {
+        if (filePath == null || lines == null) {
+            return false;
+        }
+        File target = new File(filePath);
+        File parent = target.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
+        File temp = new File(target.getAbsolutePath() + ".tmp");
+        File backup = new File(target.getAbsolutePath() + ".bak");
+        try {
+            if (createBackup && target.isFile()) {
+                Files.copy(target.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(temp, false)))) {
+                for (String line : lines) {
+                    out.println(line == null ? "" : line);
+                }
+            }
+            if (target.isFile() && !target.delete()) {
+                temp.delete();
+                return false;
+            }
+            if (!temp.renameTo(target)) {
+                Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return target.isFile();
         } catch (IOException e) {
-            System.out.println("Error rewriting employee file: " + e.getMessage());
+            System.out.println("Error writing file atomically (" + filePath + "): " + e.getMessage());
+            temp.delete();
             return false;
         }
     }
@@ -436,16 +487,13 @@ public class FileHandlerModule {
      * @return true on success
      */
     public static boolean saveNotifications(List<String> items) {
-        String path = resolveDataFile("resources/notifications.txt");
-        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+        List<String> lines = new ArrayList<>();
+        if (items != null) {
             for (String s : items) {
-                out.println(s == null ? "" : s);
+                lines.add(s == null ? "" : s);
             }
-            return true;
-        } catch (IOException e) {
-            System.out.println("Error saving notifications: " + e.getMessage());
-            return false;
         }
+        return writeTextFileAtomically(resolveDataFile("resources/notifications.txt"), lines, true);
     }
 
     /**
@@ -477,16 +525,13 @@ public class FileHandlerModule {
      * @return {@code true} on successful write
      */
     public static boolean saveStructuredNotifications(java.util.List<NotificationModule.Notification> items) {
-        String path = resolveDataFile("resources/notifications.txt");
-        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)))) {
+        List<String> lines = new ArrayList<>();
+        if (items != null) {
             for (NotificationModule.Notification n : items) {
-                out.println(n == null ? "" : n.serializeLine());
+                lines.add(n == null ? "" : n.serializeLine());
             }
-            return true;
-        } catch (IOException e) {
-            System.out.println("Error saving structured notifications: " + e.getMessage());
-            return false;
         }
+        return writeTextFileAtomically(resolveDataFile("resources/notifications.txt"), lines, true);
     }
 
     /** Export structured notifications to an explicit relative path. */
@@ -563,23 +608,15 @@ public class FileHandlerModule {
 
     /** Rewrites the payslip issues file after HR updates status or resolution notes. */
     public static boolean savePayslipIssues(java.util.List<PayslipIssueModule.PayslipIssue> issues) {
-        File target = resolvePayslipIssuesFile();
-        if (target.getParentFile() != null) {
-            target.getParentFile().mkdirs();
-        }
-        try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(target)))) {
-            if (issues != null) {
-                for (PayslipIssueModule.PayslipIssue issue : issues) {
-                    if (issue != null) {
-                        out.println(issue.serializeLine());
-                    }
+        List<String> lines = new ArrayList<>();
+        if (issues != null) {
+            for (PayslipIssueModule.PayslipIssue issue : issues) {
+                if (issue != null) {
+                    lines.add(issue.serializeLine());
                 }
             }
-            return true;
-        } catch (IOException e) {
-            System.out.println("Error saving payslip issues: " + e.getMessage());
-            return false;
         }
+        return writeTextFileAtomically(resolvePayslipIssuesFile().getPath(), lines, true);
     }
 
     /** Open or in-progress payslip reports — used for HR sidebar badge counts. */

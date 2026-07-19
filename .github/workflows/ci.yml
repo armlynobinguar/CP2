@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, UIOverhaulV5]
+  pull_request:
+    branches: [main, master, UIOverhaulV5]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Compile and run tests
+        run: ant test
+
+      - name: Verify CSV resources exist
+        run: |
+          test -f "resources/MotorPH_Employee Data - Employee Details.csv"
+          test -f "resources/MotorPH_Employee Data - Attendance Record.csv"
+
+      - name: Verify main class compiled
+        run: test -f "build/classes/motorph_employeeapp/MotorPH_EmployeeApp.class"

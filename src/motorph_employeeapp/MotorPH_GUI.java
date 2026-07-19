@@ -290,6 +290,11 @@ public class MotorPH_GUI {
     static JPanel payrollStatNetChip;
     static boolean batchPayrollComputedOnce;
     static JButton btnGenerateSummary;
+    static JButton btnBatchComputePayroll;
+    private static int loginFailedAttempts = 0;
+    private static long loginLockedUntilMs = 0L;
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOGIN_LOCK_DURATION_MS = 60_000L;
     static JButton btnSingleGenerateSummary;
     static boolean bulkPayrollSelectionUpdate;
     static javax.swing.Timer batchPayrollSyncTimer;
@@ -1390,7 +1395,7 @@ public class MotorPH_GUI {
             clearBatchPayrollOutput();
             return;
         }
-        if (countCheckedPayrollRows() < 1) {
+        if (countCheckedPayrollRows() < 2) {
             clearBatchPayrollOutput();
             return;
         }
@@ -1428,6 +1433,24 @@ public class MotorPH_GUI {
         return count;
     }
 
+    /** Enables batch Calculate only when period fields and employee selection are valid. */
+    private static void updateBatchComputeButtonState() {
+        if (btnBatchComputePayroll == null) {
+            return;
+        }
+        String[] monthHolder = new String[1];
+        String[] yearHolder = new String[1];
+        boolean periodReady = isBatchPayPeriodReady(monthHolder, yearHolder);
+        int checked = countCheckedPayrollRows();
+        boolean canCompute = periodReady && checked >= 2;
+        btnBatchComputePayroll.setEnabled(canCompute);
+        btnBatchComputePayroll.setToolTipText(canCompute
+                ? "Calculate payroll for the selected employees"
+                : (checked < 2
+                        ? "Select at least 2 employees in the filtered list"
+                        : "Choose a valid pay month and year (2024)"));
+    }
+
     /** Toggles all rows within the data grid to a checked or unchecked state. */
     private static void setAllPayrollRowsChecked(boolean checked) {
         if (payrollSelectTableModel == null) {
@@ -1442,6 +1465,7 @@ public class MotorPH_GUI {
             bulkPayrollSelectionUpdate = false;
         }
         updatePayrollSelectionCount();
+        updateBatchComputeButtonState();
         if (payrollSelectTable != null) {
             payrollSelectTable.repaint();
         }
@@ -4319,6 +4343,14 @@ public class MotorPH_GUI {
 
         btnLogin.addActionListener(e -> {
             if (e.getSource() == btnLogin) {
+                long now = System.currentTimeMillis();
+                if (now < loginLockedUntilMs) {
+                    long secondsLeft = Math.max(1, (loginLockedUntilMs - now + 999) / 1000);
+                    showToast("Too many failed attempts. Try again in " + secondsLeft + "s.",
+                            new Color(180, 90, 40));
+                    return;
+                }
+
                 String user = usernameField.getForeground().equals(TEXT_PLACEHOLDER_GRAY)
                         ? ""
                         : usernameField.getText().trim();
@@ -4344,15 +4376,27 @@ public class MotorPH_GUI {
                 }
 
                 if (MotorPH_EmployeeApp.authenticate(user, pass)) {
+                    loginFailedAttempts = 0;
+                    loginLockedUntilMs = 0L;
                     MotorPH_EmployeeApp.loginSuccessful = true;
                     loggedInUser = user;
                     loginDialog.dispose();
                 } else {
+                    loginFailedAttempts++;
                     setLoginFieldError(usernameField);
                     setLoginFieldError(passwordField);
                     List<String> authErrors = new ArrayList<>();
                     authErrors.add("Invalid username or password.");
-                    authErrors.add("Please check your credentials and try again.");
+                    if (loginFailedAttempts >= MAX_LOGIN_ATTEMPTS) {
+                        loginLockedUntilMs = now + LOGIN_LOCK_DURATION_MS;
+                        loginFailedAttempts = 0;
+                        authErrors.add("Account locked for 60 seconds after "
+                                + MAX_LOGIN_ATTEMPTS + " failed attempts.");
+                    } else {
+                        authErrors.add("Please check your credentials and try again.");
+                        authErrors.add((MAX_LOGIN_ATTEMPTS - loginFailedAttempts)
+                                + " attempt(s) remaining before a temporary lock.");
+                    }
                     showBulletErrorDialog(loginDialog, authErrors, "Login Failed",
                             JOptionPane.ERROR_MESSAGE);
                 }
@@ -6236,6 +6280,27 @@ public class MotorPH_GUI {
         txtYear = createStyledTextField(true);
         px = addPayrollToolbarField(periodBar, px, rowY, "Year", txtYear, 72);
         txtYear.setText("2024");
+        txtYear.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void refresh() {
+                updateBatchComputeButtonState();
+            }
+
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                refresh();
+            }
+        });
+        monthCombo.addActionListener(e -> updateBatchComputeButtonState());
 
         // 1. Compute Coordinates for Layout Buttons
         int btnW = 152;
@@ -6250,6 +6315,7 @@ public class MotorPH_GUI {
         btnComputeSalaries.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnComputeSalaries.addActionListener(e -> runComputeAllSalaries());
         periodBar.add(btnComputeSalaries);
+        btnBatchComputePayroll = btnComputeSalaries;
 
         // 3. Build and Add Generate Summary Button (Moved Early for Null-Safety
         // Validation)
@@ -6371,6 +6437,7 @@ public class MotorPH_GUI {
             }
             updatePayrollSelectionCount();
             updatePayrollFilterIndicators();
+            updateBatchComputeButtonState();
             scheduleBatchPayrollResultsSync();
         };
 
@@ -6401,6 +6468,7 @@ public class MotorPH_GUI {
                     || e.getType() == TableModelEvent.INSERT
                     || e.getType() == TableModelEvent.DELETE) {
                 updatePayrollSelectionCount();
+                updateBatchComputeButtonState();
                 if (!bulkPayrollSelectionUpdate) {
                     scheduleBatchPayrollResultsSync();
                 }
@@ -6418,6 +6486,7 @@ public class MotorPH_GUI {
         refreshPayrollEmployeeList.run();
         setAllPayrollRowsChecked(true);
         refreshPayrollSelectAllButtonState();
+        updateBatchComputeButtonState();
 
         addPayrollOutputBlock(rightPanel, PAYROLL_PAD, rightW, panelH - PAYROLL_PAD * 2,
                 "Gross Pay", "Deductions", "Net Pay");
@@ -6940,10 +7009,9 @@ public class MotorPH_GUI {
         }
 
         int checkedCount = countCheckedPayrollRows();
-        if (checkedCount < 1) {
-            JOptionPane.showMessageDialog(frame,
-                    "Please select at least one employee from the filtered list before computing.",
-                    "No Employees Selected", JOptionPane.WARNING_MESSAGE);
+        if (checkedCount < 2) {
+            showToast("Select at least 2 employees from the filtered list before calculating.",
+                    new Color(180, 90, 40));
             return;
         }
 
@@ -6989,23 +7057,19 @@ public class MotorPH_GUI {
         }
 
         SalaryComputationModule.BulkPayrollResult result = executeBatchPayrollComputation(
-                actualMonth, year, true);
+                actualMonth, year, false);
         if (result.computedCount > 0) {
             batchPayrollComputedOnce = true;
-            if (result.savedToFile) {
-                if (employeeTableModel != null) {
-                    refreshEmployeeTable();
-                }
-                showToast(result.computedCount + " salary record(s) computed and saved.");
-                if (btnGenerateSummary != null)
-                    btnGenerateSummary.setEnabled(true);
-            } else {
-                showToast(result.computedCount + " record(s) computed (CSV save failed).",
-                        new Color(180, 90, 40));
+            showToast(result.computedCount + " salary record(s) computed.");
+            if (btnGenerateSummary != null) {
+                btnGenerateSummary.setEnabled(true);
             }
         } else {
             clearBatchPayrollOutput();
-            showToast("No attendance data found for the selected period.", new Color(180, 90, 40));
+            showToast("No attendance records found for the selected employees in "
+                    + monthCombo.getSelectedItem() + " " + year + ". "
+                    + "Try another pay period or adjust the employee filter.",
+                    new Color(180, 90, 40));
         }
     }
 
@@ -7015,9 +7079,9 @@ public class MotorPH_GUI {
      */
     private static void showSinglePayrollSummaryDialog() {
         if (!SalaryComputationModule.lastCalculationSucceeded) {
-            JOptionPane.showMessageDialog(frame,
-                    "No payroll data available.\nPlease select an employee and click Calculate Payroll first.",
-                    "No Data", JOptionPane.WARNING_MESSAGE);
+            showToast("No payroll data for this employee and period. Enter a valid employee #, "
+                    + "select month/year (2024), then click Calculate Payroll.",
+                    new Color(180, 90, 40));
             return;
         }
 
@@ -7769,7 +7833,9 @@ public class MotorPH_GUI {
             }
             updatePayrollStatChips(result.totalGross, result.totalDeductions, result.totalNet);
         } else {
-            rpSet("No attendance data was found for the selected employees in the chosen pay period.", rsWarn);
+            rpSet("No attendance data was found for the selected employees in the chosen pay period.\n\n"
+                    + "Check that the pay month/year match attendance records (2024 only) "
+                    + "and that selected employees have time logs for this period.", rsWarn);
             resetPayrollStatChips();
         }
 
@@ -9071,6 +9137,18 @@ public class MotorPH_GUI {
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap,
             java.util.Map<String, JLabel> errorLabels) {
+        markEditPopupFieldErrors(errors, fieldMap, errorLabels, null);
+    }
+
+    /** Marks invalid fields and optionally updates the validation summary banner. */
+    private static void markEditPopupFieldErrors(List<String> errors,
+            java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JLabel> errorLabels,
+            JLabel validationSummary) {
+        updatePopupValidationSummary(validationSummary, errors == null ? 0 : errors.size());
+        if (errors == null) {
+            return;
+        }
         for (String err : errors) {
             if (err.contains("Employee Number") || err.contains("Employee #")) {
                 setPopupFieldError(fieldMap.get("Employee #:"));
@@ -9121,6 +9199,20 @@ public class MotorPH_GUI {
                 setPopupFieldError(fieldMap.get("Hourly Rate:"));
         }
         applyGovIdSubmitValidation(fieldMap, errorLabels);
+    }
+
+    private static void updatePopupValidationSummary(JLabel summaryLbl, int errorCount) {
+        if (summaryLbl == null) {
+            return;
+        }
+        if (errorCount <= 0) {
+            summaryLbl.setText(" ");
+            summaryLbl.setVisible(false);
+        } else {
+            summaryLbl.setText(errorCount + " field" + (errorCount == 1 ? "" : "s") + " need attention");
+            summaryLbl.setForeground(new Color(180, 60, 40));
+            summaryLbl.setVisible(true);
+        }
     }
 
     /**
@@ -9396,6 +9488,14 @@ public class MotorPH_GUI {
         final int PAD = 14;
         int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 10, fy = 8;
 
+        JLabel lblValidationSummary = new JLabel(" ");
+        lblValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblValidationSummary.setForeground(new Color(180, 60, 40));
+        lblValidationSummary.setBounds(PAD, fy, fieldX + fieldW - PAD, 18);
+        lblValidationSummary.setVisible(false);
+        form.add(lblValidationSummary);
+        fy += 22;
+
         String[][] sections = {
                 { "Personal Information" },
                 { "Employee #:", safeColumn(emp, EmployeeModule.ID) },
@@ -9644,7 +9744,7 @@ public class MotorPH_GUI {
             validationErrors = reorderEditPopupErrors(validationErrors);
             validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
 
-            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
+            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, lblValidationSummary);
             applyEditPopupNameFieldBorders(fieldMap, emp);
 
             if (!validationErrors.isEmpty()) {
@@ -9698,6 +9798,7 @@ public class MotorPH_GUI {
         btnCancel.addActionListener(ev -> dialog.dispose());
         root.add(btnSave);
         root.add(btnCancel);
+        dialog.getRootPane().setDefaultButton(btnSave);
 
         dialog.setContentPane(root);
         dialog.pack();
@@ -9729,6 +9830,14 @@ public class MotorPH_GUI {
 
         JPanel form = new JPanel(null);
         form.setBackground(PALETTE_WHITE);
+
+        JLabel lblValidationSummary = new JLabel(" ");
+        lblValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblValidationSummary.setForeground(new Color(180, 60, 40));
+        lblValidationSummary.setBounds(PAD, fy, fieldX + fieldW - PAD, 18);
+        lblValidationSummary.setVisible(false);
+        form.add(lblValidationSummary);
+        fy += 22;
 
         // Two-element rows create a text field; one-element rows are section headers
         String[][] sections = {
@@ -9917,7 +10026,7 @@ public class MotorPH_GUI {
             resetEditPopupFieldBorders(fieldMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, lblValidationSummary);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -9962,6 +10071,7 @@ public class MotorPH_GUI {
         btnCancel.addActionListener(ev -> dialog.dispose());
         root.add(btnSave);
         root.add(btnCancel);
+        dialog.getRootPane().setDefaultButton(btnSave);
 
         dialog.setContentPane(root);
         dialog.pack();
@@ -13536,25 +13646,18 @@ public class MotorPH_GUI {
         btnProcess.addActionListener(e -> {
             int choice = JOptionPane.showConfirmDialog(dlg,
                     "<html>Process payroll for <b>" + n + " employee(s)</b>?<br><br>"
-                            + "This will save all computed salary records to the Employee Details CSV.<br>"
-                            + "This action cannot be undone.</html>",
+                            + "Computed totals appear in the payroll output only.<br>"
+                            + "Hours Worked / Gross Pay / Deductions / Net Pay are not written to the master employee CSV.</html>",
                     "Confirm Process Payroll",
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (choice == JOptionPane.OK_OPTION) {
-                SalaryComputationModule.BulkPayrollResult saved = executeBatchPayrollComputation(month, year, true);
-                if (saved.savedToFile) {
+                SalaryComputationModule.BulkPayrollResult saved = executeBatchPayrollComputation(month, year, false);
+                if (saved.computedCount > 0) {
                     batchPayrollComputedOnce = true;
-                    if (employeeTableModel != null) {
-                        refreshEmployeeTable();
-                    }
                     dlg.dispose();
-                    showToast(saved.computedCount + " salary record(s) computed and saved.");
+                    showToast(saved.computedCount + " salary record(s) computed.");
                 } else {
-                    JOptionPane.showMessageDialog(dlg,
-                            "Payroll was computed but the CSV file could not be saved.\n\n"
-                                    + "Close any program using the file and try again.",
-                            "Save Failed", JOptionPane.ERROR_MESSAGE);
-                    showToast(saved.computedCount + " record(s) computed (CSV save failed).",
+                    showToast("No attendance records found for the selected employees in this pay period.",
                             new Color(180, 90, 40));
                 }
             }

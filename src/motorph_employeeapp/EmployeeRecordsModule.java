@@ -95,7 +95,12 @@ public class EmployeeRecordsModule {
             errors.add("Phone number is required.");
         } else if (!form.phone.trim().matches("[0-9\\-]+")) {
             errors.add("Phone number must contain digits and dashes only.");
+        } else {
+            validatePhoneDigitCount(form.phone, errors);
         }
+
+        validateBirthdaySanity(form.birthday, errors);
+        checkDuplicateGovernmentIds(form, errors);
 
         validateDigitsAndDashes(form.sss, "SSS Number", 10, errors);
         validateDigitsAndDashes(form.philHealth, "PhilHealth Number", 12, errors);
@@ -159,7 +164,27 @@ public class EmployeeRecordsModule {
         row[EmployeeModule.HOURLY_RATE] = hourly.isEmpty()
                 ? defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE))
                 : hourly;
+        clearPayrollOutputColumns(row);
         return row;
+    }
+
+    /** Clears payroll-run output columns so the master CSV stays profile-only. */
+    public static void clearPayrollOutputColumns(String[] row) {
+        if (row == null) {
+            return;
+        }
+        if (row.length > EmployeeModule.HOURS_WORKED) {
+            row[EmployeeModule.HOURS_WORKED] = "";
+        }
+        if (row.length > EmployeeModule.GROSS_PAY) {
+            row[EmployeeModule.GROSS_PAY] = "";
+        }
+        if (row.length > EmployeeModule.TOTAL_DEDUCTIONS) {
+            row[EmployeeModule.TOTAL_DEDUCTIONS] = "";
+        }
+        if (row.length > EmployeeModule.NET_PAY) {
+            row[EmployeeModule.NET_PAY] = "";
+        }
     }
 
     /**
@@ -419,6 +444,69 @@ public class EmployeeRecordsModule {
             } catch (NumberFormatException ignored) {}
         }
         if (changed) FileHandlerModule.rewriteEmployeeFile(all);
+    }
+
+    /** Requires exactly nine digits in the phone field (dashes optional). */
+    private static void validatePhoneDigitCount(String value, java.util.Set<String> errors) {
+        int digits = 0;
+        for (int i = 0; i < value.trim().length(); i++) {
+            if (Character.isDigit(value.charAt(i))) {
+                digits++;
+            }
+        }
+        if (digits != 9) {
+            errors.add("Phone number must contain exactly 9 digits (e.g. 966-860-270).");
+        }
+    }
+
+    /** Rejects birthdays in the future or unreasonably old. */
+    private static void validateBirthdaySanity(String birthday, java.util.Set<String> errors) {
+        if (isBlank(birthday) || !birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            return;
+        }
+        String[] parts = birthday.trim().split("/");
+        try {
+            int month = Integer.parseInt(parts[0]);
+            int day = Integer.parseInt(parts[1]);
+            int year = Integer.parseInt(parts[2]);
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            int currentYear = cal.get(java.util.Calendar.YEAR);
+            if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
+                errors.add("Birthday is not a valid calendar date.");
+            } else if (year > currentYear) {
+                errors.add("Birthday cannot be in the future.");
+            } else if (year < currentYear - 100) {
+                errors.add("Birthday year looks invalid (more than 100 years ago).");
+            }
+        } catch (NumberFormatException ignored) {
+            errors.add("Birthday is not a valid calendar date.");
+        }
+    }
+
+    /** Ensures government ID numbers are unique within the same form. */
+    private static void checkDuplicateGovernmentIds(RecordFormData form, java.util.Set<String> errors) {
+        java.util.LinkedHashMap<String, String> seen = new java.util.LinkedHashMap<>();
+        addGovIdIfPresent(seen, "SSS Number", form.sss);
+        addGovIdIfPresent(seen, "PhilHealth Number", form.philHealth);
+        addGovIdIfPresent(seen, "TIN Number", form.tin);
+        addGovIdIfPresent(seen, "Pag-IBIG Number", form.pagIbig);
+        java.util.Set<String> normalizedValues = new java.util.LinkedHashSet<>();
+        for (String value : seen.values()) {
+            if (!normalizedValues.add(value)) {
+                errors.add("Duplicate government ID numbers are not allowed within the same employee record.");
+                return;
+            }
+        }
+    }
+
+    private static void addGovIdIfPresent(java.util.Map<String, String> seen, String label, String value) {
+        if (isBlank(value) || isNaPlaceholder(value)) {
+            return;
+        }
+        String normalized = value.trim().replace("-", "").replace(" ", "");
+        if (!normalized.isEmpty()) {
+            seen.put(label, normalized);
+        }
     }
 
     /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */

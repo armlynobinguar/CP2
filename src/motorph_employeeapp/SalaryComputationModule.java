@@ -636,8 +636,8 @@ public class SalaryComputationModule {
             output.append(String.format("  Totals — Gross PHP %,.2f  •  Deductions PHP %,.2f  •  Net PHP %,.2f%n",
                     runningGross, runningDeductions, runningNet));
             if (saveToFile && saved) {
-                output.append("\n  Employee Details CSV updated with Hours Worked, Gross Pay, "
-                        + "Total Deductions, and Net Pay.");
+                output.append("\n  Employee Details CSV refreshed (payroll totals are shown here only; "
+                        + "Hours Worked / Gross Pay / Deductions / Net Pay are not stored in the master CSV).");
             }
         }
 
