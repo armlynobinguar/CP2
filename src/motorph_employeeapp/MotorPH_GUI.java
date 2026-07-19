@@ -4461,6 +4461,32 @@ public class MotorPH_GUI {
         return card;
     }
 
+    /**
+     * Truncates {@code text} with a trailing ellipsis so it fits within {@code maxWidthPx}
+     * pixels when rendered in {@code font}. Uses a binary search over actual
+     * {@link FontMetrics} measurements instead of a rough per-character width guess, so the
+     * full available card width is used before text is cut off.
+     */
+    private static String fitTextWithEllipsis(JComponent measureContext, Font font, String text, int maxWidthPx) {
+        java.awt.FontMetrics fm = measureContext.getFontMetrics(font);
+        if (fm.stringWidth(text) <= maxWidthPx) {
+            return text;
+        }
+        String ellipsis = "…";
+        int ellipsisWidth = fm.stringWidth(ellipsis);
+        int lo = 0, hi = text.length();
+        // Find the longest prefix whose rendered width (plus the ellipsis) still fits.
+        while (lo < hi) {
+            int mid = (lo + hi + 1) / 2;
+            if (fm.stringWidth(text.substring(0, mid)) + ellipsisWidth <= maxWidthPx) {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return text.substring(0, lo).trim() + ellipsis;
+    }
+
     private static JPanel buildEmployeeUpdatesCard(int x, int y, int w, int h) {
         List<NotificationModule.Notification> notifs = buildSystemNotifications();
 
@@ -4468,14 +4494,16 @@ public class MotorPH_GUI {
         addCardIconAndTitle(card, "N", "Updates", w);
 
         int cx = DASH_CARD_INSET, cw = w - DASH_CARD_INSET * 2, rh = 18, cy = 74;
+        Font bulletFont = new Font("Segoe UI", Font.PLAIN, 11);
         int shown = 0;
         for (NotificationModule.Notification n : notifs) {
             if (shown >= 3)
                 break;
-            int maxChars = cw / 7;
-            String line = n.text.length() > maxChars ? n.text.substring(0, maxChars - 1) + "…" : n.text;
+            // Reserve room for the "• " prefix so the ellipsis lines up with the card's right edge.
+            int bulletPrefixW = card.getFontMetrics(bulletFont).stringWidth("• ");
+            String line = fitTextWithEllipsis(card, bulletFont, n.text, cw - bulletPrefixW);
             JLabel bullet = new JLabel("• " + line);
-            bullet.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            bullet.setFont(bulletFont);
             bullet.setForeground(new Color(55, 70, 105));
             bullet.setBounds(cx, cy, cw, rh);
             card.add(bullet);
@@ -7164,7 +7192,56 @@ public class MotorPH_GUI {
         }
     }
 
+    /**
+     * Creates a small red inline message label positioned directly below a popup form field.
+     * Starts blank (a single space keeps the row height reserved) until an error is set.
+     */
+    private static JLabel createPopupFieldErrorLabel(JPanel form, int x, int y, int w) {
+        JLabel lbl = new JLabel(" ");
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lbl.setForeground(BORDER_ERROR);
+        lbl.setBounds(x, y, w, 13);
+        form.add(lbl);
+        return lbl;
+    }
+
+    /** Sets a persistent inline error message below a popup field (cleared on next edit). */
+    private static void setPopupFieldErrorMessage(JLabel errorLabel, String message) {
+        if (errorLabel != null) {
+            errorLabel.setText(message == null || message.isEmpty() ? " " : message);
+        }
+    }
+
+    /** Clears the inline error message below a popup field. */
+    private static void clearPopupFieldErrorMessage(JLabel errorLabel) {
+        if (errorLabel != null) {
+            errorLabel.setText(" ");
+        }
+    }
+
+    /**
+     * Briefly shows an inline message below a field (e.g. after a blocked keystroke),
+     * then auto-clears it after a short delay unless it was already replaced.
+     */
+    private static void flashPopupFieldInlineMessage(JLabel errorLabel, String message) {
+        if (errorLabel == null) {
+            return;
+        }
+        errorLabel.setText(message);
+        javax.swing.Timer timer = new javax.swing.Timer(1800, e -> {
+            if (message.equals(errorLabel.getText())) {
+                errorLabel.setText(" ");
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
     private static void attachPopupFieldErrorClear(JTextField field) {
+        attachPopupFieldErrorClear(field, null);
+    }
+
+    private static void attachPopupFieldErrorClear(JTextField field, JLabel errorLabel) {
         if (field == null || !field.isEditable()) {
             return;
         }
@@ -7172,19 +7249,23 @@ public class MotorPH_GUI {
             @Override
             public void focusGained(java.awt.event.FocusEvent e) {
                 resetPopupFieldBorder(field);
+                clearPopupFieldErrorMessage(errorLabel);
             }
         });
         field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
                 resetPopupFieldBorder(field);
+                clearPopupFieldErrorMessage(errorLabel);
             }
 
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
                 resetPopupFieldBorder(field);
+                clearPopupFieldErrorMessage(errorLabel);
             }
 
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
                 resetPopupFieldBorder(field);
+                clearPopupFieldErrorMessage(errorLabel);
             }
         });
     }
@@ -7264,53 +7345,77 @@ public class MotorPH_GUI {
     }
 
     private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap) {
+        resetEditPopupFieldBorders(fieldMap, null);
+    }
+
+    private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JLabel> errorLabelMap) {
         for (JTextField tf : fieldMap.values()) {
             resetPopupFieldBorder(tf);
+        }
+        if (errorLabelMap != null) {
+            for (JLabel lbl : errorLabelMap.values()) {
+                clearPopupFieldErrorMessage(lbl);
+            }
+        }
+    }
+
+    /** Marks the field's border red and, when an inline label map is supplied, shows the message below it. */
+    private static void markPopupFieldError(String fieldLabel, String message,
+            java.util.Map<String, JTextField> fieldMap, java.util.Map<String, JLabel> errorLabelMap) {
+        setPopupFieldError(fieldMap.get(fieldLabel));
+        if (errorLabelMap != null) {
+            setPopupFieldErrorMessage(errorLabelMap.get(fieldLabel), message);
         }
     }
 
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap) {
+        markEditPopupFieldErrors(errors, fieldMap, null);
+    }
+
+    private static void markEditPopupFieldErrors(List<String> errors,
+            java.util.Map<String, JTextField> fieldMap, java.util.Map<String, JLabel> errorLabelMap) {
         for (String err : errors) {
             if (err.contains("Employee Number") || err.contains("Employee #")) {
-                setPopupFieldError(fieldMap.get("Employee #:"));
+                markPopupFieldError("Employee #:", err, fieldMap, errorLabelMap);
             }
             if (err.contains("Last Name"))
-                setPopupFieldError(fieldMap.get("Last Name:"));
+                markPopupFieldError("Last Name:", err, fieldMap, errorLabelMap);
             if (err.contains("First Name"))
-                setPopupFieldError(fieldMap.get("First Name:"));
+                markPopupFieldError("First Name:", err, fieldMap, errorLabelMap);
             if (err.contains("Birthday"))
-                setPopupFieldError(fieldMap.get("Birthday:"));
+                markPopupFieldError("Birthday:", err, fieldMap, errorLabelMap);
             if (err.contains("Address"))
-                setPopupFieldError(fieldMap.get("Address:"));
+                markPopupFieldError("Address:", err, fieldMap, errorLabelMap);
             if (err.contains("Phone"))
-                setPopupFieldError(fieldMap.get("Phone:"));
+                markPopupFieldError("Phone:", err, fieldMap, errorLabelMap);
             if (err.contains("SSS"))
-                setPopupFieldError(fieldMap.get("SSS #:"));
+                markPopupFieldError("SSS #:", err, fieldMap, errorLabelMap);
             if (err.contains("PhilHealth"))
-                setPopupFieldError(fieldMap.get("PhilHealth #:"));
+                markPopupFieldError("PhilHealth #:", err, fieldMap, errorLabelMap);
             if (err.contains("TIN"))
-                setPopupFieldError(fieldMap.get("TIN #:"));
+                markPopupFieldError("TIN #:", err, fieldMap, errorLabelMap);
             if (err.contains("Pag-IBIG"))
-                setPopupFieldError(fieldMap.get("Pag-IBIG #:"));
+                markPopupFieldError("Pag-IBIG #:", err, fieldMap, errorLabelMap);
             if (err.contains("Department"))
-                setPopupFieldError(fieldMap.get("Department:"));
+                markPopupFieldError("Department:", err, fieldMap, errorLabelMap);
             if (err.contains("Position"))
-                setPopupFieldError(fieldMap.get("Position:"));
+                markPopupFieldError("Position:", err, fieldMap, errorLabelMap);
             if (err.contains("Supervisor"))
-                setPopupFieldError(fieldMap.get("Supervisor:"));
+                markPopupFieldError("Supervisor:", err, fieldMap, errorLabelMap);
             if (err.contains("Basic Salary"))
-                setPopupFieldError(fieldMap.get("Basic Salary:"));
+                markPopupFieldError("Basic Salary:", err, fieldMap, errorLabelMap);
             if (err.contains("Rice Subsidy"))
-                setPopupFieldError(fieldMap.get("Rice Subsidy:"));
+                markPopupFieldError("Rice Subsidy:", err, fieldMap, errorLabelMap);
             if (err.contains("Phone Allowance"))
-                setPopupFieldError(fieldMap.get("Phone Allowance:"));
+                markPopupFieldError("Phone Allowance:", err, fieldMap, errorLabelMap);
             if (err.contains("Clothing Allowance"))
-                setPopupFieldError(fieldMap.get("Clothing Allowance:"));
+                markPopupFieldError("Clothing Allowance:", err, fieldMap, errorLabelMap);
             if (err.contains("Gross Semi-monthly"))
-                setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
+                markPopupFieldError("Gross Semi-monthly:", err, fieldMap, errorLabelMap);
             if (err.contains("Hourly Rate"))
-                setPopupFieldError(fieldMap.get("Hourly Rate:"));
+                markPopupFieldError("Hourly Rate:", err, fieldMap, errorLabelMap);
         }
     }
 
@@ -7545,7 +7650,8 @@ public class MotorPH_GUI {
         JPanel form = new JPanel(null);
         form.setBackground(PALETTE_WHITE);
         final int PAD = 14;
-        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 10, fy = 8;
+        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 8, fy = 8;
+        final int errH = 13;
 
         String[][] sections = {
                 { "Personal Information" },
@@ -7576,6 +7682,7 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JLabel> errorLabelMap = new java.util.LinkedHashMap<>();
         final JComboBox<String>[] deptComboRef = new JComboBox[1];
         final JComboBox<String>[] posComboRef = new JComboBox[1];
 
@@ -7685,25 +7792,27 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
+                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
+                errorLabelMap.put(row[0], errLbl);
                 if ("SSS #:".equals(row[0])) {
-                    attachIdFormat(tf, "XX-XXXXXXX-X");
+                    attachIdFormat(tf, "XX-XXXXXXX-X", errLbl);
                 } else if ("TIN #:".equals(row[0])) {
-                    attachIdFormat(tf, "XXX-XXX-XXX-XXX");
+                    attachIdFormat(tf, "XXX-XXX-XXX-XXX", errLbl);
                 } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
                         || "Phone:".equals(row[0])) {
-                    attachDigitsOnlyFilter(tf);
+                    attachDigitsOnlyFilter(tf, errLbl);
                 } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
                         || "Gross Semi-monthly:".equals(row[0])) {
-                    attachNumericValidation(tf);
+                    attachNumericValidation(tf, errLbl);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
-                fy += rowH + rowGap;
+                fy += rowH + errH + rowGap;
             }
         }
-        for (JTextField tf : fieldMap.values()) {
-            attachPopupFieldErrorClear(tf);
+        for (Map.Entry<String, JTextField> fieldEntry : fieldMap.entrySet()) {
+            attachPopupFieldErrorClear(fieldEntry.getValue(), errorLabelMap.get(fieldEntry.getKey()));
         }
         if (deptComboRef[0] != null && posComboRef[0] != null) {
             wireDepartmentPositionSupervisor(
@@ -7735,10 +7844,10 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap);
+            resetEditPopupFieldBorders(fieldMap, errorLabelMap);
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -7815,7 +7924,8 @@ public class MotorPH_GUI {
         root.add(strip);
 
         final int PAD = 14;
-        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 10, fy = 8;
+        int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 8, fy = 8;
+        final int errH = 13;
 
         JPanel form = new JPanel(null);
         form.setBackground(PALETTE_WHITE);
@@ -7850,6 +7960,7 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JLabel> errorLabelMap = new java.util.LinkedHashMap<>();
         final JComboBox<String>[] deptComboRef = new JComboBox[1];
         final JComboBox<String>[] posComboRef = new JComboBox[1];
 
@@ -7941,27 +8052,29 @@ public class MotorPH_GUI {
                         form.add(tf);
                     }
                 }
+                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
+                errorLabelMap.put(row[0], errLbl);
                 if ("SSS #:".equals(row[0])) {
-                    attachIdFormat(tf, "XX-XXXXXXX-X");
+                    attachIdFormat(tf, "XX-XXXXXXX-X", errLbl);
                 } else if ("TIN #:".equals(row[0])) {
-                    attachIdFormat(tf, "XXX-XXX-XXX-XXX");
+                    attachIdFormat(tf, "XXX-XXX-XXX-XXX", errLbl);
                 } else if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])
                         || "Phone:".equals(row[0])) {
-                    attachDigitsOnlyFilter(tf);
+                    attachDigitsOnlyFilter(tf, errLbl);
                 } else if ("Basic Salary:".equals(row[0]) || "Rice Subsidy:".equals(row[0])
                         || "Phone Allowance:".equals(row[0]) || "Clothing Allowance:".equals(row[0])
                         || "Gross Semi-monthly:".equals(row[0])) {
-                    attachNumericValidation(tf);
+                    attachNumericValidation(tf, errLbl);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
-                fy += rowH + rowGap;
+                fy += rowH + errH + rowGap;
             }
         }
         form.setPreferredSize(new java.awt.Dimension(fieldX + fieldW + PAD, fy + 12));
 
-        for (JTextField tf : fieldMap.values()) {
-            attachPopupFieldErrorClear(tf);
+        for (Map.Entry<String, JTextField> fieldEntry : fieldMap.entrySet()) {
+            attachPopupFieldErrorClear(fieldEntry.getValue(), errorLabelMap.get(fieldEntry.getKey()));
         }
         if (deptComboRef[0] != null && posComboRef[0] != null) {
             wireDepartmentPositionSupervisor(
@@ -7991,10 +8104,10 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap);
+            resetEditPopupFieldBorders(fieldMap, errorLabelMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -8332,7 +8445,16 @@ public class MotorPH_GUI {
     }
 
     private static void attachDigitsOnlyFilter(JTextField tf) {
-        tf.setToolTipText("Digits and hyphens only");
+        attachDigitsOnlyFilter(tf, null);
+    }
+
+    /**
+     * Restricts a field to digits (and hyphens) only. Any other keystroke is blocked
+     * outright and, when an inline error label is supplied, a short-lived message is
+     * shown below the field to explain why the character was rejected.
+     */
+    private static void attachDigitsOnlyFilter(JTextField tf, JLabel errorLabel) {
+        tf.setToolTipText("Digits only");
         ((javax.swing.text.AbstractDocument) tf.getDocument())
                 .setDocumentFilter(new javax.swing.text.DocumentFilter() {
                     private String clean(String s) {
@@ -8342,48 +8464,73 @@ public class MotorPH_GUI {
                     public void insertString(FilterBypass fb, int offset, String string,
                             javax.swing.text.AttributeSet attr)
                             throws javax.swing.text.BadLocationException {
-                        fb.insertString(offset, clean(string), attr);
+                        String cleaned = clean(string);
+                        fb.insertString(offset, cleaned, attr);
+                        if (!cleaned.equals(string)) {
+                            flashPopupFieldInlineMessage(errorLabel, "Numbers only are allowed.");
+                        }
                     }
                     @Override
                     public void replace(FilterBypass fb, int offset, int length, String string,
                             javax.swing.text.AttributeSet attr)
                             throws javax.swing.text.BadLocationException {
-                        fb.replace(offset, length, clean(string), attr);
+                        String cleaned = clean(string);
+                        fb.replace(offset, length, cleaned, attr);
+                        if (!cleaned.equals(string)) {
+                            flashPopupFieldInlineMessage(errorLabel, "Numbers only are allowed.");
+                        }
                     }
                 });
     }
 
     private static void attachNumericValidation(JTextField tf) {
-        tf.setToolTipText("Enter a number, or NA / 000 for zero");
-        tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void check() {
-                String t = tf.getText();
-                boolean ok = t.isEmpty()
-                        || EmployeeRecordsModule.isNaPlaceholder(t)
-                        || t.matches("[0-9,\\.\\+\\-\\(\\) ]*");
-                if (ok) {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
-                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
-                } else {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(BORDER_ERROR, 2),
-                            BorderFactory.createEmptyBorder(3, 7, 3, 7)));
-                }
-            }
+        attachNumericValidation(tf, null);
+    }
 
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                check();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                check();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                check();
-            }
-        });
+    /**
+     * Restricts a field to numeric amounts (digits plus a single decimal point).
+     * Any letter or other non-numeric character is blocked as it is typed; when an
+     * inline error label is supplied, a short-lived message is shown below the field.
+     */
+    private static void attachNumericValidation(JTextField tf, JLabel errorLabel) {
+        tf.setToolTipText("Numbers only (use 000 for zero)");
+        ((javax.swing.text.AbstractDocument) tf.getDocument())
+                .setDocumentFilter(new javax.swing.text.DocumentFilter() {
+                    private String clean(String s) {
+                        return s == null ? "" : s.replaceAll("[^0-9.]", "");
+                    }
+                    private String dedupeDecimalPoint(String existingTextWithoutRange, String cleaned) {
+                        if (cleaned.indexOf('.') >= 0 && existingTextWithoutRange.indexOf('.') >= 0) {
+                            return cleaned.replace(".", "");
+                        }
+                        return cleaned;
+                    }
+                    @Override
+                    public void insertString(FilterBypass fb, int offset, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        String cleaned = clean(string);
+                        String current = fb.getDocument().getText(0, fb.getDocument().getLength());
+                        cleaned = dedupeDecimalPoint(current, cleaned);
+                        fb.insertString(offset, cleaned, attr);
+                        if (!cleaned.equals(string)) {
+                            flashPopupFieldInlineMessage(errorLabel, "Numbers only are allowed.");
+                        }
+                    }
+                    @Override
+                    public void replace(FilterBypass fb, int offset, int length, String string,
+                            javax.swing.text.AttributeSet attr)
+                            throws javax.swing.text.BadLocationException {
+                        String cleaned = clean(string);
+                        String current = fb.getDocument().getText(0, fb.getDocument().getLength());
+                        String remaining = current.substring(0, offset) + current.substring(offset + length);
+                        cleaned = dedupeDecimalPoint(remaining, cleaned);
+                        fb.replace(offset, length, cleaned, attr);
+                        if (!cleaned.equals(string)) {
+                            flashPopupFieldInlineMessage(errorLabel, "Numbers only are allowed.");
+                        }
+                    }
+                });
     }
 
     /**
@@ -8450,6 +8597,15 @@ public class MotorPH_GUI {
     }
 
     private static void attachIdFormat(JTextField tf, String pattern) {
+        attachIdFormat(tf, pattern, null);
+    }
+
+    /**
+     * Auto-formats a government ID field to the given digit pattern (e.g. "XX-XXXXXXX-X").
+     * Any letter or symbol typed is stripped immediately so only digits ever reach the
+     * field; when an inline error label is supplied, a short-lived message explains why.
+     */
+    private static void attachIdFormat(JTextField tf, String pattern, JLabel errorLabel) {
         int max = pattern.replace("-", "").length();
         boolean[] busy = { false };
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -8459,13 +8615,18 @@ public class MotorPH_GUI {
                         return;
                     busy[0] = true;
                     try {
-                        String raw = tf.getText().replaceAll("[^0-9]", "");
+                        String currentText = tf.getText();
+                        boolean hadInvalidChars = !currentText.replaceAll("[0-9\\-]", "").isEmpty();
+                        String raw = currentText.replaceAll("[^0-9]", "");
                         if (raw.length() > max)
                             raw = raw.substring(0, max);
                         String formatted = applyIdPattern(raw, pattern);
                         if (!formatted.equals(tf.getText())) {
                             tf.setText(formatted);
                             tf.setCaretPosition(formatted.length());
+                        }
+                        if (hadInvalidChars) {
+                            flashPopupFieldInlineMessage(errorLabel, "Numbers only are allowed.");
                         }
                     } finally {
                         busy[0] = false;
