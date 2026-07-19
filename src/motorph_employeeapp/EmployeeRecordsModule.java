@@ -1,5 +1,7 @@
 package motorph_employeeapp;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -216,6 +218,7 @@ public class EmployeeRecordsModule {
     public static List<String> validateAddPopup(RecordFormData form) {
         List<String> errors = new ArrayList<>(validateForm(form, false, null));
         addExtendedPopupValidation(form, errors);
+        checkDuplicateGovernmentIds(form, null, errors);
         return errors;
     }
 
@@ -225,6 +228,7 @@ public class EmployeeRecordsModule {
     public static List<String> validateEditPopup(RecordFormData form, String originalId) {
         List<String> errors = new ArrayList<>(validateForm(form, true, originalId));
         addExtendedPopupValidation(form, errors);
+        checkDuplicateGovernmentIds(form, originalId, errors);
         return errors;
     }
 
@@ -413,7 +417,10 @@ public class EmployeeRecordsModule {
         }
         if (isBlank(form.phone)) {
             errors.add("Phone number is required.");
+        } else {
+            validatePhoneNumber(form.phone, errors);
         }
+        validateBirthdaySanity(form.birthday, errors);
         if (isBlank(form.position)) {
             errors.add("Position is required.");
         }
@@ -430,6 +437,96 @@ public class EmployeeRecordsModule {
         validateRequiredNumeric(form.grossSemiMonthly, "Gross Semi-monthly", errors);
         validateIdFormatComplete(form.sss, "XX-XXXXXXX-X", "SSS Number", errors);
         validateIdFormatComplete(form.tin, "XXX-XXX-XXX-XXX", "TIN Number", errors);
+        validateDigitCount(form.philHealth, 12, "PhilHealth Number", errors);
+        validateDigitCount(form.pagIbig, 12, "Pag-IBIG Number", errors);
+    }
+
+    /**
+     * Warns when a government ID is already assigned to a different employee record.
+     */
+    private static void checkDuplicateGovernmentIds(RecordFormData form, String excludeEmployeeId,
+            List<String> errors) {
+        if (form == null) {
+            return;
+        }
+        List<String[]> all = FileHandlerModule.getAllEmployees();
+        String exclude = excludeEmployeeId == null ? "" : excludeEmployeeId.trim();
+        checkDuplicateIdField(all, exclude, normalizeIdDigits(form.sss), EmployeeModule.SSS, "SSS Number", errors);
+        checkDuplicateIdField(all, exclude, normalizeIdDigits(form.philHealth), EmployeeModule.PHILHEALTH,
+                "PhilHealth Number", errors);
+        checkDuplicateIdField(all, exclude, normalizeIdDigits(form.tin), EmployeeModule.TIN, "TIN Number", errors);
+        checkDuplicateIdField(all, exclude, normalizeIdDigits(form.pagIbig), EmployeeModule.PAGIBIG,
+                "Pag-IBIG Number", errors);
+    }
+
+    private static void checkDuplicateIdField(List<String[]> all, String excludeEmpId, String normalizedValue,
+            int columnIndex, String displayName, List<String> errors) {
+        if (normalizedValue.isEmpty()) {
+            return;
+        }
+        for (String[] emp : all) {
+            String empId = safe(emp, EmployeeModule.ID);
+            if (empId.equals(excludeEmpId)) {
+                continue;
+            }
+            String existing = normalizeIdDigits(safe(emp, columnIndex));
+            if (!existing.isEmpty() && existing.equals(normalizedValue)) {
+                errors.add(displayName + " is already assigned to employee #" + empId + ".");
+                return;
+            }
+        }
+    }
+
+    private static String normalizeIdDigits(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("[^0-9]", "");
+    }
+
+    private static void validatePhoneNumber(String phone, List<String> errors) {
+        int digits = phone.replaceAll("[^0-9]", "").length();
+        if (digits < 9 || digits > 11) {
+            errors.add("Phone number must be 9 to 11 digits (e.g. 966-860-270 or 09XX-XXX-XXXX).");
+        }
+    }
+
+    private static void validateBirthdaySanity(String birthday, List<String> errors) {
+        if (isBlank(birthday) || !birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            return;
+        }
+        try {
+            String[] parts = birthday.trim().split("/");
+            LocalDate birth = LocalDate.of(
+                    Integer.parseInt(parts[2].trim()),
+                    Integer.parseInt(parts[0].trim()),
+                    Integer.parseInt(parts[1].trim()));
+            LocalDate today = LocalDate.now();
+            if (birth.isAfter(today)) {
+                errors.add("Birthday cannot be in the future.");
+                return;
+            }
+            int age = Period.between(birth, today).getYears();
+            if (age < 18) {
+                errors.add("Employee must be at least 18 years old.");
+            } else if (age > 100) {
+                errors.add("Birthday appears invalid — employee age cannot exceed 100 years.");
+            }
+        } catch (Exception ex) {
+            errors.add("Birthday could not be interpreted. Use the calendar icon to pick a valid date.");
+        }
+    }
+
+    /** Ensures a government ID field contains exactly {@code expectedDigits} numeric characters. */
+    private static void validateDigitCount(String value, int expectedDigits, String displayName,
+            List<String> errors) {
+        if (isBlank(value)) {
+            return;
+        }
+        int actualDigits = value.replaceAll("[^0-9]", "").length();
+        if (actualDigits != expectedDigits) {
+            errors.add(displayName + " must be exactly " + expectedDigits + " digits.");
+        }
     }
 
     /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */

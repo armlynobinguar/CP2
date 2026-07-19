@@ -7345,11 +7345,16 @@ public class MotorPH_GUI {
     }
 
     private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap) {
-        resetEditPopupFieldBorders(fieldMap, null);
+        resetEditPopupFieldBorders(fieldMap, null, null);
     }
 
     private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap,
             java.util.Map<String, JLabel> errorLabelMap) {
+        resetEditPopupFieldBorders(fieldMap, errorLabelMap, null);
+    }
+
+    private static void resetEditPopupFieldBorders(java.util.Map<String, JTextField> fieldMap,
+            java.util.Map<String, JLabel> errorLabelMap, java.util.Map<String, JComboBox<String>> comboMap) {
         for (JTextField tf : fieldMap.values()) {
             resetPopupFieldBorder(tf);
         }
@@ -7358,6 +7363,98 @@ public class MotorPH_GUI {
                 clearPopupFieldErrorMessage(lbl);
             }
         }
+        if (comboMap != null) {
+            for (JComboBox<String> combo : comboMap.values()) {
+                resetPopupComboBorder(combo);
+            }
+        }
+    }
+
+    private static void setPopupComboError(JComboBox<?> combo) {
+        if (combo != null) {
+            combo.setBorder(BorderFactory.createLineBorder(BORDER_ERROR, 2));
+        }
+    }
+
+    private static void resetPopupComboBorder(JComboBox<?> combo) {
+        if (combo != null) {
+            combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+        }
+    }
+
+    private static void attachPopupComboErrorClear(JComboBox<String> combo, JLabel errorLabel) {
+        if (combo == null) {
+            return;
+        }
+        combo.addActionListener(e -> {
+            resetPopupComboBorder(combo);
+            clearPopupFieldErrorMessage(errorLabel);
+        });
+    }
+
+    /** Maps a validation message to the popup field label key used in {@code fieldMap}. */
+    private static String fieldLabelForPopupError(String err) {
+        if (err == null || err.isEmpty()) {
+            return null;
+        }
+        if (err.contains("Employee Number") || err.contains("Employee #")) {
+            return "Employee #:";
+        }
+        if (err.contains("Last Name")) {
+            return "Last Name:";
+        }
+        if (err.contains("First Name")) {
+            return "First Name:";
+        }
+        if (err.contains("Birthday")) {
+            return "Birthday:";
+        }
+        if (err.contains("Address")) {
+            return "Address:";
+        }
+        if (err.contains("Phone Allowance")) {
+            return "Phone Allowance:";
+        }
+        if (err.contains("Phone number") || err.contains("Phone must")) {
+            return "Phone:";
+        }
+        if (err.contains("PhilHealth")) {
+            return "PhilHealth #:";
+        }
+        if (err.contains("SSS")) {
+            return "SSS #:";
+        }
+        if (err.contains("TIN")) {
+            return "TIN #:";
+        }
+        if (err.contains("Pag-IBIG")) {
+            return "Pag-IBIG #:";
+        }
+        if (err.contains("Department")) {
+            return "Department:";
+        }
+        if (err.contains("Position")) {
+            return "Position:";
+        }
+        if (err.contains("Supervisor")) {
+            return "Supervisor:";
+        }
+        if (err.contains("Basic Salary")) {
+            return "Basic Salary:";
+        }
+        if (err.contains("Rice Subsidy")) {
+            return "Rice Subsidy:";
+        }
+        if (err.contains("Clothing Allowance")) {
+            return "Clothing Allowance:";
+        }
+        if (err.contains("Gross Semi-monthly")) {
+            return "Gross Semi-monthly:";
+        }
+        if (err.contains("Hourly Rate")) {
+            return "Hourly Rate:";
+        }
+        return null;
     }
 
     /** Marks the field's border red and, when an inline label map is supplied, shows the message below it. */
@@ -7371,59 +7468,91 @@ public class MotorPH_GUI {
 
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap) {
-        markEditPopupFieldErrors(errors, fieldMap, null);
+        markEditPopupFieldErrors(errors, fieldMap, null, null);
     }
 
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap, java.util.Map<String, JLabel> errorLabelMap) {
+        markEditPopupFieldErrors(errors, fieldMap, errorLabelMap, null);
+    }
+
+    private static void markEditPopupFieldErrors(List<String> errors,
+            java.util.Map<String, JTextField> fieldMap, java.util.Map<String, JLabel> errorLabelMap,
+            java.util.Map<String, JComboBox<String>> comboMap) {
         for (String err : errors) {
-            if (err.contains("Employee Number") || err.contains("Employee #")) {
-                markPopupFieldError("Employee #:", err, fieldMap, errorLabelMap);
+            String fieldLabel = fieldLabelForPopupError(err);
+            if (fieldLabel == null) {
+                continue;
             }
-            if (err.contains("Last Name"))
-                markPopupFieldError("Last Name:", err, fieldMap, errorLabelMap);
-            if (err.contains("First Name"))
-                markPopupFieldError("First Name:", err, fieldMap, errorLabelMap);
-            if (err.contains("Birthday"))
-                markPopupFieldError("Birthday:", err, fieldMap, errorLabelMap);
-            if (err.contains("Address"))
-                markPopupFieldError("Address:", err, fieldMap, errorLabelMap);
-            if (err.contains("Phone"))
-                markPopupFieldError("Phone:", err, fieldMap, errorLabelMap);
-            if (err.contains("SSS"))
-                markPopupFieldError("SSS #:", err, fieldMap, errorLabelMap);
-            if (err.contains("PhilHealth"))
-                markPopupFieldError("PhilHealth #:", err, fieldMap, errorLabelMap);
-            if (err.contains("TIN"))
-                markPopupFieldError("TIN #:", err, fieldMap, errorLabelMap);
-            if (err.contains("Pag-IBIG"))
-                markPopupFieldError("Pag-IBIG #:", err, fieldMap, errorLabelMap);
-            if (err.contains("Department"))
-                markPopupFieldError("Department:", err, fieldMap, errorLabelMap);
-            if (err.contains("Position"))
-                markPopupFieldError("Position:", err, fieldMap, errorLabelMap);
-            if (err.contains("Supervisor"))
-                markPopupFieldError("Supervisor:", err, fieldMap, errorLabelMap);
-            if (err.contains("Basic Salary"))
-                markPopupFieldError("Basic Salary:", err, fieldMap, errorLabelMap);
-            if (err.contains("Rice Subsidy"))
-                markPopupFieldError("Rice Subsidy:", err, fieldMap, errorLabelMap);
-            if (err.contains("Phone Allowance"))
-                markPopupFieldError("Phone Allowance:", err, fieldMap, errorLabelMap);
-            if (err.contains("Clothing Allowance"))
-                markPopupFieldError("Clothing Allowance:", err, fieldMap, errorLabelMap);
-            if (err.contains("Gross Semi-monthly"))
-                markPopupFieldError("Gross Semi-monthly:", err, fieldMap, errorLabelMap);
-            if (err.contains("Hourly Rate"))
-                markPopupFieldError("Hourly Rate:", err, fieldMap, errorLabelMap);
+            markPopupFieldError(fieldLabel, err, fieldMap, errorLabelMap);
+            if (comboMap != null && comboMap.containsKey(fieldLabel)) {
+                setPopupComboError(comboMap.get(fieldLabel));
+            }
         }
+    }
+
+    private static String serializePopupFormState(java.util.Map<String, JTextField> fieldMap) {
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
+            sb.append(entry.getKey()).append('=').append(entry.getValue().getText()).append('|');
+        }
+        return sb.toString();
+    }
+
+    private static boolean confirmDiscardPopupChanges(JDialog dialog,
+            java.util.Map<String, JTextField> fieldMap, String baseline) {
+        if (baseline == null || serializePopupFormState(fieldMap).equals(baseline)) {
+            return true;
+        }
+        int choice = JOptionPane.showConfirmDialog(dialog,
+                "You have unsaved changes in this form. Discard them?",
+                "Unsaved Changes", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        return choice == JOptionPane.YES_OPTION;
+    }
+
+    private static void scrollPopupToFirstError(JScrollPane scroll,
+            java.util.Map<String, Integer> fieldYMap, List<String> errors) {
+        if (scroll == null || fieldYMap == null || errors == null || errors.isEmpty()) {
+            return;
+        }
+        int minY = Integer.MAX_VALUE;
+        for (String err : errors) {
+            String label = fieldLabelForPopupError(err);
+            if (label != null && fieldYMap.containsKey(label)) {
+                minY = Math.min(minY, fieldYMap.get(label));
+            }
+        }
+        if (minY == Integer.MAX_VALUE) {
+            return;
+        }
+        scroll.getVerticalScrollBar().setValue(Math.max(0, minY - 8));
+    }
+
+    private static String buildEmployeeSaveSuccessDetail(String[] row, boolean isAdd) {
+        String hourly = safeColumn(row, EmployeeModule.HOURLY_RATE);
+        if (hourly.isEmpty()) {
+            hourly = "0.00";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Employee #").append(safeColumn(row, EmployeeModule.ID).trim())
+                .append(" (").append(EmployeeModule.fullName(row)).append(") was ")
+                .append(isAdd ? "added" : "saved").append(" successfully.\n\n");
+        sb.append("Department: ").append(safeColumn(row, EmployeeModule.DEPARTMENT)).append('\n');
+        sb.append("Position: ").append(safeColumn(row, EmployeeModule.POSITION)).append('\n');
+        sb.append("Hourly Rate: PHP ").append(hourly).append('\n');
+        if (isAdd) {
+            sb.append("\nThe employee table has been refreshed.");
+        } else {
+            sb.append("\nA revision snapshot was recorded in the history log.");
+        }
+        return sb.toString();
     }
 
     /**
      * Birthday field with a visible calendar button that opens {@link #showDatePickerPopup}.
      */
     private static JTextField createBirthdayFieldWithCalendar(JPanel form, int fieldX, int fy,
-            int fieldW, int rowH, String storedValue, JDialog parentDialog) {
+            int fieldW, int rowH, String storedValue, JDialog parentDialog, JLabel errorLabel) {
         final int calBtnW = 34;
         final int dateFieldW = fieldW - calBtnW - 4;
 
@@ -7451,7 +7580,11 @@ public class MotorPH_GUI {
         styleStandardButton(btnCalendar);
         form.add(btnCalendar);
 
-        Runnable openCalendar = () -> showDatePickerPopup(tf, parentDialog);
+        Runnable onBirthdaySelected = () -> {
+            resetPopupFieldBorder(tf);
+            clearPopupFieldErrorMessage(errorLabel);
+        };
+        Runnable openCalendar = () -> showDatePickerPopup(tf, parentDialog, onBirthdaySelected);
         btnCalendar.addActionListener(e -> openCalendar.run());
         tf.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -7683,6 +7816,8 @@ public class MotorPH_GUI {
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabelMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JComboBox<String>> comboMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Integer> fieldYMap = new java.util.LinkedHashMap<>();
         final JComboBox<String>[] deptComboRef = new JComboBox[1];
         final JComboBox<String>[] posComboRef = new JComboBox[1];
 
@@ -7695,11 +7830,14 @@ public class MotorPH_GUI {
                 form.add(sec);
                 fy += 26;
             } else {
+                fieldYMap.put(row[0], fy);
                 JLabel lbl = new JLabel(row[0]);
                 lbl.setFont(APP_FONT_PLAIN);
                 lbl.setForeground(TEXT_DARK_NAVY);
                 lbl.setBounds(PAD, fy + 4, labelW, rowH - 4);
                 form.add(lbl);
+                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
+                errorLabelMap.put(row[0], errLbl);
                 JTextField tf;
                 if ("Status:".equals(row[0])) {
                     String[] opts = { "Regular", "Probationary" };
@@ -7708,6 +7846,7 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     String cur = row[1].trim();
                     for (String opt : opts) {
                         if (opt.equalsIgnoreCase(cur)) {
@@ -7716,6 +7855,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     JTextField proxy = new JTextField((String) combo.getSelectedItem());
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -7733,6 +7873,7 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     for (int i = 0; i < combo.getItemCount(); i++) {
                         if (dept.equalsIgnoreCase(combo.getItemAt(i).toString())) {
                             combo.setSelectedIndex(i);
@@ -7740,6 +7881,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? dept : combo.getSelectedItem().toString());
@@ -7759,6 +7901,7 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     for (int i = 0; i < combo.getItemCount(); i++) {
                         if (row[1].equalsIgnoreCase(combo.getItemAt(i).toString())) {
                             combo.setSelectedIndex(i);
@@ -7766,6 +7909,7 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? row[1] : combo.getSelectedItem().toString());
@@ -7786,14 +7930,12 @@ public class MotorPH_GUI {
                     if ("Employee #:".equals(row[0]))
                         tf.setEditable(false);
                     if ("Birthday:".equals(row[0])) {
-                        tf = createBirthdayFieldWithCalendar(form, fieldX, fy, fieldW, rowH, row[1], dialog);
+                        tf = createBirthdayFieldWithCalendar(form, fieldX, fy, fieldW, rowH, row[1], dialog, errLbl);
                     } else {
                         tf.setBounds(fieldX, fy, fieldW, rowH);
                         form.add(tf);
                     }
                 }
-                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
-                errorLabelMap.put(row[0], errLbl);
                 if ("SSS #:".equals(row[0])) {
                     attachIdFormat(tf, "XX-XXXXXXX-X", errLbl);
                 } else if ("TIN #:".equals(row[0])) {
@@ -7813,6 +7955,9 @@ public class MotorPH_GUI {
         }
         for (Map.Entry<String, JTextField> fieldEntry : fieldMap.entrySet()) {
             attachPopupFieldErrorClear(fieldEntry.getValue(), errorLabelMap.get(fieldEntry.getKey()));
+        }
+        for (Map.Entry<String, JComboBox<String>> comboEntry : comboMap.entrySet()) {
+            attachPopupComboErrorClear(comboEntry.getValue(), errorLabelMap.get(comboEntry.getKey()));
         }
         if (deptComboRef[0] != null && posComboRef[0] != null) {
             wireDepartmentPositionSupervisor(
@@ -7834,6 +7979,8 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
+        final String popupBaseline = serializePopupFormState(fieldMap);
+
         // Buttons
         JButton btnSave = new JButton("Save Changes");
         guiStyleAccentButton(btnSave);
@@ -7844,10 +7991,11 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap, errorLabelMap);
+            resetEditPopupFieldBorders(fieldMap, errorLabelMap, comboMap);
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap, comboMap);
+                scrollPopupToFirstError(formScroll, fieldYMap, validationErrors);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -7878,8 +8026,7 @@ public class MotorPH_GUI {
                     selectedEmployeeId = savedId;
                     showPopupSuccessAndClose(dialog,
                             "Employee #" + savedId + " updated successfully.",
-                            "Employee record for #" + savedId + " (" + EmployeeModule.fullName(updated)
-                                    + ") was saved successfully.",
+                            buildEmployeeSaveSuccessDetail(updated, false),
                             "Save Successful");
                 } else {
                     JOptionPane.showMessageDialog(dialog,
@@ -7895,7 +8042,11 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> dialog.dispose());
+        btnCancel.addActionListener(ev -> {
+            if (confirmDiscardPopupChanges(dialog, fieldMap, popupBaseline)) {
+                dialog.dispose();
+            }
+        });
         root.add(btnSave);
         root.add(btnCancel);
 
@@ -7961,6 +8112,8 @@ public class MotorPH_GUI {
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabelMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, JComboBox<String>> comboMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Integer> fieldYMap = new java.util.LinkedHashMap<>();
         final JComboBox<String>[] deptComboRef = new JComboBox[1];
         final JComboBox<String>[] posComboRef = new JComboBox[1];
 
@@ -7973,11 +8126,14 @@ public class MotorPH_GUI {
                 form.add(sec);
                 fy += 26;
             } else {
+                fieldYMap.put(row[0], fy);
                 JLabel lbl = new JLabel(row[0]);
                 lbl.setFont(APP_FONT_PLAIN);
                 lbl.setForeground(TEXT_DARK_NAVY);
                 lbl.setBounds(PAD, fy + 4, labelW, rowH - 4);
                 form.add(lbl);
+                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
+                errorLabelMap.put(row[0], errLbl);
                 JTextField tf;
                 if ("Status:".equals(row[0])) {
                     String[] opts = { "Regular", "Probationary" };
@@ -7986,7 +8142,9 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     JTextField proxy = new JTextField("Regular");
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -8000,8 +8158,10 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     combo.setSelectedItem(row[1]);
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(row[1]);
                     combo.addItemListener(e -> {
@@ -8020,9 +8180,11 @@ public class MotorPH_GUI {
                     combo.setFont(APP_FONT_PLAIN);
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
+                    combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
                     if (combo.getItemCount() > 0)
                         combo.setSelectedIndex(0);
                     form.add(combo);
+                    comboMap.put(row[0], combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? "" : combo.getSelectedItem().toString());
@@ -8046,14 +8208,12 @@ public class MotorPH_GUI {
                         tf.setToolTipText("Auto-assigned next available employee number");
                     }
                     if ("Birthday:".equals(row[0])) {
-                        tf = createBirthdayFieldWithCalendar(form, fieldX, fy, fieldW, rowH, row[1], dialog);
+                        tf = createBirthdayFieldWithCalendar(form, fieldX, fy, fieldW, rowH, row[1], dialog, errLbl);
                     } else {
                         tf.setBounds(fieldX, fy, fieldW, rowH);
                         form.add(tf);
                     }
                 }
-                JLabel errLbl = createPopupFieldErrorLabel(form, fieldX, fy + rowH + 1, fieldW);
-                errorLabelMap.put(row[0], errLbl);
                 if ("SSS #:".equals(row[0])) {
                     attachIdFormat(tf, "XX-XXXXXXX-X", errLbl);
                 } else if ("TIN #:".equals(row[0])) {
@@ -8076,6 +8236,9 @@ public class MotorPH_GUI {
         for (Map.Entry<String, JTextField> fieldEntry : fieldMap.entrySet()) {
             attachPopupFieldErrorClear(fieldEntry.getValue(), errorLabelMap.get(fieldEntry.getKey()));
         }
+        for (Map.Entry<String, JComboBox<String>> comboEntry : comboMap.entrySet()) {
+            attachPopupComboErrorClear(comboEntry.getValue(), errorLabelMap.get(comboEntry.getKey()));
+        }
         if (deptComboRef[0] != null && posComboRef[0] != null) {
             wireDepartmentPositionSupervisor(
                     deptComboRef[0], posComboRef[0],
@@ -8095,6 +8258,8 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
+        final String popupBaseline = serializePopupFormState(fieldMap);
+
         JButton btnSave = new JButton("Add Employee");
         guiStyleAccentButton(btnSave);
         btnSave.setBounds(252, 520, 140, 34);
@@ -8104,10 +8269,11 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            resetEditPopupFieldBorders(fieldMap, errorLabelMap);
+            resetEditPopupFieldBorders(fieldMap, errorLabelMap, comboMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabelMap, comboMap);
+                scrollPopupToFirstError(formScroll, fieldYMap, validationErrors);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -8132,8 +8298,7 @@ public class MotorPH_GUI {
                     updateEmployeeRecordActionState(true);
                     showPopupSuccessAndClose(dialog,
                             "Employee #" + empId + " added successfully.",
-                            "Employee #" + empId + " (" + EmployeeModule.fullName(newRow)
-                                    + ") was added successfully.\nThe employee table has been refreshed.",
+                            buildEmployeeSaveSuccessDetail(newRow, true),
                             "Add Successful");
                 } else {
                     JOptionPane.showMessageDialog(dialog,
@@ -8149,7 +8314,11 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> dialog.dispose());
+        btnCancel.addActionListener(ev -> {
+            if (confirmDiscardPopupChanges(dialog, fieldMap, popupBaseline)) {
+                dialog.dispose();
+            }
+        });
         root.add(btnSave);
         root.add(btnCancel);
 
@@ -8160,6 +8329,11 @@ public class MotorPH_GUI {
     }
 
     private static void showDatePickerPopup(JTextField targetField, JDialog parentDialog) {
+        showDatePickerPopup(targetField, parentDialog, null);
+    }
+
+    private static void showDatePickerPopup(JTextField targetField, JDialog parentDialog,
+            Runnable onDateSelected) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String existing = targetField.getText().trim();
         if (existing.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
@@ -8368,6 +8542,9 @@ public class MotorPH_GUI {
                     }
                     btn.addActionListener(ev -> {
                         targetField.setText(String.format("%02d/%02d/%04d", curM + 1, d, curY));
+                        if (onDateSelected != null) {
+                            onDateSelected.run();
+                        }
                         picker.dispose();
                     });
                     grid.add(btn);
