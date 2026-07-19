@@ -91,6 +91,10 @@ public class EmployeeRecordsModule {
             errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
         }
 
+        if (isBlank(form.address)) {
+            errors.add("Address is required.");
+        }
+
         if (isBlank(form.phone)) {
             errors.add("Phone number is required.");
         } else if (!form.phone.trim().matches("[0-9\\-]+")) {
@@ -100,7 +104,7 @@ public class EmployeeRecordsModule {
         validateDigitsAndDashes(form.sss, "SSS Number", 10, errors);
         validateDigitsAndDashes(form.philHealth, "PhilHealth Number", 12, errors);
         validateDigitsAndDashes(form.tin, "TIN Number", 12, errors);
-        validateDigitsAndDashes(form.pagIbig, "Pag-IBIG Number", 12, errors);
+        validateDigitsAndDashes(form.pagIbig, "PAGIBIG Number", 12, errors);
 
         if (isBlank(form.status)) errors.add("Status is required.");
         if (isBlank(form.position)) errors.add("Position is required.");
@@ -423,9 +427,13 @@ public class EmployeeRecordsModule {
 
     /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */
     private static void validateRequiredNumeric(String value, String displayName, java.util.Set<String> errors) {
-        String normalized = normalizeNumericInput(value);
-        if (isBlank(value) || !isNumeric(normalized)) {
-            errors.add(displayName + " must be a valid number (commas/periods allowed, or enter NA / 000 for zero).");
+        if (isBlank(value)) {
+            errors.add(displayName + " is required.");
+        } else {
+            String normalized = normalizeNumericInput(value);
+            if (!isNumeric(normalized)) {
+                errors.add(displayName + " must be a valid number (commas/periods allowed, or enter NA / 000 for zero).");
+            }
         }
     }
 
@@ -456,8 +464,8 @@ public class EmployeeRecordsModule {
             } else if ("TIN Number".equals(displayName)) {
                 errors.add("TIN Number must use numbers and hyphens only. It must not exceed 12 numbers.");
             } else if ("PhilHealth Number".equals(displayName)) {
-                errors.add("Philhealth Number must use numbers and hyphens only. It must not exceed 12 numbers.");
-            } else if ("Pag-IBIG Number".equals(displayName)) {
+                errors.add("PhilHealth Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+            } else if ("PAGIBIG Number".equals(displayName)) {
                 errors.add("PAGIBIG Number must use numbers and hyphens only. It must not exceed 12 numbers.");
             } else {
                 errors.add("Use numbers, and hyphens only. This must not exceed "

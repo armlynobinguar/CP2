@@ -8638,11 +8638,12 @@ public class MotorPH_GUI {
         }
         String text = field.getText() == null ? "" : field.getText().trim();
         if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
+            setPopupFieldError(field);
             if (errorLabel != null) {
-                errorLabel.setVisible(false);
+                errorLabel.setText(fieldLabel.substring(0, fieldLabel.length() - 1) + " is required.");
+                errorLabel.setVisible(true);
             }
-            return true;
+            return false;
         }
         boolean validChars = isDigitsAndDashesOnly(text);
         int digitCount = countDigits(text);
@@ -8751,33 +8752,26 @@ public class MotorPH_GUI {
      * Validates the content of a currency field against specific criteria and
      * updates the UI accordingly.
      */
-    private static boolean checkCurrencyFieldValidation(JTextField field, JLabel errorLabel) {
+    private static boolean checkCurrencyFieldValidation(JTextField field, JLabel errorLabel, String fieldLabel) {
         if (field == null) {
             return true;
         }
         String text = field.getText() == null ? "" : field.getText().trim();
-        if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
-            if (errorLabel != null) {
-                errorLabel.setVisible(false);
-            }
-            return true;
-        }
-        boolean valid = isCurrencyValueValid(text);
-        if (valid) {
+        String msg = validateAddEmployeeField(fieldLabel, text);
+        if (msg == null) {
             setPopupFieldValid(field);
             if (errorLabel != null) {
                 errorLabel.setVisible(false);
                 errorLabel.setText("Use numbers, commas, and periods only.");
             }
-        } else {
-            setPopupFieldError(field);
-            if (errorLabel != null) {
-                errorLabel.setVisible(true);
-                errorLabel.setText("Use numbers, commas, and periods only.");
-            }
+            return true;
         }
-        return valid;
+        setPopupFieldError(field);
+        if (errorLabel != null) {
+            errorLabel.setText(msg);
+            errorLabel.setVisible(true);
+        }
+        return false;
     }
 
     /**
@@ -8977,7 +8971,9 @@ public class MotorPH_GUI {
 
         if (lastNameField != null) {
             String currentLastName = lastNameField.getText() == null ? "" : lastNameField.getText().trim();
-            if (!isEditPopupNameValueChanged(currentLastName, originalLastName)) {
+            if (currentLastName.isEmpty()) {
+                setPopupFieldError(lastNameField);
+            } else if (!isEditPopupNameValueChanged(currentLastName, originalLastName)) {
                 resetPopupFieldBorder(lastNameField);
             } else if (isEditPopupNameValueValid(currentLastName)) {
                 setPopupFieldValid(lastNameField);
@@ -8988,7 +8984,9 @@ public class MotorPH_GUI {
 
         if (firstNameField != null) {
             String currentFirstName = firstNameField.getText() == null ? "" : firstNameField.getText().trim();
-            if (!isEditPopupNameValueChanged(currentFirstName, originalFirstName)) {
+            if (currentFirstName.isEmpty()) {
+                setPopupFieldError(firstNameField);
+            } else if (!isEditPopupNameValueChanged(currentFirstName, originalFirstName)) {
                 resetPopupFieldBorder(firstNameField);
             } else if (isEditPopupNameValueValid(currentFirstName)) {
                 setPopupFieldValid(firstNameField);
@@ -9029,22 +9027,27 @@ public class MotorPH_GUI {
      */
     private static final java.util.Set<String> SUBMIT_FORMAT_CHECK_FIELDS = new java.util.LinkedHashSet<>(
             java.util.Arrays.asList("Last Name:", "First Name:", "Supervisor:",
-                    "Phone:", "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:"));
+                    "Phone:", "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:",
+                    "Basic Salary:", "Rice Subsidy:", "Phone Allowance:", "Clothing Allowance:"));
 
     /**
      * Re-runs the same per-field format rules used for live inline validation at
-     * submit time.
+     * submit time and returns field labels mapped to their exact error message.
      */
-    private static List<String> collectSubmitFormatErrors(java.util.Map<String, JTextField> fieldMap) {
-        List<String> errs = new java.util.ArrayList<>();
+    private static java.util.Map<String, String> collectSubmitFormatErrors(
+            java.util.Map<String, JTextField> fieldMap) {
+        java.util.Map<String, String> errs = new java.util.LinkedHashMap<>();
         for (String label : SUBMIT_FORMAT_CHECK_FIELDS) {
             JTextField tf = fieldMap.get(label);
             if (tf == null)
                 continue;
+            String text = tf.getText() == null ? "" : tf.getText().trim();
+            if (text.isEmpty()) {
+                continue;
+            }
             String msg = validateAddEmployeeField(label, tf.getText());
             if (msg != null) {
-                String displayName = label.endsWith(":") ? label.substring(0, label.length() - 1) : label;
-                errs.add(displayName + ": " + msg);
+                errs.put(label, msg);
             }
         }
         return errs;
@@ -9078,8 +9081,19 @@ public class MotorPH_GUI {
     /** Marks the fields in the edit popup that have validation errors. */
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JLabel> errorLabels) {
+            java.util.Map<String, JLabel> errorLabels,
+            java.util.Map<String, String> submitFormatErrors) {
+        for (JLabel lbl : errorLabels.values()) {
+            if (lbl != null) {
+                lbl.setText("");
+                lbl.setVisible(false);
+            }
+        }
+
         for (String err : errors) {
+            if (err == null || err.isEmpty()) {
+                continue;
+            }
             if (err.contains("Employee Number") || err.contains("Employee #")) {
                 setPopupFieldError(fieldMap.get("Employee #:"));
             }
@@ -9087,7 +9101,7 @@ public class MotorPH_GUI {
                 setPopupFieldError(fieldMap.get("Last Name:"));
                 JLabel lbl = errorLabels.get("Last Name:");
                 if (lbl != null) {
-                    lbl.setText("Last Name must contain letters, spaces, hyphens and apostrophes only.");
+                    lbl.setText(err);
                     lbl.setVisible(true);
                 }
             }
@@ -9095,38 +9109,153 @@ public class MotorPH_GUI {
                 setPopupFieldError(fieldMap.get("First Name:"));
                 JLabel lbl = errorLabels.get("First Name:");
                 if (lbl != null) {
-                    lbl.setText("First Name must contain letters, spaces, hyphens and apostrophes only.");
+                    lbl.setText(err);
                     lbl.setVisible(true);
                 }
             }
-            if (err.contains("Birthday"))
+            if (err.contains("Birthday")) {
                 setPopupFieldError(fieldMap.get("Birthday:"));
-            if (err.contains("Address"))
+                JLabel lbl = errorLabels.get("Birthday:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Address")) {
                 setPopupFieldError(fieldMap.get("Address:"));
-            if (err.contains("Phone"))
+                JLabel lbl = errorLabels.get("Address:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Phone") && !err.contains("Phone Allowance")) {
                 setPopupFieldError(fieldMap.get("Phone:"));
-            markGovIdPopupField(fieldMap.get("SSS #:"), errorLabels.get("SSS #:"), 10);
-            markGovIdPopupField(fieldMap.get("PhilHealth #:"), errorLabels.get("PhilHealth #:"), 12);
-            markGovIdPopupField(fieldMap.get("TIN #:"), errorLabels.get("TIN #:"), 12);
-            markGovIdPopupField(fieldMap.get("Pag-IBIG #:"), errorLabels.get("Pag-IBIG #:"), 12);
-            if (err.contains("Department"))
-                setPopupFieldError(fieldMap.get("Department:"));
-            if (err.contains("Position"))
-                setPopupFieldError(fieldMap.get("Position:"));
-            if (err.contains("Supervisor"))
+                JLabel lbl = errorLabels.get("Phone:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Supervisor")) {
                 setPopupFieldError(fieldMap.get("Supervisor:"));
-            if (err.contains("Basic Salary"))
+                JLabel lbl = errorLabels.get("Supervisor:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Department")) {
+                setPopupFieldError(fieldMap.get("Department:"));
+                JLabel lbl = errorLabels.get("Department:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Position")) {
+                setPopupFieldError(fieldMap.get("Position:"));
+                JLabel lbl = errorLabels.get("Position:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("SSS Number") || err.contains("SSS #")) {
+                setPopupFieldError(fieldMap.get("SSS #:"));
+                JLabel lbl = errorLabels.get("SSS #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("PhilHealth Number") || err.contains("PhilHealth #")) {
+                setPopupFieldError(fieldMap.get("PhilHealth #:"));
+                JLabel lbl = errorLabels.get("PhilHealth #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("TIN Number") || err.contains("TIN #")) {
+                setPopupFieldError(fieldMap.get("TIN #:"));
+                JLabel lbl = errorLabels.get("TIN #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("PAGIBIG Number") || err.contains("Pag-IBIG #")) {
+                setPopupFieldError(fieldMap.get("Pag-IBIG #:"));
+                JLabel lbl = errorLabels.get("Pag-IBIG #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Basic Salary")) {
                 setPopupFieldError(fieldMap.get("Basic Salary:"));
-            if (err.contains("Rice Subsidy"))
+                JLabel lbl = errorLabels.get("Basic Salary:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Rice Subsidy")) {
                 setPopupFieldError(fieldMap.get("Rice Subsidy:"));
-            if (err.contains("Phone Allowance"))
+                JLabel lbl = errorLabels.get("Rice Subsidy:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Phone Allowance")) {
                 setPopupFieldError(fieldMap.get("Phone Allowance:"));
-            if (err.contains("Clothing Allowance"))
+                JLabel lbl = errorLabels.get("Phone Allowance:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Clothing Allowance")) {
                 setPopupFieldError(fieldMap.get("Clothing Allowance:"));
-            if (err.contains("Gross Semi-monthly"))
+                JLabel lbl = errorLabels.get("Clothing Allowance:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Gross Semi-monthly")) {
                 setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
-            if (err.contains("Hourly Rate"))
+                JLabel lbl = errorLabels.get("Gross Semi-monthly:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Hourly Rate")) {
                 setPopupFieldError(fieldMap.get("Hourly Rate:"));
+                JLabel lbl = errorLabels.get("Hourly Rate:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+        }
+        if (submitFormatErrors != null && !submitFormatErrors.isEmpty()) {
+            for (java.util.Map.Entry<String, String> entry : submitFormatErrors.entrySet()) {
+                String label = entry.getKey();
+                String msg = entry.getValue();
+                if (label == null || msg == null || msg.isEmpty()) {
+                    continue;
+                }
+                setPopupFieldError(fieldMap.get(label));
+                JLabel lbl = errorLabels.get(label);
+                if (lbl != null) {
+                    lbl.setText(msg);
+                    lbl.setVisible(true);
+                }
+            }
         }
         applyGovIdSubmitValidation(fieldMap, errorLabels);
     }
@@ -9571,7 +9700,7 @@ public class MotorPH_GUI {
                     errLbl.setVisible(false);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    attachCurrencyValidation(tf, errLbl);
+                    attachCurrencyValidation(tf, errLbl, row[0]);
                 } else if (needsNameFieldValidation) {
                     JLabel errLbl = new JLabel("");
                     errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
@@ -9647,12 +9776,13 @@ public class MotorPH_GUI {
         btnSave.addActionListener(ev -> {
             resetEditPopupFieldBorders(fieldMap);
 
+            java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
             validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
             validationErrors = reorderEditPopupErrors(validationErrors);
             validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
 
-            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
+            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, submitFormatErrors);
             applyEditPopupNameFieldBorders(fieldMap, emp);
 
             if (!validationErrors.isEmpty()) {
@@ -9910,9 +10040,11 @@ public class MotorPH_GUI {
 
         btnSave.addActionListener(ev -> {
             resetEditPopupFieldBorders(fieldMap);
+            java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
+            validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
             if (!validationErrors.isEmpty()) {
-                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels);
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, submitFormatErrors);
                 showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -10309,11 +10441,12 @@ public class MotorPH_GUI {
         }
         String text = field.getText() == null ? "" : field.getText().trim();
         if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
+            setPopupFieldError(field);
             if (errorLabel != null) {
-                errorLabel.setVisible(false);
+                errorLabel.setText(fieldLabel.substring(0, fieldLabel.length() - 1) + " is required.");
+                errorLabel.setVisible(true);
             }
-            return true;
+            return false;
         }
         boolean valid = isNameTextValid(text);
         if (valid) {
@@ -10334,14 +10467,14 @@ public class MotorPH_GUI {
     }
 
     /** Attaches validation for currency fields. */
-    private static void attachCurrencyValidation(JTextField tf, JLabel errorLabel) {
+    private static void attachCurrencyValidation(JTextField tf, JLabel errorLabel, String fieldLabel) {
         if (tf == null) {
             return;
         }
         tf.setToolTipText("Use numbers, commas, and periods only");
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
-                checkCurrencyFieldValidation(tf, errorLabel);
+                checkCurrencyFieldValidation(tf, errorLabel, fieldLabel);
             }
 
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
@@ -10394,8 +10527,28 @@ public class MotorPH_GUI {
 
     /** Validates the input for the add employee field. */
     private static String validateAddEmployeeField(String fieldLabel, String value) {
-        if (value == null || value.trim().isEmpty())
+        String fieldName = fieldLabel.endsWith(":")
+                ? fieldLabel.substring(0, fieldLabel.length() - 1)
+                : fieldLabel;
+        if (value == null || value.trim().isEmpty()) {
+            if ("Basic Salary:".equals(fieldLabel)
+                    || "Rice Subsidy:".equals(fieldLabel)
+                    || "Phone Allowance:".equals(fieldLabel)
+                    || "Clothing Allowance:".equals(fieldLabel)) {
+                return fieldName + " is required.";
+            }
+            if ("Address:".equals(fieldLabel)) {
+                return "Address is required.";
+            }
+            if ("Pag-IBIG #:".equals(fieldLabel)) {
+                return "PAGIBIG Number is required.";
+            }
+            if ("Gross Semi-monthly:".equals(fieldLabel)
+                    || "Hourly Rate:".equals(fieldLabel)) {
+                return fieldName + " must have a valid amount (commas/periods allowed, or NA / 000 for zero).";
+            }
             return null;
+        }
         switch (fieldLabel) {
             case "Last Name:":
             case "First Name:":
@@ -10431,7 +10584,7 @@ public class MotorPH_GUI {
                 if (!value.isEmpty()
                         && !EmployeeRecordsModule.isNaPlaceholder(value)
                         && !value.matches("[0-9,]+(\\.[0-9]*)?"))
-                    return "Enter a valid amount (commas/periods allowed, or use NA / 000 for zero).";
+                    return fieldName + " must have a valid amount (commas/periods allowed, or NA / 000 for zero).";
                 break;
             default:
                 break;
@@ -10448,7 +10601,7 @@ public class MotorPH_GUI {
             private void check() {
                 String err = validateAddEmployeeField(fieldLabel, tf.getText());
                 String currentText = tf.getText() == null ? "" : tf.getText().trim();
-                if (err != null && !currentText.isEmpty()) {
+                if (err != null) {
                     setPopupFieldError(tf);
                     errLbl.setText(err);
                     errLbl.setVisible(true);
