@@ -172,12 +172,6 @@ public class MotorPH_GUI {
     static JComboBox<String> cmbEmployeePayFrom;
     static JComboBox<String> cmbEmployeePayTo;
     static boolean employeePayslipSuppressToast;
-    /** Last computed net pay shown on the employee dashboard card (session only). */
-    static String employeeSessionLastNetPay;
-    static boolean employeePayCutoffUsesPlaceholder;
-    private static String employeeProfileContactBaseline;
-    private static JTextField employeeProfileAddressField;
-    private static JTextField employeeProfilePhoneField;
 
     /** One semi-monthly pay cut-off window for employee payslip navigation. */
     private static final class EmployeePayCutoff {
@@ -185,14 +179,11 @@ public class MotorPH_GUI {
         final int year;
         /** 1 = days 1–15, 2 = days 16–end of month */
         final int half;
-        /** False when the period is a demo placeholder without attendance data. */
-        final boolean hasAttendance;
 
-        EmployeePayCutoff(int month, int year, int half, boolean hasAttendance) {
+        EmployeePayCutoff(int month, int year, int half) {
             this.month = month;
             this.year = year;
             this.half = half;
-            this.hasAttendance = hasAttendance;
         }
     }
 
@@ -299,11 +290,6 @@ public class MotorPH_GUI {
     static JPanel payrollStatNetChip;
     static boolean batchPayrollComputedOnce;
     static JButton btnGenerateSummary;
-    static JButton btnBatchComputePayroll;
-    private static int loginFailedAttempts = 0;
-    private static long loginLockedUntilMs = 0L;
-    private static final int MAX_LOGIN_ATTEMPTS = 5;
-    private static final long LOGIN_LOCK_DURATION_MS = 60_000L;
     static JButton btnSingleGenerateSummary;
     static boolean bulkPayrollSelectionUpdate;
     static javax.swing.Timer batchPayrollSyncTimer;
@@ -1071,7 +1057,7 @@ public class MotorPH_GUI {
     private static JPanel buildCollapsibleEmployeeCard(SalaryComputationModule.EmployeePayrollSummary s,
             boolean startExpanded) {
         int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
-        final int headerH = 110;
+        final int headerH = 84;
         final int detailsH = 420;
 
         JPanel card = new JPanel(null);
@@ -1086,20 +1072,20 @@ public class MotorPH_GUI {
         JLabel nameLbl = new JLabel(s.employeeName);
         nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 18));
         nameLbl.setForeground(java.awt.Color.WHITE);
-        nameLbl.setBounds(16, 12, pw - 120, 24);
+        nameLbl.setBounds(16, 10, pw - 120, 24);
         header.add(nameLbl);
 
         JLabel idLbl = new JLabel("Employee #" + s.employeeId);
         idLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         idLbl.setForeground(java.awt.Color.WHITE);
-        idLbl.setBounds(16, 38, pw - 120, 18);
+        idLbl.setBounds(16, 34, pw - 120, 18);
         header.add(idLbl);
 
         JLabel summaryLbl = new JLabel("NET: PHP " + String.format("%,.2f", s.netPay));
         summaryLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         summaryLbl.setForeground(java.awt.Color.WHITE);
         summaryLbl.setHorizontalAlignment(SwingConstants.RIGHT);
-        summaryLbl.setBounds(pw - 178, 18, 162, 22);
+        summaryLbl.setBounds(pw - 178, 12, 162, 22);
         header.add(summaryLbl);
 
         JLabel arrowLbl = new JLabel(startExpanded ? "v" : ">");
@@ -1404,7 +1390,7 @@ public class MotorPH_GUI {
             clearBatchPayrollOutput();
             return;
         }
-        if (countCheckedPayrollRows() < 2) {
+        if (countCheckedPayrollRows() < 1) {
             clearBatchPayrollOutput();
             return;
         }
@@ -1442,24 +1428,6 @@ public class MotorPH_GUI {
         return count;
     }
 
-    /** Enables batch Calculate only when period fields and employee selection are valid. */
-    private static void updateBatchComputeButtonState() {
-        if (btnBatchComputePayroll == null) {
-            return;
-        }
-        String[] monthHolder = new String[1];
-        String[] yearHolder = new String[1];
-        boolean periodReady = isBatchPayPeriodReady(monthHolder, yearHolder);
-        int checked = countCheckedPayrollRows();
-        boolean canCompute = periodReady && checked >= 2;
-        btnBatchComputePayroll.setEnabled(canCompute);
-        btnBatchComputePayroll.setToolTipText(canCompute
-                ? "Calculate payroll for the selected employees"
-                : (checked < 2
-                        ? "Select at least 2 employees in the filtered list"
-                        : "Choose a valid pay month and year (2024)"));
-    }
-
     /** Toggles all rows within the data grid to a checked or unchecked state. */
     private static void setAllPayrollRowsChecked(boolean checked) {
         if (payrollSelectTableModel == null) {
@@ -1474,7 +1442,6 @@ public class MotorPH_GUI {
             bulkPayrollSelectionUpdate = false;
         }
         updatePayrollSelectionCount();
-        updateBatchComputeButtonState();
         if (payrollSelectTable != null) {
             payrollSelectTable.repaint();
         }
@@ -1926,50 +1893,6 @@ public class MotorPH_GUI {
         return doc;
     }
 
-    /** Empty-state panel when no attendance exists for the selected pay period. */
-    private static JPanel buildEmployeePayslipEmptyStatePanel(String periodLabel, String detailMessage) {
-        int docW = resolveEmployeePayslipDocWidth();
-        int docH = 320;
-        JPanel doc = buildEmployeePayslipShell(docW, docH);
-
-        JLabel title = new JLabel("No Payslip for This Period", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        title.setForeground(new Color(180, 74, 40));
-        title.setBounds(24, 48, docW - 48, 22);
-        doc.add(title);
-
-        String body = "No time logs for " + periodLabel + ".";
-        if (detailMessage != null && !detailMessage.trim().isEmpty()) {
-            body += "\n\n" + detailMessage.trim();
-        }
-        JLabel lbl = new JLabel(
-                "<html><div style='text-align:center;color:#647088;'>"
-                        + escapeHtml(body).replace("\n", "<br>") + "</div></html>",
-                SwingConstants.CENTER);
-        lbl.setBounds(24, 78, docW - 48, 90);
-        doc.add(lbl);
-
-        JButton btnReport = new JButton("Report Issue");
-        btnReport.setBounds((docW - 148) / 2, 188, 148, BTN_HEIGHT);
-        btnReport.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnReport.setForeground(new Color(160, 70, 30));
-        btnReport.setBackground(new Color(255, 244, 236));
-        btnReport.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 150, 100), 1),
-                BorderFactory.createEmptyBorder(6, 12, 6, 12)));
-        btnReport.setFocusPainted(false);
-        btnReport.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnReport.addActionListener(e -> showReportPayslipIssueDialog());
-        doc.add(btnReport);
-
-        return doc;
-    }
-
-    /** Shows the employee payslip empty state for a period without attendance. */
-    private static void showEmployeePayslipEmptyState(String periodLabel, String detailMessage) {
-        refreshEmployeePayslipViewport(buildEmployeePayslipEmptyStatePanel(periodLabel, detailMessage));
-    }
-
     /** Places a high visibility header section across data layout frames. */
     private static void addPayslipDocBand(JPanel doc, int y, int h, String title, Color bg, Color fg, int docW) {
         JPanel band = new JPanel(null);
@@ -2265,32 +2188,8 @@ public class MotorPH_GUI {
      * human review.
      */
     private static void showReportPayslipIssueDialog() {
-        String empId = getLoggedInEmployeeId();
-        String empName = "";
-        String period = "";
-        if (SalaryComputationModule.lastCalculationSucceeded
-                && SalaryComputationModule.lastEmpId != null
-                && !SalaryComputationModule.lastEmpId.isEmpty()) {
-            period = SalaryComputationModule.lastMonthName + " " + SalaryComputationModule.lastYear;
-            empId = SalaryComputationModule.lastEmpId;
-            empName = SalaryComputationModule.lastEmpName;
-        } else if (empId != null && !employeePayCutoffPeriods.isEmpty()) {
-            EmployeePayCutoff current = employeePayCutoffPeriods.get(employeePayslipCutoffIndex);
-            period = employeePayCutoffMonthName(current.month) + " " + current.year;
-            String rawLine = FileHandlerModule.findEmployeeData(empId);
-            if (rawLine != null) {
-                empName = EmployeeModule.fullName(FileHandlerModule.smartSplit(rawLine));
-            }
-        } else if (empId != null) {
-            String rawLine = FileHandlerModule.findEmployeeData(empId);
-            if (rawLine != null) {
-                empName = EmployeeModule.fullName(FileHandlerModule.smartSplit(rawLine));
-            }
-            period = "Current pay period";
-        }
-
-        if (empId == null || empId.isEmpty()) {
-            showToast("Employee profile is not linked. Contact HR.", new Color(180, 90, 40));
+        if (!SalaryComputationModule.lastCalculationSucceeded) {
+            showToast("Generate a payslip before reporting an issue.", new Color(180, 90, 40));
             return;
         }
 
@@ -2310,13 +2209,9 @@ public class MotorPH_GUI {
         title.setBounds(pad, 20, w, 22);
         dlg.add(title);
 
-        String reportEmpId = empId;
-        String reportEmpName = empName;
-        String reportPeriod = period;
-
-        JLabel sub = new JLabel("<html>Employee #" + escapeHtml(reportEmpId)
-                + (reportEmpName.isEmpty() ? "" : " · " + escapeHtml(reportEmpName))
-                + " · " + escapeHtml(reportPeriod) + "</html>");
+        String period = SalaryComputationModule.lastMonthName + " " + SalaryComputationModule.lastYear;
+        JLabel sub = new JLabel("<html>Employee #" + escapeHtml(SalaryComputationModule.lastEmpId)
+                + " · " + escapeHtml(period) + "</html>");
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         sub.setForeground(TEXT_MUTED);
         sub.setBounds(pad, 44, w, 18);
@@ -2369,22 +2264,17 @@ public class MotorPH_GUI {
 
         btnSubmit.addActionListener(e -> {
             String desc = txtDesc.getText().trim();
-            java.util.List<String> issueErrors = new java.util.ArrayList<>();
             if (desc.isEmpty()) {
-                issueErrors.add("Please describe the issue so HR can investigate.");
-            } else if (desc.length() < 10) {
-                issueErrors.add("Description must be at least 10 characters.");
-            }
-            if (!issueErrors.isEmpty()) {
-                showBulletErrorDialog(dlg, issueErrors, "Description Required",
-                        JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dlg,
+                        "Please describe the issue so HR can investigate.",
+                        "Description Required", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String issueType = String.valueOf(cmbType.getSelectedItem());
             boolean saved = FileHandlerModule.appendPayslipIssueReport(
-                    reportEmpId,
-                    reportEmpName,
-                    reportPeriod,
+                    SalaryComputationModule.lastEmpId,
+                    SalaryComputationModule.lastEmpName,
+                    period,
                     issueType,
                     desc);
             if (saved) {
@@ -2393,11 +2283,9 @@ public class MotorPH_GUI {
                 JOptionPane.showMessageDialog(frame,
                         "Your payslip concern has been submitted.\n\n"
                                 + "HR / Payroll will review it within 3 working days.\n"
-                                + "Reference: " + reportPeriod + " · " + issueType,
+                                + "Reference: " + period + " · " + issueType,
                         "Report Submitted", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                showToast("Could not save your report. Please try again or contact HR.",
-                        new Color(180, 90, 40));
                 JOptionPane.showMessageDialog(dlg,
                         "Could not save your report. Please try again or contact HR directly.",
                         "Submit Failed", JOptionPane.ERROR_MESSAGE);
@@ -2478,14 +2366,13 @@ public class MotorPH_GUI {
         java.util.Set<Integer> months = empId != null ? getAttendanceMonths(empId) : new java.util.HashSet<>();
         java.util.List<Integer> sorted = new ArrayList<>(months);
         java.util.Collections.sort(sorted);
-        employeePayCutoffUsesPlaceholder = sorted.isEmpty();
         for (int month : sorted) {
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 1, true));
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 2, true));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 1));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 2));
         }
         if (employeePayCutoffPeriods.isEmpty()) {
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 1, false));
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 2, false));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 1));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 2));
         }
         if (employeePayslipCutoffIndex < 0
                 || employeePayslipCutoffIndex >= employeePayCutoffPeriods.size()) {
@@ -2541,17 +2428,11 @@ public class MotorPH_GUI {
     private static String formatEmployeePayCutoffPeriod(EmployeePayCutoff period) {
         String monthName = employeePayCutoffMonthName(period.month);
         String shortMonth = monthName.substring(0, 3);
-        String base;
         if (period.half == 1) {
-            base = monthName + " " + period.year + " · " + shortMonth + " 1–15";
-        } else {
-            int last = employeePayCutoffLastDay(period.month, period.year);
-            base = monthName + " " + period.year + " · " + shortMonth + " 16–" + last;
+            return monthName + " " + period.year + " · " + shortMonth + " 1–15";
         }
-        if (!period.hasAttendance) {
-            return base + " · no time logs";
-        }
-        return base;
+        int last = employeePayCutoffLastDay(period.month, period.year);
+        return monthName + " " + period.year + " · " + shortMonth + " 16–" + last;
     }
 
     /** Formats the header string for a given employee payroll cutoff period. */
@@ -2570,7 +2451,6 @@ public class MotorPH_GUI {
         }
         if (cmbEmployeePayPeriod != null) {
             cmbEmployeePayPeriod.setModel(model);
-            applyEmployeePayCutoffComboRenderer(cmbEmployeePayPeriod);
             if (employeePayslipCutoffIndex >= 0 && employeePayslipCutoffIndex < model.getSize()) {
                 cmbEmployeePayPeriod.setSelectedIndex(employeePayslipCutoffIndex);
             }
@@ -2584,43 +2464,14 @@ public class MotorPH_GUI {
         }
         if (cmbEmployeePayFrom != null) {
             cmbEmployeePayFrom.setModel(fromModel);
-            applyEmployeePayCutoffComboRenderer(cmbEmployeePayFrom);
             cmbEmployeePayFrom.setSelectedIndex(0);
         }
         if (cmbEmployeePayTo != null) {
             cmbEmployeePayTo.setModel(toModel);
-            applyEmployeePayCutoffComboRenderer(cmbEmployeePayTo);
             if (toModel.getSize() > 0) {
                 cmbEmployeePayTo.setSelectedIndex(toModel.getSize() - 1);
             }
         }
-    }
-
-    /** Italicizes pay periods that have no attendance time logs. */
-    private static void applyEmployeePayCutoffComboRenderer(JComboBox<String> combo) {
-        if (combo == null) {
-            return;
-        }
-        combo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value,
-                    int index, boolean isSelected, boolean cellHasFocus) {
-                Component c = super.getListCellRendererComponent(
-                        list, value, index, isSelected, cellHasFocus);
-                boolean noData = index >= 0
-                        && index < employeePayCutoffPeriods.size()
-                        && !employeePayCutoffPeriods.get(index).hasAttendance;
-                if (noData && !isSelected) {
-                    setForeground(BORDER_ERROR);
-                    setFont(getFont().deriveFont(Font.ITALIC));
-                } else {
-                    setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
-                    setFont(getFont().deriveFont(Font.PLAIN));
-                }
-                return c;
-            }
-        });
-        combo.repaint();
     }
 
     /** Converts a month number to its corresponding index in the combo box. */
@@ -2741,16 +2592,6 @@ public class MotorPH_GUI {
         title.setBounds(0, fy, innerW, 20);
         inner.add(title);
         fy += 28;
-
-        if (employeePayCutoffUsesPlaceholder) {
-            JLabel placeholderHint = new JLabel(
-                    "<html><i>June 2024 shown as demo default — italic entries have no time logs.</i></html>");
-            placeholderHint.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-            placeholderHint.setForeground(TEXT_MUTED);
-            placeholderHint.setBounds(0, fy, innerW, 28);
-            inner.add(placeholderHint);
-            fy += 30;
-        }
 
         JLabel lblPeriod = new JLabel("Pay period");
         lblPeriod.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -3036,9 +2877,7 @@ public class MotorPH_GUI {
     /** Shows a success popup dialog and closes the specified dialog. */
     private static void showPopupSuccessAndClose(JDialog dialog, String toastMessage,
             String dialogMessage, String dialogTitle) {
-        if (dialog != null) {
-            dialog.dispose();
-        }
+        dialog.dispose();
         SwingUtilities.invokeLater(() -> {
             showToast(toastMessage);
             JOptionPane.showMessageDialog(frame, dialogMessage, dialogTitle,
@@ -3207,33 +3046,6 @@ public class MotorPH_GUI {
                 allNotifications.add(new NotificationModule.Notification("Attendance",
                         "Attendance cut-off is " + (daysToCut == 0 ? "today" : "in " + daysToCut + " day(s)")
                                 + ". Make sure all your time-in/out entries are complete for this period."));
-            }
-
-            String linkedEmpId = getLoggedInEmployeeId();
-            if (linkedEmpId != null) {
-                for (PayslipIssueModule.PayslipIssue issue : FileHandlerModule.loadPayslipIssues()) {
-                    if (!linkedEmpId.equals(issue.employeeId)) {
-                        continue;
-                    }
-                    if (issue.isResolved()) {
-                        String note = issue.hrNote == null || issue.hrNote.isEmpty()
-                                ? ""
-                                : " HR note: " + issue.hrNote;
-                        allNotifications.add(new NotificationModule.Notification("Payroll",
-                                "Your payslip concern for " + issue.payPeriod + " was resolved by HR." + note));
-                    } else if (issue.needsHrAction()) {
-                        allNotifications.add(new NotificationModule.Notification("Payroll",
-                                "HR is reviewing your payslip report for " + issue.payPeriod
-                                        + " (" + issue.issueType + ")."));
-                    }
-                }
-                if (SalaryComputationModule.lastCalculationSucceeded
-                        && linkedEmpId.equals(SalaryComputationModule.lastEmpId)) {
-                    allNotifications.add(new NotificationModule.Notification("Payroll",
-                            "Payroll processed for " + SalaryComputationModule.lastMonthName + " "
-                                    + SalaryComputationModule.lastYear + ". Net pay: "
-                                    + String.format("PHP %,.2f", SalaryComputationModule.summaryNet) + "."));
-                }
             }
         }
 
@@ -3735,134 +3547,6 @@ public class MotorPH_GUI {
         return choice == JOptionPane.YES_OPTION;
     }
 
-    private static void clearEmployeeProfileContactTracking() {
-        employeeProfileContactBaseline = null;
-        employeeProfileAddressField = null;
-        employeeProfilePhoneField = null;
-        if (frame != null && frame.getRootPane() != null) {
-            frame.getRootPane().setDefaultButton(null);
-        }
-    }
-
-    private static boolean confirmDiscardEmployeeProfileIfDirty() {
-        if (!"My Profile".equals(currentView) || !isEmployeeUser()) {
-            return true;
-        }
-        if (employeeProfileAddressField == null || employeeProfilePhoneField == null) {
-            return true;
-        }
-        String current = employeeProfileAddressField.getText().trim() + "\u0000"
-                + employeeProfilePhoneField.getText().trim();
-        if (employeeProfileContactBaseline == null || current.equals(employeeProfileContactBaseline)) {
-            return true;
-        }
-        return JOptionPane.showConfirmDialog(frame,
-                "You have unsaved changes to your address or phone. Discard them?",
-                "Unsaved Changes", JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
-    }
-
-    private static void navigateEmployeePortal(Runnable action) {
-        if (!confirmDiscardEmployeeProfileIfDirty()) {
-            return;
-        }
-        clearEmployeeProfileContactTracking();
-        action.run();
-    }
-
-    private static void showExportFailure(String message) {
-        showToast(message, new Color(180, 90, 40));
-        JOptionPane.showMessageDialog(frame, message, "Export Failed", JOptionPane.ERROR_MESSAGE);
-    }
-
-    private static void applyEmployeeProfileContactBlurValidation(JTextField addressField, JTextField phoneField,
-            JLabel addressError, JLabel phoneError, JLabel validationSummary) {
-        java.awt.event.FocusAdapter blur = new java.awt.event.FocusAdapter() {
-            @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
-                applyEmployeeProfileContactErrors(
-                        EmployeeRecordsModule.validateProfileContact(
-                                addressField.getText().trim(), phoneField.getText().trim()),
-                        addressField, phoneField, addressError, phoneError, validationSummary, null);
-            }
-        };
-        addressField.addFocusListener(blur);
-        phoneField.addFocusListener(blur);
-    }
-
-    private static void applyEmployeeProfileContactErrors(
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
-            JTextField addressField, JTextField phoneField,
-            JLabel addressError, JLabel phoneError,
-            JLabel validationSummary, JLabel successBanner) {
-        addressError.setText(" ");
-        phoneError.setText(" ");
-        if (successBanner != null) {
-            successBanner.setVisible(false);
-        }
-
-        int errorCount = EmployeeRecordsModule.countDistinctFields(errors);
-        updatePopupValidationSummary(validationSummary, errorCount);
-
-        String baselineAddr = employeeProfileContactBaseline == null ? ""
-                : employeeProfileContactBaseline.split("\u0000", 2)[0];
-        String baselinePhone = employeeProfileContactBaseline == null
-                || !employeeProfileContactBaseline.contains("\u0000") ? ""
-                : employeeProfileContactBaseline.split("\u0000", 2)[1];
-
-        boolean addrErr = false;
-        boolean phoneErr = false;
-        if (errors != null) {
-            for (EmployeeRecordsModule.FieldValidationError err : errors) {
-                if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
-                    addrErr = true;
-                    addressError.setText(err.message);
-                    setPopupFieldError(addressField);
-                }
-                if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
-                    phoneErr = true;
-                    phoneError.setText(err.message);
-                    setPopupFieldError(phoneField);
-                }
-            }
-        }
-
-        if (!addrErr) {
-            if (!addressField.getText().trim().equals(baselineAddr)) {
-                addressField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-            } else {
-                resetPopupFieldBorder(addressField);
-            }
-        }
-        if (!phoneErr) {
-            if (!phoneField.getText().trim().equals(baselinePhone)) {
-                phoneField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-            } else {
-                resetPopupFieldBorder(phoneField);
-            }
-        }
-    }
-
-    private static void clearEmployeeProfileValidationState(JTextField addressField, JTextField phoneField,
-            JLabel addressError, JLabel phoneError, JLabel validationSummary) {
-        addressError.setText(" ");
-        phoneError.setText(" ");
-        updatePopupValidationSummary(validationSummary, 0);
-        resetPopupFieldBorder(addressField);
-        resetPopupFieldBorder(phoneField);
-    }
-
-    private static void showEmployeeProfileSuccess(JLabel successBanner, JLabel validationSummary,
-            String message) {
-        updatePopupValidationSummary(validationSummary, 0);
-        if (successBanner == null) {
-            return;
-        }
-        successBanner.setText(message);
-        successBanner.setForeground(new Color(22, 130, 70));
-        successBanner.setVisible(true);
-    }
-
     /** Adds a new section to the employee record form. */
     private static int addRecordFormSection(JPanel panel, int fy, int fieldX, int fieldW,
             int rowGap, String title) {
@@ -3934,7 +3618,9 @@ public class MotorPH_GUI {
             } catch (Exception ignored) {
             }
         } catch (Exception ex) {
-            showExportFailure("Could not save PDF: " + ex.getMessage());
+            JOptionPane.showMessageDialog(frame,
+                    "Could not save PDF: " + ex.getMessage(),
+                    "Export Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -4485,7 +4171,9 @@ public class MotorPH_GUI {
             writer.write(text);
             showToast("Saved: " + target.getName());
         } catch (java.io.IOException ex) {
-            showExportFailure("Could not save file: " + ex.getMessage());
+            JOptionPane.showMessageDialog(frame,
+                    "Could not save file: " + ex.getMessage(),
+                    "Export Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -4572,11 +4260,6 @@ public class MotorPH_GUI {
         // FocusListener)
         attachPlaceholder(usernameField, "Enter username");
 
-        JLabel lblUserError = new JLabel(" ");
-        lblUserError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblUserError.setForeground(new Color(200, 40, 40));
-        lblUserError.setBounds(32, 61 + FIELD_HEIGHT + 2, 292, 14);
-
         // Password row (61 + 36 + 20 = 117)
         JLabel lblPass = new JLabel("Password");
         lblPass.setFont(LOGIN_APP_FONT_BOLD);
@@ -4609,36 +4292,6 @@ public class MotorPH_GUI {
         });
         passwordField.setBounds(32, 143, 292, FIELD_HEIGHT);
 
-        JLabel lblPassError = new JLabel(" ");
-        lblPassError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblPassError.setForeground(new Color(200, 40, 40));
-        lblPassError.setBounds(32, 143 + FIELD_HEIGHT + 2, 292, 14);
-
-        javax.swing.event.DocumentListener loginErrorClearer = new javax.swing.event.DocumentListener() {
-            private void clearErrors() {
-                lblUserError.setText(" ");
-                lblPassError.setText(" ");
-                resetLoginFieldBorders();
-            }
-
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                clearErrors();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                clearErrors();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                clearErrors();
-            }
-        };
-        usernameField.getDocument().addDocumentListener(loginErrorClearer);
-        passwordField.getDocument().addDocumentListener(loginErrorClearer);
-
         final JCheckBox chkShowPassword = new JCheckBox("Show password");
         chkShowPassword.setBounds(32, 191, 292, 22);
         chkShowPassword.setFont(LOGIN_APP_FONT_PLAIN);
@@ -4666,33 +4319,21 @@ public class MotorPH_GUI {
 
         btnLogin.addActionListener(e -> {
             if (e.getSource() == btnLogin) {
-                long now = System.currentTimeMillis();
-                if (now < loginLockedUntilMs) {
-                    long secondsLeft = Math.max(1, (loginLockedUntilMs - now + 999) / 1000);
-                    showToast("Too many failed attempts. Try again in " + secondsLeft + "s.",
-                            new Color(180, 90, 40));
-                    return;
-                }
-
                 String user = usernameField.getForeground().equals(TEXT_PLACEHOLDER_GRAY)
                         ? ""
                         : usernameField.getText().trim();
                 String pass = new String(passwordField.getPassword());
 
                 resetLoginFieldBorders();
-                lblUserError.setText(" ");
-                lblPassError.setText(" ");
 
                 List<String> loginErrors = new ArrayList<>();
 
                 if (user.isEmpty()) {
                     setLoginFieldError(usernameField);
-                    lblUserError.setText("Username is required.");
                     loginErrors.add("Username is required.");
                 }
                 if (pass.isEmpty()) {
                     setLoginFieldError(passwordField);
-                    lblPassError.setText("Password is required.");
                     loginErrors.add("Password is required.");
                 }
 
@@ -4703,27 +4344,15 @@ public class MotorPH_GUI {
                 }
 
                 if (MotorPH_EmployeeApp.authenticate(user, pass)) {
-                    loginFailedAttempts = 0;
-                    loginLockedUntilMs = 0L;
                     MotorPH_EmployeeApp.loginSuccessful = true;
                     loggedInUser = user;
                     loginDialog.dispose();
                 } else {
-                    loginFailedAttempts++;
                     setLoginFieldError(usernameField);
                     setLoginFieldError(passwordField);
                     List<String> authErrors = new ArrayList<>();
                     authErrors.add("Invalid username or password.");
-                    if (loginFailedAttempts >= MAX_LOGIN_ATTEMPTS) {
-                        loginLockedUntilMs = now + LOGIN_LOCK_DURATION_MS;
-                        loginFailedAttempts = 0;
-                        authErrors.add("Account locked for 60 seconds after "
-                                + MAX_LOGIN_ATTEMPTS + " failed attempts.");
-                    } else {
-                        authErrors.add("Please check your credentials and try again.");
-                        authErrors.add((MAX_LOGIN_ATTEMPTS - loginFailedAttempts)
-                                + " attempt(s) remaining before a temporary lock.");
-                    }
+                    authErrors.add("Please check your credentials and try again.");
                     showBulletErrorDialog(loginDialog, authErrors, "Login Failed",
                             JOptionPane.ERROR_MESSAGE);
                 }
@@ -4752,10 +4381,8 @@ public class MotorPH_GUI {
 
         formPanel.add(lblUser);
         formPanel.add(usernameField);
-        formPanel.add(lblUserError);
         formPanel.add(lblPass);
         formPanel.add(passwordField);
-        formPanel.add(lblPassError);
         formPanel.add(chkShowPassword);
         formPanel.add(lblDemoHint);
         formPanel.add(btnLogin);
@@ -4916,11 +4543,6 @@ public class MotorPH_GUI {
     }
 
     private static void performLogout() {
-        if (!confirmDiscardEmployeeProfileIfDirty()) {
-            return;
-        }
-        clearEmployeeProfileContactTracking();
-        employeeSessionLastNetPay = null;
         if (frame != null) {
             frame.dispose();
             frame = null;
@@ -5320,10 +4942,7 @@ public class MotorPH_GUI {
         String mon = today.getMonth().name().charAt(0)
                 + today.getMonth().name().substring(1, 3).toLowerCase();
         String period = dom <= 15 ? (mon + " 1 – 15") : (mon + " 16 – " + last);
-        String salaryLabel = employeeSessionLastNetPay != null ? "Last Net Pay" : "Basic Salary (reference)";
-        String salary = employeeSessionLastNetPay != null
-                ? employeeSessionLastNetPay
-                : (emp != null ? "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) : "—");
+        String salary = emp != null ? "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) : "—";
         LocalDate nextPay = dom < 15 ? today.withDayOfMonth(15)
                 : dom < last ? today.withDayOfMonth(last)
                         : today.plusMonths(1).withDayOfMonth(15);
@@ -5337,7 +4956,7 @@ public class MotorPH_GUI {
         int cx = DASH_CARD_INSET, cw = w - DASH_CARD_INSET * 2, rh = 20, cy = 74;
         addPreviewRow(card, "Pay Period", period, cx, cy, cw, rh);
         cy += rh + 8;
-        addPreviewRow(card, salaryLabel, salary, cx, cy, cw, rh);
+        addPreviewRow(card, "Basic Salary", salary, cx, cy, cw, rh);
         cy += rh + 8;
         addPreviewRow(card, "Next Pay Day", payInfo, cx, cy, cw, rh);
         cy += rh;
@@ -5401,10 +5020,7 @@ public class MotorPH_GUI {
             shown++;
         }
         if (shown == 0) {
-            String emptyMsg = isEmployeeUser()
-                    ? "No new notifications — payroll and issue updates appear here."
-                    : "No new notifications.";
-            JLabel none = new JLabel(emptyMsg);
+            JLabel none = new JLabel("No new notifications.");
             none.setFont(new Font("Segoe UI", Font.ITALIC, 12));
             none.setForeground(TEXT_MUTED);
             none.setBounds(cx, cy, cw, rh);
@@ -5617,9 +5233,7 @@ public class MotorPH_GUI {
         int btnY = 108;
         int btnH = SIDEBAR_NAV_BTN_H;
         addSidebarNavButton(sidebar, "Dashboard", 0, btnY, sw, btnH, "Dashboard".equals(activePage),
-                isEmployeeUser()
-                        ? e -> navigateEmployeePortal(MotorPH_GUI::showDashboard)
-                        : e -> showDashboard());
+                e -> showDashboard());
         btnY += btnH + SIDEBAR_NAV_GAP;
 
         if (isHrUser()) {
@@ -5631,25 +5245,19 @@ public class MotorPH_GUI {
             btnY += btnH + SIDEBAR_NAV_GAP;
         } else {
             addSidebarNavButton(sidebar, "My Profile", 0, btnY, sw, btnH,
-                    "My Profile".equals(activePage),
-                    e -> navigateEmployeePortal(MotorPH_GUI::showEmployeeLookupUI));
+                    "My Profile".equals(activePage), e -> showEmployeeLookupUI());
             btnY += btnH + SIDEBAR_NAV_GAP;
             addSidebarNavButton(sidebar, "My Payslip", 0, btnY, sw, btnH, "Payroll".equals(activePage),
-                    e -> navigateEmployeePortal(MotorPH_GUI::setupPayrollUI));
+                    e -> setupPayrollUI());
             btnY += btnH + SIDEBAR_NAV_GAP;
         }
 
         int unread = countUnreadNotifications();
         String notifLabel = unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
         addSidebarNavButton(sidebar, notifLabel, 0, btnY, sw, btnH, "Notifications".equals(activePage),
-                isEmployeeUser()
-                        ? e -> navigateEmployeePortal(MotorPH_GUI::showNotificationsUI)
-                        : e -> showNotificationsUI());
+                e -> showNotificationsUI());
         btnY += btnH + SIDEBAR_NAV_GAP;
-        addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage),
-                isEmployeeUser()
-                        ? e -> navigateEmployeePortal(MotorPH_GUI::showHelpCenterUI)
-                        : e -> showHelpCenterUI());
+        addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage), e -> showHelpCenterUI());
 
         // Anchor Sign Out to a fixed slot above the sidebar bottom with extra clearance
         final int LOGOUT_BTN_H = BTN_HEIGHT;
@@ -6628,27 +6236,6 @@ public class MotorPH_GUI {
         txtYear = createStyledTextField(true);
         px = addPayrollToolbarField(periodBar, px, rowY, "Year", txtYear, 72);
         txtYear.setText("2024");
-        txtYear.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void refresh() {
-                updateBatchComputeButtonState();
-            }
-
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-        });
-        monthCombo.addActionListener(e -> updateBatchComputeButtonState());
 
         // 1. Compute Coordinates for Layout Buttons
         int btnW = 152;
@@ -6663,7 +6250,6 @@ public class MotorPH_GUI {
         btnComputeSalaries.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnComputeSalaries.addActionListener(e -> runComputeAllSalaries());
         periodBar.add(btnComputeSalaries);
-        btnBatchComputePayroll = btnComputeSalaries;
 
         // 3. Build and Add Generate Summary Button (Moved Early for Null-Safety
         // Validation)
@@ -6785,7 +6371,6 @@ public class MotorPH_GUI {
             }
             updatePayrollSelectionCount();
             updatePayrollFilterIndicators();
-            updateBatchComputeButtonState();
             scheduleBatchPayrollResultsSync();
         };
 
@@ -6816,7 +6401,6 @@ public class MotorPH_GUI {
                     || e.getType() == TableModelEvent.INSERT
                     || e.getType() == TableModelEvent.DELETE) {
                 updatePayrollSelectionCount();
-                updateBatchComputeButtonState();
                 if (!bulkPayrollSelectionUpdate) {
                     scheduleBatchPayrollResultsSync();
                 }
@@ -6834,7 +6418,6 @@ public class MotorPH_GUI {
         refreshPayrollEmployeeList.run();
         setAllPayrollRowsChecked(true);
         refreshPayrollSelectAllButtonState();
-        updateBatchComputeButtonState();
 
         addPayrollOutputBlock(rightPanel, PAYROLL_PAD, rightW, panelH - PAYROLL_PAD * 2,
                 "Gross Pay", "Deductions", "Net Pay");
@@ -7357,9 +6940,10 @@ public class MotorPH_GUI {
         }
 
         int checkedCount = countCheckedPayrollRows();
-        if (checkedCount < 2) {
-            showToast("Select at least 2 employees from the filtered list before calculating.",
-                    new Color(180, 90, 40));
+        if (checkedCount < 1) {
+            JOptionPane.showMessageDialog(frame,
+                    "Please select at least one employee from the filtered list before computing.",
+                    "No Employees Selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -7381,7 +6965,6 @@ public class MotorPH_GUI {
             errors.add("Only year 2024 is currently supported.");
         }
         if (!errors.isEmpty()) {
-            showToast(errors.get(0), new Color(180, 90, 40));
             showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -7406,19 +6989,23 @@ public class MotorPH_GUI {
         }
 
         SalaryComputationModule.BulkPayrollResult result = executeBatchPayrollComputation(
-                actualMonth, year, false);
+                actualMonth, year, true);
         if (result.computedCount > 0) {
             batchPayrollComputedOnce = true;
-            showToast(result.computedCount + " salary record(s) computed.");
-            if (btnGenerateSummary != null) {
-                btnGenerateSummary.setEnabled(true);
+            if (result.savedToFile) {
+                if (employeeTableModel != null) {
+                    refreshEmployeeTable();
+                }
+                showToast(result.computedCount + " salary record(s) computed and saved.");
+                if (btnGenerateSummary != null)
+                    btnGenerateSummary.setEnabled(true);
+            } else {
+                showToast(result.computedCount + " record(s) computed (CSV save failed).",
+                        new Color(180, 90, 40));
             }
         } else {
             clearBatchPayrollOutput();
-            showToast("No attendance records found for the selected employees in "
-                    + monthCombo.getSelectedItem() + " " + year + ". "
-                    + "Try another pay period or adjust the employee filter.",
-                    new Color(180, 90, 40));
+            showToast("No attendance data found for the selected period.", new Color(180, 90, 40));
         }
     }
 
@@ -7428,9 +7015,9 @@ public class MotorPH_GUI {
      */
     private static void showSinglePayrollSummaryDialog() {
         if (!SalaryComputationModule.lastCalculationSucceeded) {
-            showToast("No payroll data for this employee and period. Enter a valid employee #, "
-                    + "select month/year (2024), then click Calculate Payroll.",
-                    new Color(180, 90, 40));
+            JOptionPane.showMessageDialog(frame,
+                    "No payroll data available.\nPlease select an employee and click Calculate Payroll first.",
+                    "No Data", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -8182,9 +7769,7 @@ public class MotorPH_GUI {
             }
             updatePayrollStatChips(result.totalGross, result.totalDeductions, result.totalNet);
         } else {
-            rpSet("No attendance data was found for the selected employees in the chosen pay period.\n\n"
-                    + "Check that the pay month/year match attendance records (2024 only) "
-                    + "and that selected employees have time logs for this period.", rsWarn);
+            rpSet("No attendance data was found for the selected employees in the chosen pay period.", rsWarn);
             resetPayrollStatChips();
         }
 
@@ -8393,30 +7978,6 @@ public class MotorPH_GUI {
         inner.add(strip);
         y = 76 + 20;
 
-        java.util.List<String> profileWarnings = EmployeeRecordsModule.collectViewWarnings(emp);
-        if (!profileWarnings.isEmpty()) {
-            JPanel warnBanner = new JPanel(null);
-            warnBanner.setBackground(new Color(255, 248, 232));
-            warnBanner.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(220, 170, 90), 1),
-                    BorderFactory.createEmptyBorder(10, 14, 10, 14)));
-            String warnSummary = profileWarnings.stream()
-                    .filter(w -> w.toLowerCase().contains("birthday")
-                            || w.toLowerCase().contains("phone")
-                            || w.toLowerCase().contains("address"))
-                    .findFirst()
-                    .orElse(profileWarnings.get(0));
-            JLabel warnLbl = new JLabel("<html><b>Data quality notice:</b> "
-                    + escapeHtml(warnSummary) + " Contact HR if this looks wrong.</html>");
-            warnLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            warnLbl.setForeground(new Color(130, 85, 20));
-            warnLbl.setBounds(0, 0, contentW - 28, 36);
-            warnBanner.setBounds(padX, y, contentW, 52);
-            warnBanner.add(warnLbl);
-            inner.add(warnBanner);
-            y += 64;
-        }
-
         // Section: Employee Information
         JLabel secInfo = new JLabel("Employee Information");
         secInfo.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -8432,11 +7993,10 @@ public class MotorPH_GUI {
                 { "Position", safeColumn(emp, EmployeeModule.POSITION) },
                 { "Immediate Supervisor", safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) },
                 { "Basic Salary", "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) },
-                { "SSS #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.SSS), 3, 2) },
-                { "PhilHealth #",
-                        EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.PHILHEALTH), 4, 4) },
-                { "TIN #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.TIN), 3, 3) },
-                { "Pag-IBIG #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.PAGIBIG), 4, 4) },
+                { "SSS #", safeColumn(emp, EmployeeModule.SSS) },
+                { "PhilHealth #", safeColumn(emp, EmployeeModule.PHILHEALTH) },
+                { "TIN #", safeColumn(emp, EmployeeModule.TIN) },
+                { "Pag-IBIG #", safeColumn(emp, EmployeeModule.PAGIBIG) },
         };
 
         int rowY = y;
@@ -8522,29 +8082,6 @@ public class MotorPH_GUI {
         inner.add(sep);
         y += 18;
 
-        // Section: Account & Security
-        JLabel secAccount = new JLabel("Account & Security");
-        secAccount.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        secAccount.setForeground(ACCENT_BLUE);
-        secAccount.setBounds(padX, y, contentW, 18);
-        inner.add(secAccount);
-        y += 26;
-
-        JPanel accountPanel = new JPanel(null);
-        accountPanel.setBackground(new Color(248, 250, 254));
-        accountPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
-                BorderFactory.createEmptyBorder(12, 14, 12, 14)));
-        accountPanel.setBounds(padX, y, contentW, 88);
-        JLabel accountInfo = new JLabel("<html>Portal password changes are handled by HR in this demo.<br>"
-                + "Contact HR / Payroll for account lockouts, username updates, or password resets.</html>");
-        accountInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        accountInfo.setForeground(TEXT_MUTED);
-        accountInfo.setBounds(0, 0, contentW - 28, 64);
-        accountPanel.add(accountInfo);
-        inner.add(accountPanel);
-        y += 104;
-
         // Section: Contact Details (editable)
         JLabel secContact = new JLabel("Contact Details");
         secContact.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -8572,20 +8109,12 @@ public class MotorPH_GUI {
 
         final String originalAddress = safeColumn(emp, EmployeeModule.ADDRESS);
         final String originalPhone = safeColumn(emp, EmployeeModule.PHONE);
-        employeeProfileContactBaseline = originalAddress + "\u0000" + originalPhone;
 
         JTextField fldAddress = new JTextField(originalAddress);
         fldAddress.setBounds(padX, y, contentW, FIELD_HEIGHT);
         styleInputField(fldAddress);
         inner.add(fldAddress);
-        y += FIELD_HEIGHT + 2;
-
-        JLabel lblAddrError = new JLabel(" ");
-        lblAddrError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblAddrError.setForeground(new Color(200, 40, 40));
-        lblAddrError.setBounds(padX, y, contentW, 14);
-        inner.add(lblAddrError);
-        y += 16;
+        y += FIELD_HEIGHT + 14;
 
         JLabel lblPhone = new JLabel("Phone Number");
         lblPhone.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -8599,40 +8128,13 @@ public class MotorPH_GUI {
         styleInputField(fldPhone);
         inner.add(fldPhone);
 
-        JLabel lblPhoneError = new JLabel(" ");
-        lblPhoneError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblPhoneError.setForeground(new Color(200, 40, 40));
-        lblPhoneError.setBounds(padX, y + FIELD_HEIGHT + 2, singleColumn ? contentW : halfW, 14);
-        inner.add(lblPhoneError);
-
-        JLabel lblPhoneWarning = new JLabel("Use numbers and hyphens only.");
+        JLabel lblPhoneWarning = new JLabel("Use numbers, and hyphens only.");
         lblPhoneWarning.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPhoneWarning.setForeground(new Color(180, 60, 40));
-        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 18, singleColumn ? contentW : halfW, 16);
+        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 4, singleColumn ? contentW : halfW, 16);
         lblPhoneWarning.setVisible(false);
         inner.add(lblPhoneWarning);
-        y += FIELD_HEIGHT + 36;
-
-        JLabel lblProfileValidationSummary = new JLabel(" ");
-        lblProfileValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblProfileValidationSummary.setForeground(new Color(180, 60, 40));
-        lblProfileValidationSummary.setBounds(padX, y, contentW, 18);
-        lblProfileValidationSummary.setVisible(false);
-        inner.add(lblProfileValidationSummary);
-        y += 22;
-
-        JLabel lblProfileSuccess = new JLabel(" ");
-        lblProfileSuccess.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblProfileSuccess.setForeground(new Color(22, 130, 70));
-        lblProfileSuccess.setBounds(padX, y, contentW, 18);
-        lblProfileSuccess.setVisible(false);
-        inner.add(lblProfileSuccess);
-        y += 24;
-
-        employeeProfileAddressField = fldAddress;
-        employeeProfilePhoneField = fldPhone;
-        applyEmployeeProfileContactBlurValidation(fldAddress, fldPhone, lblAddrError, lblPhoneError,
-                lblProfileValidationSummary);
+        y += FIELD_HEIGHT + 24;
 
         // Buttons
         int btnW = 152;
@@ -8651,41 +8153,8 @@ public class MotorPH_GUI {
             y += BTN_HEIGHT + 32;
         }
         styleStandardButton(btnBack);
-        btnBack.addActionListener(e -> {
-            if (confirmDiscardEmployeeProfileIfDirty()) {
-                clearEmployeeProfileContactTracking();
-                showDashboard();
-            }
-        });
+        btnBack.addActionListener(e -> showDashboard());
         inner.add(btnBack);
-
-        frame.getRootPane().setDefaultButton(btnSave);
-
-        javax.swing.event.DocumentListener profileErrorClearer = new javax.swing.event.DocumentListener() {
-            private void onChange() {
-                lblProfileSuccess.setVisible(false);
-                lblAddrError.setText(" ");
-                lblPhoneError.setText(" ");
-                updatePopupValidationSummary(lblProfileValidationSummary, 0);
-            }
-
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                onChange();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                onChange();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                onChange();
-            }
-        };
-        fldAddress.getDocument().addDocumentListener(profileErrorClearer);
-        fldPhone.getDocument().addDocumentListener(profileErrorClearer);
 
         fldAddress.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
@@ -8748,61 +8217,39 @@ public class MotorPH_GUI {
 
         inner.setPreferredSize(new java.awt.Dimension(innerW, y));
 
-        final JScrollPane profileScroll = new JScrollPane(inner,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        profileScroll.setBorder(null);
-        profileScroll.getViewport().setBackground(PALETTE_WHITE);
-        profileScroll.getVerticalScrollBar().setUnitIncrement(16);
-
         btnSave.addActionListener(e -> {
             String newAddr = fldAddress.getText().trim();
             String newPhone = fldPhone.getText().trim();
-            String currentSnapshot = newAddr + "\u0000" + newPhone;
-            if (currentSnapshot.equals(employeeProfileContactBaseline)) {
-                showToast("No changes to save.", new Color(100, 115, 140));
+            List<String> errs = new ArrayList<>();
+            if (newAddr.isEmpty())
+                errs.add("Address cannot be empty.");
+            if (newPhone.isEmpty())
+                errs.add("Phone number cannot be empty.");
+            if (!newPhone.matches("^[0-9-]*$")) {
+                errs.add("Phone number may only contain digits and hyphens.");
+            }
+            if (!errs.isEmpty()) {
+                showBulletErrorDialog(frame, errs, "Validation Error", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
-                    EmployeeRecordsModule.validateProfileContact(newAddr, newPhone);
-            if (!errors.isEmpty()) {
-                applyEmployeeProfileContactErrors(errors, fldAddress, fldPhone, lblAddrError, lblPhoneError,
-                        lblProfileValidationSummary, lblProfileSuccess);
-                lblProfileSuccess.setVisible(false);
-                java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
-                fieldMap.put("Address:", fldAddress);
-                fieldMap.put("Phone:", fldPhone);
-                java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
-                scrollPopupToFirstError(profileScroll, inner, errors, fieldMap, comboMap);
-                showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
-                        "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
             emp[EmployeeModule.ADDRESS] = newAddr;
             emp[EmployeeModule.PHONE] = newPhone;
             if (FileHandlerModule.updateEmployeeRecord(linkedId, emp)) {
-                employeeProfileContactBaseline = currentSnapshot;
-                clearEmployeeProfileValidationState(fldAddress, fldPhone, lblAddrError, lblPhoneError,
-                        lblProfileValidationSummary);
-                showEmployeeProfileSuccess(lblProfileSuccess, lblProfileValidationSummary,
-                        "Contact details saved successfully.");
-                showPopupSuccessAndClose(null,
-                        "Profile updated successfully.",
-                        "Your address and phone number were saved successfully.",
-                        "Save Successful");
+                showToast("Profile updated successfully.");
             } else {
-                java.util.List<String> saveErrors = new java.util.ArrayList<>();
-                saveErrors.add("Could not save your profile changes.");
-                saveErrors.add("The employee data file may be open in another program. Close it and try again.");
                 showToast("Failed to save changes.", new Color(180, 90, 40));
-                showBulletErrorDialog(frame, saveErrors, "Save Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        profileScroll.setBounds(0, 0, bounds.width, bounds.height);
-        card.add(profileScroll);
+        JScrollPane scroll = new JScrollPane(inner,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBounds(0, 0, bounds.width, bounds.height);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(PALETTE_WHITE);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        card.add(scroll);
         frame.add(card);
         addStatusBar();
         updateDisplay();
@@ -9191,11 +8638,12 @@ public class MotorPH_GUI {
         }
         String text = field.getText() == null ? "" : field.getText().trim();
         if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
+            setPopupFieldError(field);
             if (errorLabel != null) {
-                errorLabel.setVisible(false);
+                errorLabel.setText(fieldLabel.substring(0, fieldLabel.length() - 1) + " is required.");
+                errorLabel.setVisible(true);
             }
-            return true;
+            return false;
         }
         boolean validChars = isDigitsAndDashesOnly(text);
         int digitCount = countDigits(text);
@@ -9217,9 +8665,14 @@ public class MotorPH_GUI {
                         || "Pag-IBIG #:".equals(fieldLabel)) {
                     errorLabel.setText("Use numbers, and hyphens only. This must not exceed 12 numbers.");
                 } else if ("Phone:".equals(fieldLabel)) {
-                    errorLabel.setText("Use numbers, and hyphens only.");
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 11 numbers.");
+                } else if ("SSS #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 10 numbers.");
+                } else if ("PhilHealth #:".equals(fieldLabel) || "TIN #:".equals(fieldLabel)
+                        || "Pag-IBIG #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 12 numbers.");
                 } else {
-                    errorLabel.setText("Use numbers, and hyphens only.");
+                    errorLabel.setText("Use numbers and hyphens only.");
                 }
                 errorLabel.setVisible(true);
             }
@@ -9246,6 +8699,9 @@ public class MotorPH_GUI {
      * on its label.
      */
     private static int govIdDigitLimit(String fieldLabel) {
+        if ("Phone:".equals(fieldLabel)) {
+            return 11;
+        }
         if ("SSS #:".equals(fieldLabel)) {
             return 10;
         }
@@ -9296,33 +8752,26 @@ public class MotorPH_GUI {
      * Validates the content of a currency field against specific criteria and
      * updates the UI accordingly.
      */
-    private static boolean checkCurrencyFieldValidation(JTextField field, JLabel errorLabel) {
+    private static boolean checkCurrencyFieldValidation(JTextField field, JLabel errorLabel, String fieldLabel) {
         if (field == null) {
             return true;
         }
         String text = field.getText() == null ? "" : field.getText().trim();
-        if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
-            if (errorLabel != null) {
-                errorLabel.setVisible(false);
-            }
-            return true;
-        }
-        boolean valid = isCurrencyValueValid(text);
-        if (valid) {
+        String msg = validateAddEmployeeField(fieldLabel, text);
+        if (msg == null) {
             setPopupFieldValid(field);
             if (errorLabel != null) {
                 errorLabel.setVisible(false);
                 errorLabel.setText("Use numbers, commas, and periods only.");
             }
-        } else {
-            setPopupFieldError(field);
-            if (errorLabel != null) {
-                errorLabel.setVisible(true);
-                errorLabel.setText("Use numbers, commas, and periods only.");
-            }
+            return true;
         }
-        return valid;
+        setPopupFieldError(field);
+        if (errorLabel != null) {
+            errorLabel.setText(msg);
+            errorLabel.setVisible(true);
+        }
+        return false;
     }
 
     /**
@@ -9404,28 +8853,36 @@ public class MotorPH_GUI {
         return form;
     }
 
-    private static java.util.List<EmployeeRecordsModule.FieldValidationError> validateEmployeeEditPopupFields(
-            java.util.Map<String, JTextField> fieldMap, String originalId) {
-        return EmployeeRecordsModule.validateEditPopupFields(buildRecordFormFromPopup(fieldMap), originalId);
-    }
-
-    /** Validates the content of an employee add popup against specific criteria. */
-    private static java.util.List<EmployeeRecordsModule.FieldValidationError> validateEmployeeAddPopupFields(
-            java.util.Map<String, JTextField> fieldMap) {
-        return EmployeeRecordsModule.validateAddPopupFields(buildRecordFormFromPopup(fieldMap));
-    }
-
     /**
      * Validates the content of an employee edit popup against specific criteria.
      */
     private static List<String> validateEmployeeEditPopup(java.util.Map<String, JTextField> fieldMap,
             String originalId) {
-        return EmployeeRecordsModule.messagesFromErrors(validateEmployeeEditPopupFields(fieldMap, originalId));
+        return EmployeeRecordsModule.validateEditPopup(buildRecordFormFromPopup(fieldMap), originalId);
     }
 
     /** Validates the content of an employee add popup against specific criteria. */
     private static List<String> validateEmployeeAddPopup(java.util.Map<String, JTextField> fieldMap) {
-        return EmployeeRecordsModule.messagesFromErrors(validateEmployeeAddPopupFields(fieldMap));
+        return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
+    }
+
+    /** Checks whether the same government ID value appears more than once in the popup. */
+    private static boolean hasDuplicateGovernmentIds(java.util.Map<String, JTextField> fieldMap) {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        String[] labels = { "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:" };
+        for (String label : labels) {
+            JTextField tf = fieldMap.get(label);
+            if (tf == null)
+                continue;
+            String value = tf.getText() == null ? "" : tf.getText().trim();
+            if (value.isEmpty())
+                continue;
+            if (seen.contains(value)) {
+                return true;
+            }
+            seen.add(value);
+        }
+        return false;
     }
 
     /** Checks if a string represents a valid name text. */
@@ -9533,7 +8990,9 @@ public class MotorPH_GUI {
 
         if (lastNameField != null) {
             String currentLastName = lastNameField.getText() == null ? "" : lastNameField.getText().trim();
-            if (!isEditPopupNameValueChanged(currentLastName, originalLastName)) {
+            if (currentLastName.isEmpty()) {
+                setPopupFieldError(lastNameField);
+            } else if (!isEditPopupNameValueChanged(currentLastName, originalLastName)) {
                 resetPopupFieldBorder(lastNameField);
             } else if (isEditPopupNameValueValid(currentLastName)) {
                 setPopupFieldValid(lastNameField);
@@ -9544,7 +9003,9 @@ public class MotorPH_GUI {
 
         if (firstNameField != null) {
             String currentFirstName = firstNameField.getText() == null ? "" : firstNameField.getText().trim();
-            if (!isEditPopupNameValueChanged(currentFirstName, originalFirstName)) {
+            if (currentFirstName.isEmpty()) {
+                setPopupFieldError(firstNameField);
+            } else if (!isEditPopupNameValueChanged(currentFirstName, originalFirstName)) {
                 resetPopupFieldBorder(firstNameField);
             } else if (isEditPopupNameValueValid(currentFirstName)) {
                 setPopupFieldValid(firstNameField);
@@ -9585,22 +9046,27 @@ public class MotorPH_GUI {
      */
     private static final java.util.Set<String> SUBMIT_FORMAT_CHECK_FIELDS = new java.util.LinkedHashSet<>(
             java.util.Arrays.asList("Last Name:", "First Name:", "Supervisor:",
-                    "Phone:", "PhilHealth #:", "Pag-IBIG #:"));
+                    "Phone:", "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:",
+                    "Basic Salary:", "Rice Subsidy:", "Phone Allowance:", "Clothing Allowance:"));
 
     /**
      * Re-runs the same per-field format rules used for live inline validation at
-     * submit time.
+     * submit time and returns field labels mapped to their exact error message.
      */
-    private static List<String> collectSubmitFormatErrors(java.util.Map<String, JTextField> fieldMap) {
-        List<String> errs = new java.util.ArrayList<>();
+    private static java.util.Map<String, String> collectSubmitFormatErrors(
+            java.util.Map<String, JTextField> fieldMap) {
+        java.util.Map<String, String> errs = new java.util.LinkedHashMap<>();
         for (String label : SUBMIT_FORMAT_CHECK_FIELDS) {
             JTextField tf = fieldMap.get(label);
             if (tf == null)
                 continue;
+            String text = tf.getText() == null ? "" : tf.getText().trim();
+            if (text.isEmpty()) {
+                continue;
+            }
             String msg = validateAddEmployeeField(label, tf.getText());
             if (msg != null) {
-                String displayName = label.endsWith(":") ? label.substring(0, label.length() - 1) : label;
-                errs.add(displayName + ": " + msg);
+                errs.put(label, msg);
             }
         }
         return errs;
@@ -9631,228 +9097,197 @@ public class MotorPH_GUI {
         }
     }
 
-    /** Marks invalid fields using structured field keys and updates the summary banner. */
-    private static void applyStructuredPopupErrors(
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
-            java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JComboBox<?>> comboMap,
-            java.util.Map<String, JLabel> errorLabels,
-            JLabel validationSummary) {
-        updatePopupValidationSummary(validationSummary,
-                EmployeeRecordsModule.countDistinctFields(errors));
-        if (errors == null) {
-            return;
-        }
-        for (EmployeeRecordsModule.FieldValidationError error : errors) {
-            if (error == null) {
-                continue;
-            }
-            String label = EmployeeRecordsModule.popupLabelForFieldKey(error.fieldKey);
-            if (label.isEmpty()) {
-                continue;
-            }
-            JComboBox<?> combo = comboMap == null ? null : comboMap.get(label);
-            if (combo != null) {
-                setComboFieldError(combo);
-            } else {
-                JTextField tf = fieldMap.get(label);
-                if (tf != null) {
-                    setPopupFieldError(tf);
-                }
-            }
-            JLabel inline = errorLabels.get(label);
-            if (inline != null) {
-                inline.setText(error.message);
-                inline.setVisible(true);
-            }
-        }
-    }
-
-    private static void clearPopupValidationState(java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JComboBox<?>> comboMap,
-            java.util.Map<String, JLabel> errorLabels,
-            JLabel validationSummary) {
-        resetEditPopupFieldBorders(fieldMap);
-        if (comboMap != null) {
-            for (JComboBox<?> combo : comboMap.values()) {
-                resetComboFieldBorder(combo);
-            }
-        }
-        if (errorLabels != null) {
-            for (JLabel lbl : errorLabels.values()) {
-                if (lbl != null) {
-                    lbl.setVisible(false);
-                }
-            }
-        }
-        updatePopupValidationSummary(validationSummary, 0);
-    }
-
-    private static void setComboFieldError(JComboBox<?> combo) {
-        if (combo == null) {
-            return;
-        }
-        combo.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
-    }
-
-    private static void resetComboFieldBorder(JComboBox<?> combo) {
-        if (combo == null) {
-            return;
-        }
-        combo.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-    }
-
-    private static void scrollPopupToFirstError(JScrollPane formScroll, JPanel form,
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
-            java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JComboBox<?>> comboMap) {
-        if (errors == null || errors.isEmpty() || formScroll == null || form == null) {
-            return;
-        }
-        String label = EmployeeRecordsModule.popupLabelForFieldKey(errors.get(0).fieldKey);
-        java.awt.Component target = null;
-        if (comboMap != null && comboMap.get(label) != null) {
-            target = comboMap.get(label);
-        } else if (fieldMap != null) {
-            target = fieldMap.get(label);
-        }
-        if (target == null) {
-            return;
-        }
-        java.awt.Point loc = SwingUtilities.convertPoint(target.getParent(), target.getLocation(), form);
-        formScroll.getVerticalScrollBar().setValue(Math.max(0, loc.y - 24));
-        target.requestFocusInWindow();
-    }
-
-    private static String snapshotPopupForm(java.util.Map<String, JTextField> fieldMap) {
-        StringBuilder sb = new StringBuilder();
-        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
-            sb.append(entry.getKey()).append('=').append(getPopupFieldText(fieldMap, entry.getKey()))
-                    .append('|');
-        }
-        return sb.toString();
-    }
-
-    private static boolean confirmDiscardPopupChanges(JDialog dialog, String baseline,
-            java.util.Map<String, JTextField> fieldMap) {
-        if (baseline != null && baseline.equals(snapshotPopupForm(fieldMap))) {
-            return true;
-        }
-        return JOptionPane.showConfirmDialog(dialog,
-                "You have unsaved changes. Discard them?",
-                "Unsaved Changes",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
-    }
-
-    private static boolean confirmFormWarnings(java.awt.Component parent, java.util.List<String> warnings) {
-        if (warnings == null || warnings.isEmpty()) {
-            return true;
-        }
-        StringBuilder html = new StringBuilder(
-                "<html><b>Please review before saving:</b><ul>");
-        for (String warning : warnings) {
-            html.append("<li>").append(escapeHtml(warning)).append("</li>");
-        }
-        html.append("</ul>Save anyway?</html>");
-        return JOptionPane.showConfirmDialog(parent, html.toString(),
-                "Confirm Save",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
-    }
-
-    private static void wirePopupStructuredBlurValidation(String popupLabel, JTextField field,
-            java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JComboBox<?>> comboMap,
-            java.util.Map<String, JLabel> errorLabels,
-            JLabel validationSummary,
-            boolean isUpdate, String originalId) {
-        if (field == null || !field.isEditable()) {
-            return;
-        }
-        field.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
-                String fieldKey = EmployeeRecordsModule.fieldKeyForPopupLabel(popupLabel);
-                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
-                java.util.List<EmployeeRecordsModule.FieldValidationError> fieldErrors =
-                        EmployeeRecordsModule.validateSingleField(fieldKey, formData, isUpdate, originalId);
-                if (fieldErrors.isEmpty()) {
-                    resetPopupFieldBorder(field);
-                    JLabel inline = errorLabels.get(popupLabel);
-                    if (inline != null) {
-                        inline.setVisible(false);
-                    }
-                    if (comboMap != null) {
-                        JComboBox<?> combo = comboMap.get(popupLabel);
-                        resetComboFieldBorder(combo);
-                    }
-                } else {
-                    applyStructuredPopupErrors(fieldErrors, fieldMap, comboMap, errorLabels, validationSummary);
-                }
-            }
-        });
-    }
-
-    private static void wireComboBlurValidation(JComboBox<?> combo, String popupLabel,
-            java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JComboBox<?>> comboMap,
-            java.util.Map<String, JLabel> errorLabels,
-            JLabel validationSummary,
-            boolean isUpdate, String originalId) {
-        if (combo == null) {
-            return;
-        }
-        combo.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override
-            public void focusLost(java.awt.event.FocusEvent e) {
-                String fieldKey = EmployeeRecordsModule.fieldKeyForPopupLabel(popupLabel);
-                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
-                java.util.List<EmployeeRecordsModule.FieldValidationError> fieldErrors =
-                        EmployeeRecordsModule.validateSingleField(fieldKey, formData, isUpdate, originalId);
-                if (fieldErrors.isEmpty()) {
-                    resetComboFieldBorder(combo);
-                } else {
-                    applyStructuredPopupErrors(fieldErrors, fieldMap, comboMap, errorLabels, validationSummary);
-                }
-            }
-        });
-    }
-
     /** Marks the fields in the edit popup that have validation errors. */
     private static void markEditPopupFieldErrors(List<String> errors,
             java.util.Map<String, JTextField> fieldMap,
-            java.util.Map<String, JLabel> errorLabels) {
-        markEditPopupFieldErrors(errors, fieldMap, errorLabels, null);
-    }
-
-    /** Legacy string-based highlighting; prefer {@link #applyStructuredPopupErrors}. */
-    private static void markEditPopupFieldErrors(List<String> errors,
-            java.util.Map<String, JTextField> fieldMap,
             java.util.Map<String, JLabel> errorLabels,
-            JLabel validationSummary) {
-        java.util.List<EmployeeRecordsModule.FieldValidationError> structured = new java.util.ArrayList<>();
-        if (errors != null) {
-            for (String message : errors) {
-                structured.add(new EmployeeRecordsModule.FieldValidationError(
-                        EmployeeRecordsModule.FieldKeys.GENERAL, message));
+            java.util.Map<String, String> submitFormatErrors) {
+        for (JLabel lbl : errorLabels.values()) {
+            if (lbl != null) {
+                lbl.setText("");
+                lbl.setVisible(false);
             }
         }
-        applyStructuredPopupErrors(structured, fieldMap, null, errorLabels, validationSummary);
-    }
 
-    private static void updatePopupValidationSummary(JLabel summaryLbl, int errorCount) {
-        if (summaryLbl == null) {
-            return;
+        for (String err : errors) {
+            if (err == null || err.isEmpty()) {
+                continue;
+            }
+            if (err.contains("Employee Number") || err.contains("Employee #")) {
+                setPopupFieldError(fieldMap.get("Employee #:"));
+            }
+            if (err.contains("Last Name")) {
+                setPopupFieldError(fieldMap.get("Last Name:"));
+                JLabel lbl = errorLabels.get("Last Name:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("First Name")) {
+                setPopupFieldError(fieldMap.get("First Name:"));
+                JLabel lbl = errorLabels.get("First Name:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Birthday")) {
+                setPopupFieldError(fieldMap.get("Birthday:"));
+                JLabel lbl = errorLabels.get("Birthday:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Address")) {
+                setPopupFieldError(fieldMap.get("Address:"));
+                JLabel lbl = errorLabels.get("Address:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Phone") && !err.contains("Phone Allowance")) {
+                setPopupFieldError(fieldMap.get("Phone:"));
+                JLabel lbl = errorLabels.get("Phone:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Supervisor")) {
+                setPopupFieldError(fieldMap.get("Supervisor:"));
+                JLabel lbl = errorLabels.get("Supervisor:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Department")) {
+                setPopupFieldError(fieldMap.get("Department:"));
+                JLabel lbl = errorLabels.get("Department:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Position")) {
+                setPopupFieldError(fieldMap.get("Position:"));
+                JLabel lbl = errorLabels.get("Position:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("SSS Number") || err.contains("SSS #")) {
+                setPopupFieldError(fieldMap.get("SSS #:"));
+                JLabel lbl = errorLabels.get("SSS #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("PhilHealth Number") || err.contains("PhilHealth #")) {
+                setPopupFieldError(fieldMap.get("PhilHealth #:"));
+                JLabel lbl = errorLabels.get("PhilHealth #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("TIN Number") || err.contains("TIN #")) {
+                setPopupFieldError(fieldMap.get("TIN #:"));
+                JLabel lbl = errorLabels.get("TIN #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("PAGIBIG Number") || err.contains("Pag-IBIG #")) {
+                setPopupFieldError(fieldMap.get("Pag-IBIG #:"));
+                JLabel lbl = errorLabels.get("Pag-IBIG #:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Duplicate government ID numbers")) {
+                String[] idLabels = { "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:" };
+                for (String idLabel : idLabels) {
+                    setPopupFieldError(fieldMap.get(idLabel));
+                    JLabel lbl = errorLabels.get(idLabel);
+                    if (lbl != null) {
+                        lbl.setText(err);
+                        lbl.setVisible(true);
+                    }
+                }
+            }
+            if (err.contains("Basic Salary")) {
+                setPopupFieldError(fieldMap.get("Basic Salary:"));
+                JLabel lbl = errorLabels.get("Basic Salary:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Rice Subsidy")) {
+                setPopupFieldError(fieldMap.get("Rice Subsidy:"));
+                JLabel lbl = errorLabels.get("Rice Subsidy:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Phone Allowance")) {
+                setPopupFieldError(fieldMap.get("Phone Allowance:"));
+                JLabel lbl = errorLabels.get("Phone Allowance:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Clothing Allowance")) {
+                setPopupFieldError(fieldMap.get("Clothing Allowance:"));
+                JLabel lbl = errorLabels.get("Clothing Allowance:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Gross Semi-monthly")) {
+                setPopupFieldError(fieldMap.get("Gross Semi-monthly:"));
+                JLabel lbl = errorLabels.get("Gross Semi-monthly:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Hourly Rate")) {
+                setPopupFieldError(fieldMap.get("Hourly Rate:"));
+                JLabel lbl = errorLabels.get("Hourly Rate:");
+                if (lbl != null) {
+                    lbl.setText(err);
+                    lbl.setVisible(true);
+                }
+            }
         }
-        if (errorCount <= 0) {
-            summaryLbl.setText(" ");
-            summaryLbl.setVisible(false);
-        } else {
-            summaryLbl.setText(errorCount + " field" + (errorCount == 1 ? "" : "s") + " need attention");
-            summaryLbl.setForeground(new Color(180, 60, 40));
-            summaryLbl.setVisible(true);
+        if (submitFormatErrors != null && !submitFormatErrors.isEmpty()) {
+            for (java.util.Map.Entry<String, String> entry : submitFormatErrors.entrySet()) {
+                String label = entry.getKey();
+                String msg = entry.getValue();
+                if (label == null || msg == null || msg.isEmpty()) {
+                    continue;
+                }
+                setPopupFieldError(fieldMap.get(label));
+                JLabel lbl = errorLabels.get(label);
+                if (lbl != null) {
+                    lbl.setText(msg);
+                    lbl.setVisible(true);
+                }
+            }
         }
+        applyGovIdSubmitValidation(fieldMap, errorLabels);
     }
 
     /**
@@ -10077,11 +9512,11 @@ public class MotorPH_GUI {
                 pushCsvSnapshotWithLog("REVERT", entry.employeeId, "Before revert of: " + entry.summary);
                 if (EmployeeRevisionModule.revert(entry)) {
                     refreshEmployeeTable();
-                    showPopupSuccessAndClose(dialog,
-                            "Employee records reverted successfully.",
-                            "Restored snapshot from " + entry.formattedTime() + ".\n"
-                                    + entry.summary + "\n\nThe employee table has been refreshed.",
-                            "Revert Successful");
+                    showToast("Employee records reverted successfully.");
+                    JOptionPane.showMessageDialog(dialog,
+                            "Employee records were restored to the selected revision.",
+                            "Revert Successful", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
                 } else {
                     JOptionPane.showMessageDialog(dialog,
                             "Could not revert to the selected revision.",
@@ -10128,14 +9563,6 @@ public class MotorPH_GUI {
         final int PAD = 14;
         int labelW = 130, fieldX = PAD + 140, fieldW = 300, rowH = 28, rowGap = 10, fy = 8;
 
-        JLabel lblValidationSummary = new JLabel(" ");
-        lblValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblValidationSummary.setForeground(new Color(180, 60, 40));
-        lblValidationSummary.setBounds(PAD, fy, fieldX + fieldW - PAD, 18);
-        lblValidationSummary.setVisible(false);
-        form.add(lblValidationSummary);
-        fy += 22;
-
         String[][] sections = {
                 { "Personal Information" },
                 { "Employee #:", safeColumn(emp, EmployeeModule.ID) },
@@ -10165,7 +9592,6 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
-        java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
         /** Reference to the department combo box in the edit popup. */
         final JComboBox[] deptComboRef = new JComboBox[1];
@@ -10208,7 +9634,6 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
-                    comboMap.put("Status:", combo);
                     JTextField proxy = new JTextField((String) combo.getSelectedItem());
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -10233,7 +9658,6 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
-                    comboMap.put("Department:", combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? dept : combo.getSelectedItem().toString());
@@ -10260,7 +9684,6 @@ public class MotorPH_GUI {
                         }
                     }
                     form.add(combo);
-                    comboMap.put("Position:", combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? row[1] : combo.getSelectedItem().toString());
@@ -10307,7 +9730,7 @@ public class MotorPH_GUI {
                     errLbl.setVisible(false);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    attachCurrencyValidation(tf, errLbl);
+                    attachCurrencyValidation(tf, errLbl, row[0]);
                 } else if (needsNameFieldValidation) {
                     JLabel errLbl = new JLabel("");
                     errLbl.setFont(new Font("Segoe UI", Font.PLAIN, 9));
@@ -10371,18 +9794,6 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
-        final String popupBaseline = snapshotPopupForm(fieldMap);
-        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
-            wirePopupStructuredBlurValidation(entry.getKey(), entry.getValue(), fieldMap, comboMap,
-                    errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
-        }
-        wireComboBlurValidation(comboMap.get("Status:"), "Status:", fieldMap, comboMap, errorLabels,
-                lblValidationSummary, true, emp[EmployeeModule.ID]);
-        wireComboBlurValidation(comboMap.get("Department:"), "Department:", fieldMap, comboMap,
-                errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
-        wireComboBlurValidation(comboMap.get("Position:"), "Position:", fieldMap, comboMap,
-                errorLabels, lblValidationSummary, true, emp[EmployeeModule.ID]);
-
         // Buttons
         JButton btnSave = new JButton("Save Changes");
         guiStyleAccentButton(btnSave);
@@ -10393,19 +9804,23 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
-            java.util.List<EmployeeRecordsModule.FieldValidationError> validationErrors =
-                    validateEmployeeEditPopupFields(fieldMap, emp[EmployeeModule.ID]);
-            clearPopupValidationState(fieldMap, comboMap, errorLabels, lblValidationSummary);
-            applyStructuredPopupErrors(validationErrors, fieldMap, comboMap, errorLabels, lblValidationSummary);
+            resetEditPopupFieldBorders(fieldMap);
+
+            java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
+            List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
+            validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
+            if (hasDuplicateGovernmentIds(fieldMap)) {
+                validationErrors.add("Duplicate government ID numbers are not allowed within the same employee record.");
+            }
+            validationErrors = reorderEditPopupErrors(validationErrors);
+            validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
+
+            markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, submitFormatErrors);
+            applyEditPopupNameFieldBorders(fieldMap, emp);
 
             if (!validationErrors.isEmpty()) {
-                showBulletErrorDialog(dialog, EmployeeRecordsModule.messagesFromErrors(validationErrors),
+                showBulletErrorDialog(dialog, validationErrors,
                         "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
-                scrollPopupToFirstError(formScroll, form, validationErrors, fieldMap, comboMap);
-                return;
-            }
-            if (!confirmFormWarnings(dialog, EmployeeRecordsModule.collectFormWarnings(formData))) {
                 return;
             }
 
@@ -10415,6 +9830,7 @@ public class MotorPH_GUI {
             if (confirm != JOptionPane.YES_OPTION)
                 return;
 
+            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
             String[] updated = EmployeeRecordsModule.applyFormToRow(emp, formData);
             String computedHourly = EmployeeRecordsModule.computeHourlyRateFromGrossSemiMonthly(
                     updated[EmployeeModule.GROSS_SEMI_MONTHLY]);
@@ -10450,14 +9866,9 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> {
-            if (confirmDiscardPopupChanges(dialog, popupBaseline, fieldMap)) {
-                dialog.dispose();
-            }
-        });
+        btnCancel.addActionListener(ev -> dialog.dispose());
         root.add(btnSave);
         root.add(btnCancel);
-        dialog.getRootPane().setDefaultButton(btnSave);
 
         dialog.setContentPane(root);
         dialog.pack();
@@ -10490,14 +9901,6 @@ public class MotorPH_GUI {
         JPanel form = new JPanel(null);
         form.setBackground(PALETTE_WHITE);
 
-        JLabel lblValidationSummary = new JLabel(" ");
-        lblValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblValidationSummary.setForeground(new Color(180, 60, 40));
-        lblValidationSummary.setBounds(PAD, fy, fieldX + fieldW - PAD, 18);
-        lblValidationSummary.setVisible(false);
-        form.add(lblValidationSummary);
-        fy += 22;
-
         // Two-element rows create a text field; one-element rows are section headers
         String[][] sections = {
                 { "Personal Information" },
@@ -10528,7 +9931,6 @@ public class MotorPH_GUI {
 
         java.util.List<JTextField> fields = new java.util.ArrayList<>();
         java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
-        java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
         java.util.Map<String, JLabel> errorLabels = new java.util.LinkedHashMap<>();
         final JComboBox[] deptComboRef = new JComboBox[1];
         final JComboBox[] posComboRef = new JComboBox[1];
@@ -10556,7 +9958,6 @@ public class MotorPH_GUI {
                     combo.setForeground(TEXT_DARK_NAVY);
                     combo.setBounds(fieldX, fy, fieldW, rowH);
                     form.add(combo);
-                    comboMap.put("Status:", combo);
                     JTextField proxy = new JTextField("Regular");
                     combo.addItemListener(e -> {
                         if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED)
@@ -10572,7 +9973,6 @@ public class MotorPH_GUI {
                     combo.setBounds(fieldX, fy, fieldW, rowH);
                     combo.setSelectedItem(row[1]);
                     form.add(combo);
-                    comboMap.put("Department:", combo);
                     deptComboRef[0] = combo;
                     JTextField proxy = new JTextField(row[1]);
                     combo.addItemListener(e -> {
@@ -10594,7 +9994,6 @@ public class MotorPH_GUI {
                     if (combo.getItemCount() > 0)
                         combo.setSelectedIndex(0);
                     form.add(combo);
-                    comboMap.put("Position:", combo);
                     posComboRef[0] = combo;
                     JTextField proxy = new JTextField(
                             combo.getSelectedItem() == null ? "" : combo.getSelectedItem().toString());
@@ -10633,20 +10032,7 @@ public class MotorPH_GUI {
                     errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    // SSS # and TIN # get auto-hyphen formatting; all others use the inline
-                    // validator
-                    if ("SSS #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[] { 2, 9 }, 10);
-                    } else if ("TIN #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[] { 3, 6, 9 }, 12);
-                    } else {
-                        if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
-                            attachMaxLength(tf, 12);
-                        } else if ("Phone:".equals(row[0])) {
-                            attachMaxLength(tf, 11);
-                        }
-                        attachInlineValidator(tf, errLbl, row[0]);
-                    }
+                    attachInlineValidator(tf, errLbl, row[0]);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
@@ -10677,18 +10063,6 @@ public class MotorPH_GUI {
         formScroll.getVerticalScrollBar().setUnitIncrement(12);
         root.add(formScroll);
 
-        final String addPopupBaseline = snapshotPopupForm(fieldMap);
-        for (java.util.Map.Entry<String, JTextField> entry : fieldMap.entrySet()) {
-            wirePopupStructuredBlurValidation(entry.getKey(), entry.getValue(), fieldMap, comboMap,
-                    errorLabels, lblValidationSummary, false, null);
-        }
-        wireComboBlurValidation(comboMap.get("Status:"), "Status:", fieldMap, comboMap, errorLabels,
-                lblValidationSummary, false, null);
-        wireComboBlurValidation(comboMap.get("Department:"), "Department:", fieldMap, comboMap,
-                errorLabels, lblValidationSummary, false, null);
-        wireComboBlurValidation(comboMap.get("Position:"), "Position:", fieldMap, comboMap,
-                errorLabels, lblValidationSummary, false, null);
-
         JButton btnSave = new JButton("Add Employee");
         guiStyleAccentButton(btnSave);
         btnSave.setBounds(252, 520, 140, 34);
@@ -10698,19 +10072,17 @@ public class MotorPH_GUI {
         btnCancel.setBounds(400, 520, 100, 34);
 
         btnSave.addActionListener(ev -> {
-            EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
-            java.util.List<EmployeeRecordsModule.FieldValidationError> validationErrors =
-                    validateEmployeeAddPopupFields(fieldMap);
-            clearPopupValidationState(fieldMap, comboMap, errorLabels, lblValidationSummary);
-            applyStructuredPopupErrors(validationErrors, fieldMap, comboMap, errorLabels, lblValidationSummary);
-
-            if (!validationErrors.isEmpty()) {
-                showBulletErrorDialog(dialog, EmployeeRecordsModule.messagesFromErrors(validationErrors),
-                        "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
-                scrollPopupToFirstError(formScroll, form, validationErrors, fieldMap, comboMap);
-                return;
+            resetEditPopupFieldBorders(fieldMap);
+            java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
+            List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
+            if (hasDuplicateGovernmentIds(fieldMap)) {
+                validationErrors.add("Duplicate government ID numbers are not allowed within the same employee record.");
             }
-            if (!confirmFormWarnings(dialog, EmployeeRecordsModule.collectFormWarnings(formData))) {
+            validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
+            if (!validationErrors.isEmpty()) {
+                markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, submitFormatErrors);
+                showBulletErrorDialog(dialog, validationErrors,
+                        "Cannot Add Employee — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -10722,6 +10094,7 @@ public class MotorPH_GUI {
                 return;
 
             try {
+                EmployeeRecordsModule.RecordFormData formData = buildRecordFormFromPopup(fieldMap);
                 String[] newRow = EmployeeRecordsModule.buildFullRowFromForm(formData);
                 pushCsvSnapshotWithLog("ADD", empId, "Added employee #" + empId);
                 boolean ok = FileHandlerModule.appendEmployeeRecord(FileHandlerModule.joinCsvLine(newRow));
@@ -10749,14 +10122,9 @@ public class MotorPH_GUI {
             }
         });
 
-        btnCancel.addActionListener(ev -> {
-            if (confirmDiscardPopupChanges(dialog, addPopupBaseline, fieldMap)) {
-                dialog.dispose();
-            }
-        });
+        btnCancel.addActionListener(ev -> dialog.dispose());
         root.add(btnSave);
         root.add(btnCancel);
-        dialog.getRootPane().setDefaultButton(btnSave);
 
         dialog.setContentPane(root);
         dialog.pack();
@@ -11109,11 +10477,12 @@ public class MotorPH_GUI {
         }
         String text = field.getText() == null ? "" : field.getText().trim();
         if (text.isEmpty()) {
-            resetPopupFieldBorder(field);
+            setPopupFieldError(field);
             if (errorLabel != null) {
-                errorLabel.setVisible(false);
+                errorLabel.setText(fieldLabel.substring(0, fieldLabel.length() - 1) + " is required.");
+                errorLabel.setVisible(true);
             }
-            return true;
+            return false;
         }
         boolean valid = isNameTextValid(text);
         if (valid) {
@@ -11134,14 +10503,14 @@ public class MotorPH_GUI {
     }
 
     /** Attaches validation for currency fields. */
-    private static void attachCurrencyValidation(JTextField tf, JLabel errorLabel) {
+    private static void attachCurrencyValidation(JTextField tf, JLabel errorLabel, String fieldLabel) {
         if (tf == null) {
             return;
         }
         tf.setToolTipText("Use numbers, commas, and periods only");
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
-                checkCurrencyFieldValidation(tf, errorLabel);
+                checkCurrencyFieldValidation(tf, errorLabel, fieldLabel);
             }
 
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
@@ -11194,8 +10563,28 @@ public class MotorPH_GUI {
 
     /** Validates the input for the add employee field. */
     private static String validateAddEmployeeField(String fieldLabel, String value) {
-        if (value == null || value.trim().isEmpty())
+        String fieldName = fieldLabel.endsWith(":")
+                ? fieldLabel.substring(0, fieldLabel.length() - 1)
+                : fieldLabel;
+        if (value == null || value.trim().isEmpty()) {
+            if ("Basic Salary:".equals(fieldLabel)
+                    || "Rice Subsidy:".equals(fieldLabel)
+                    || "Phone Allowance:".equals(fieldLabel)
+                    || "Clothing Allowance:".equals(fieldLabel)) {
+                return fieldName + " is required.";
+            }
+            if ("Address:".equals(fieldLabel)) {
+                return "Address is required.";
+            }
+            if ("Pag-IBIG #:".equals(fieldLabel)) {
+                return "PAGIBIG Number is required.";
+            }
+            if ("Gross Semi-monthly:".equals(fieldLabel)
+                    || "Hourly Rate:".equals(fieldLabel)) {
+                return fieldName + " must have a valid amount (commas/periods allowed, or NA / 000 for zero).";
+            }
             return null;
+        }
         switch (fieldLabel) {
             case "Last Name:":
             case "First Name:":
@@ -11211,8 +10600,16 @@ public class MotorPH_GUI {
             case "PhilHealth #:":
             case "TIN #:":
             case "Pag-IBIG #:":
-                if (!value.matches("[0-9\\-]+"))
-                    return "Use numbers and hyphens only.";
+                int digitLimit = govIdDigitLimit(fieldLabel);
+                if (!value.matches("[0-9\\-]+")) {
+                    return digitLimit > 0
+                            ? "Use numbers and hyphens only. This must not exceed " + digitLimit + " numbers."
+                            : "Use numbers and hyphens only.";
+                }
+                int digits = countDigits(value);
+                if (digitLimit > 0 && digits > digitLimit) {
+                    return "Use numbers and hyphens only. This must not exceed " + digitLimit + " numbers.";
+                }
                 break;
             case "Basic Salary:":
             case "Rice Subsidy:":
@@ -11223,7 +10620,7 @@ public class MotorPH_GUI {
                 if (!value.isEmpty()
                         && !EmployeeRecordsModule.isNaPlaceholder(value)
                         && !value.matches("[0-9,]+(\\.[0-9]*)?"))
-                    return "Enter a valid amount (commas/periods allowed, or use NA / 000 for zero).";
+                    return fieldName + " must have a valid amount (commas/periods allowed, or NA / 000 for zero).";
                 break;
             default:
                 break;
@@ -11239,16 +10636,19 @@ public class MotorPH_GUI {
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void check() {
                 String err = validateAddEmployeeField(fieldLabel, tf.getText());
+                String currentText = tf.getText() == null ? "" : tf.getText().trim();
                 if (err != null) {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(new Color(200, 40, 40), 1),
-                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                    setPopupFieldError(tf);
                     errLbl.setText(err);
-                } else {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
-                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                    errLbl.setVisible(true);
+                } else if (!currentText.isEmpty()) {
+                    setPopupFieldValid(tf);
                     errLbl.setText("");
+                    errLbl.setVisible(false);
+                } else {
+                    resetPopupFieldBorder(tf);
+                    errLbl.setText("");
+                    errLbl.setVisible(false);
                 }
             }
 
@@ -12170,47 +11570,26 @@ public class MotorPH_GUI {
     }
 
     /** Marks the fields in the employee record form that have validation errors. */
-    private static void markEmployeeRecordFieldErrors(
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors) {
-        resetEmployeeRecordFieldBorders();
-        if (errors == null) {
-            return;
-        }
-        for (EmployeeRecordsModule.FieldValidationError err : errors) {
-            if (err == null) {
-                continue;
-            }
-            switch (err.fieldKey) {
-                case EmployeeRecordsModule.FieldKeys.EMP_NO:
-                    setFieldError(txtRecEmpNo);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.LAST_NAME:
-                    setFieldError(txtRecLastName);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.FIRST_NAME:
-                    setFieldError(txtRecFirstName);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.SSS:
-                    setFieldError(txtRecSSS);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.PHILHEALTH:
-                    setFieldError(txtRecPhilHealth);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.TIN:
-                    setFieldError(txtRecTIN);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.PAGIBIG:
-                    setFieldError(txtRecPagIBIG);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.BASIC_SALARY:
-                    setFieldError(txtRecBasicSalary);
-                    break;
-                case EmployeeRecordsModule.FieldKeys.HOURLY_RATE:
-                    setFieldError(txtRecHourlyRate);
-                    break;
-                default:
-                    break;
-            }
+    private static void markEmployeeRecordFieldErrors(List<String> errors) {
+        for (String err : errors) {
+            if (err.contains("Employee Number"))
+                setFieldError(txtRecEmpNo);
+            if (err.contains("Last Name"))
+                setFieldError(txtRecLastName);
+            if (err.contains("First Name"))
+                setFieldError(txtRecFirstName);
+            if (err.contains("SSS"))
+                setFieldError(txtRecSSS);
+            if (err.contains("PhilHealth"))
+                setFieldError(txtRecPhilHealth);
+            if (err.contains("TIN"))
+                setFieldError(txtRecTIN);
+            if (err.contains("Pag-IBIG"))
+                setFieldError(txtRecPagIBIG);
+            if (err.contains("Basic Salary"))
+                setFieldError(txtRecBasicSalary);
+            if (err.contains("Hourly Rate"))
+                setFieldError(txtRecHourlyRate);
         }
     }
 
@@ -12218,24 +11597,19 @@ public class MotorPH_GUI {
     private static void runAddEmployeeRecord() {
         resetEmployeeRecordFieldBorders();
         EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm();
-        EmployeeRecordsModule.sanitizeFormData(form);
-        java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateFormFields(form, false, null);
+        List<String> errors = EmployeeRecordsModule.validateForm(form, false, null);
         if (!errors.isEmpty()) {
             markEmployeeRecordFieldErrors(errors);
-            showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
-                    "Input Error", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        if (!confirmFormWarnings(frame, EmployeeRecordsModule.collectFormWarnings(form))) {
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         String[] row = EmployeeRecordsModule.createNewRow(form);
         pushCsvSnapshot();
         if (!FileHandlerModule.appendEmployeeRecord(FileHandlerModule.joinCsvLine(row))) {
-            showToast("Could not save the employee record. Please check file permissions.",
-                    new Color(180, 90, 40));
+            JOptionPane.showMessageDialog(frame,
+                    "Could not save the employee record. Please check file permissions.",
+                    "Save Failed", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -12243,11 +11617,7 @@ public class MotorPH_GUI {
         refreshEmployeeTable();
         clearEmployeeRecordForm();
         selectEmployeeInTable(newId);
-        showPopupSuccessAndClose(null,
-                "Employee #" + newId + " added successfully.",
-                "Employee #" + newId + " (" + EmployeeModule.fullName(row)
-                        + ") was added successfully.\nThe employee table has been refreshed.",
-                "Add Successful");
+        showToast("Employee #" + newId + " added successfully.");
     }
 
     /** Runs the process to update an existing employee record. */
@@ -12261,16 +11631,10 @@ public class MotorPH_GUI {
 
         resetEmployeeRecordFieldBorders();
         EmployeeRecordsModule.RecordFormData form = readEmployeeRecordForm();
-        EmployeeRecordsModule.sanitizeFormData(form);
-        java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateFormFields(form, true, selectedEmployeeId);
+        List<String> errors = EmployeeRecordsModule.validateForm(form, true, selectedEmployeeId);
         if (!errors.isEmpty()) {
             markEmployeeRecordFieldErrors(errors);
-            showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
-                    "Input Error", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        if (!confirmFormWarnings(frame, EmployeeRecordsModule.collectFormWarnings(form))) {
+            showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -12300,11 +11664,7 @@ public class MotorPH_GUI {
             populateEmployeeRecordForm(FileHandlerModule.smartSplit(data));
         txtRecEmpNo.setEditable(false);
         updateEmployeeRecordActionState(true);
-        showPopupSuccessAndClose(null,
-                "Employee #" + savedId + " updated successfully.",
-                "Employee record for #" + savedId + " (" + EmployeeModule.fullName(updated)
-                        + ") was saved successfully.",
-                "Save Successful");
+        showToast("Employee #" + savedId + " updated successfully.");
     }
 
     /** Runs the process to delete an existing employee record. */
@@ -13299,19 +12659,6 @@ public class MotorPH_GUI {
         sp.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(sp);
 
-        JLabel emptyLbl = new JLabel(
-                "<html><center>No notifications match this filter.<br>"
-                        + (isEmployeeUser()
-                                ? "Payroll updates and issue resolutions will appear here."
-                                : "System reminders will appear here.")
-                        + "</center></html>",
-                SwingConstants.CENTER);
-        emptyLbl.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        emptyLbl.setForeground(TEXT_MUTED);
-        emptyLbl.setBounds(20, listTop + 40, listW, 80);
-        emptyLbl.setVisible(model.isEmpty());
-        panel.add(emptyLbl);
-
         // Tracks which filter chip is currently active so actions know the view context
         final String[] activeFilter = { "All" };
 
@@ -13319,7 +12666,6 @@ public class MotorPH_GUI {
         Runnable refreshCount = () -> {
             long uc = allNotifications.stream().filter(nn -> !nn.read).count();
             unreadLbl.setText(uc + " unread of " + allNotifications.size());
-            emptyLbl.setVisible(list.getModel().getSize() == 0);
         };
 
         // Helper: mark as read — removes from view only when the Unread filter is
@@ -13442,7 +12788,6 @@ public class MotorPH_GUI {
                         filtered.addElement(n);
                 }
                 list.setModel(filtered);
-                emptyLbl.setVisible(filtered.isEmpty());
             });
         }
 
@@ -13855,10 +13200,7 @@ public class MotorPH_GUI {
                 rpSet(errText, rsWarn);
                 showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             } else {
-                String periodLabel = monthCombo.getSelectedIndex() > 0
-                        ? String.valueOf(monthCombo.getSelectedItem()) + " " + year
-                        : year;
-                showEmployeePayslipEmptyState(periodLabel, errText);
+                showEmployeePayslipError(errText);
             }
             return;
         }
@@ -13877,9 +13219,7 @@ public class MotorPH_GUI {
                 rpSet(errText, rsWarn);
                 showBulletErrorDialog(frame, noData, "No Attendance Data", JOptionPane.WARNING_MESSAGE);
             } else {
-                showEmployeePayslipEmptyState(
-                        monthCombo.getSelectedItem() + " " + year,
-                        "Select a pay period with attendance records, or report a concern to HR.");
+                showEmployeePayslipError(errText);
             }
             return;
         }
@@ -13907,10 +13247,7 @@ public class MotorPH_GUI {
             if (isHrUser()) {
                 rpSet(failMsg, rsWarn);
             } else {
-                String periodLabel = monthCombo.getSelectedIndex() > 0
-                        ? String.valueOf(monthCombo.getSelectedItem()) + " " + year
-                        : year;
-                showEmployeePayslipEmptyState(periodLabel, failMsg);
+                showEmployeePayslipError(failMsg);
             }
         }
 
@@ -13919,9 +13256,6 @@ public class MotorPH_GUI {
                     SalaryComputationModule.summaryGross,
                     SalaryComputationModule.summaryDeductions,
                     SalaryComputationModule.summaryNet);
-            if (isEmployeeUser()) {
-                employeeSessionLastNetPay = String.format("PHP %,.2f", SalaryComputationModule.summaryNet);
-            }
         } else {
             resetPayrollStatChips();
         }
@@ -14397,18 +13731,25 @@ public class MotorPH_GUI {
         btnProcess.addActionListener(e -> {
             int choice = JOptionPane.showConfirmDialog(dlg,
                     "<html>Process payroll for <b>" + n + " employee(s)</b>?<br><br>"
-                            + "Computed totals appear in the payroll output only.<br>"
-                            + "Hours Worked / Gross Pay / Deductions / Net Pay are not written to the master employee CSV.</html>",
+                            + "This will save all computed salary records to the Employee Details CSV.<br>"
+                            + "This action cannot be undone.</html>",
                     "Confirm Process Payroll",
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
             if (choice == JOptionPane.OK_OPTION) {
-                SalaryComputationModule.BulkPayrollResult saved = executeBatchPayrollComputation(month, year, false);
-                if (saved.computedCount > 0) {
+                SalaryComputationModule.BulkPayrollResult saved = executeBatchPayrollComputation(month, year, true);
+                if (saved.savedToFile) {
                     batchPayrollComputedOnce = true;
+                    if (employeeTableModel != null) {
+                        refreshEmployeeTable();
+                    }
                     dlg.dispose();
-                    showToast(saved.computedCount + " salary record(s) computed.");
+                    showToast(saved.computedCount + " salary record(s) computed and saved.");
                 } else {
-                    showToast("No attendance records found for the selected employees in this pay period.",
+                    JOptionPane.showMessageDialog(dlg,
+                            "Payroll was computed but the CSV file could not be saved.\n\n"
+                                    + "Close any program using the file and try again.",
+                            "Save Failed", JOptionPane.ERROR_MESSAGE);
+                    showToast(saved.computedCount + " record(s) computed (CSV save failed).",
                             new Color(180, 90, 40));
                 }
             }

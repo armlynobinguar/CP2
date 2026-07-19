@@ -19,141 +19,6 @@ public class EmployeeRecordsModule {
         "Employee #", "Last Name", "First Name", "Department", "SSS #", "PhilHealth #", "TIN #", "Pag-IBIG #"
     };
 
-    /** Demo monthly basic salary floor (NCR minimum wage approximation). */
-    public static final double MIN_BASIC_SALARY_MONTHLY = 15000.0;
-
-    /** Soft warning threshold for unusually high basic salary. */
-    public static final double HIGH_BASIC_SALARY_WARNING = 500000.0;
-
-    /** Stable field identifiers for structured validation and UI highlighting. */
-    public static final class FieldKeys {
-        public static final String EMP_NO = "EMP_NO";
-        public static final String LAST_NAME = "LAST_NAME";
-        public static final String FIRST_NAME = "FIRST_NAME";
-        public static final String BIRTHDAY = "BIRTHDAY";
-        public static final String ADDRESS = "ADDRESS";
-        public static final String PHONE = "PHONE";
-        public static final String SSS = "SSS";
-        public static final String PHILHEALTH = "PHILHEALTH";
-        public static final String TIN = "TIN";
-        public static final String PAGIBIG = "PAGIBIG";
-        public static final String STATUS = "STATUS";
-        public static final String DEPARTMENT = "DEPARTMENT";
-        public static final String POSITION = "POSITION";
-        public static final String SUPERVISOR = "SUPERVISOR";
-        public static final String BASIC_SALARY = "BASIC_SALARY";
-        public static final String RICE_SUBSIDY = "RICE_SUBSIDY";
-        public static final String PHONE_ALLOWANCE = "PHONE_ALLOWANCE";
-        public static final String CLOTHING_ALLOWANCE = "CLOTHING_ALLOWANCE";
-        public static final String GROSS_SEMI_MONTHLY = "GROSS_SEMI_MONTHLY";
-        public static final String HOURLY_RATE = "HOURLY_RATE";
-        public static final String GENERAL = "GENERAL";
-
-        private FieldKeys() {
-        }
-    }
-
-    /** One validation issue tied to a logical form field. */
-    public static final class FieldValidationError {
-        public final String fieldKey;
-        public final String message;
-
-        public FieldValidationError(String fieldKey, String message) {
-            this.fieldKey = fieldKey == null ? FieldKeys.GENERAL : fieldKey;
-            this.message = message == null ? "" : message;
-        }
-    }
-
-    /** Maps a {@link FieldKeys} constant to the Add/Edit popup label text. */
-    public static String popupLabelForFieldKey(String fieldKey) {
-        if (fieldKey == null) {
-            return "";
-        }
-        switch (fieldKey) {
-            case FieldKeys.EMP_NO: return "Employee #:";
-            case FieldKeys.LAST_NAME: return "Last Name:";
-            case FieldKeys.FIRST_NAME: return "First Name:";
-            case FieldKeys.BIRTHDAY: return "Birthday:";
-            case FieldKeys.ADDRESS: return "Address:";
-            case FieldKeys.PHONE: return "Phone:";
-            case FieldKeys.SSS: return "SSS #:";
-            case FieldKeys.PHILHEALTH: return "PhilHealth #:";
-            case FieldKeys.TIN: return "TIN #:";
-            case FieldKeys.PAGIBIG: return "Pag-IBIG #:";
-            case FieldKeys.STATUS: return "Status:";
-            case FieldKeys.DEPARTMENT: return "Department:";
-            case FieldKeys.POSITION: return "Position:";
-            case FieldKeys.SUPERVISOR: return "Supervisor:";
-            case FieldKeys.BASIC_SALARY: return "Basic Salary:";
-            case FieldKeys.RICE_SUBSIDY: return "Rice Subsidy:";
-            case FieldKeys.PHONE_ALLOWANCE: return "Phone Allowance:";
-            case FieldKeys.CLOTHING_ALLOWANCE: return "Clothing Allowance:";
-            case FieldKeys.GROSS_SEMI_MONTHLY: return "Gross Semi-monthly:";
-            case FieldKeys.HOURLY_RATE: return "Hourly Rate:";
-            default: return "";
-        }
-    }
-
-    /** Maps an Add/Edit popup label back to a {@link FieldKeys} constant. */
-    public static String fieldKeyForPopupLabel(String popupLabel) {
-        if (popupLabel == null) {
-            return FieldKeys.GENERAL;
-        }
-        switch (popupLabel) {
-            case "Employee #:": return FieldKeys.EMP_NO;
-            case "Last Name:": return FieldKeys.LAST_NAME;
-            case "First Name:": return FieldKeys.FIRST_NAME;
-            case "Birthday:": return FieldKeys.BIRTHDAY;
-            case "Address:": return FieldKeys.ADDRESS;
-            case "Phone:": return FieldKeys.PHONE;
-            case "SSS #:": return FieldKeys.SSS;
-            case "PhilHealth #:": return FieldKeys.PHILHEALTH;
-            case "TIN #:": return FieldKeys.TIN;
-            case "Pag-IBIG #:": return FieldKeys.PAGIBIG;
-            case "Status:": return FieldKeys.STATUS;
-            case "Department:": return FieldKeys.DEPARTMENT;
-            case "Position:": return FieldKeys.POSITION;
-            case "Supervisor:": return FieldKeys.SUPERVISOR;
-            case "Basic Salary:": return FieldKeys.BASIC_SALARY;
-            case "Rice Subsidy:": return FieldKeys.RICE_SUBSIDY;
-            case "Phone Allowance:": return FieldKeys.PHONE_ALLOWANCE;
-            case "Clothing Allowance:": return FieldKeys.CLOTHING_ALLOWANCE;
-            case "Gross Semi-monthly:": return FieldKeys.GROSS_SEMI_MONTHLY;
-            case "Hourly Rate:": return FieldKeys.HOURLY_RATE;
-            default: return FieldKeys.GENERAL;
-        }
-    }
-
-    /** Converts structured errors to plain messages for bullet dialogs. */
-    public static List<String> messagesFromErrors(List<FieldValidationError> errors) {
-        List<String> messages = new ArrayList<>();
-        if (errors == null) {
-            return messages;
-        }
-        java.util.LinkedHashSet<String> unique = new java.util.LinkedHashSet<>();
-        for (FieldValidationError error : errors) {
-            if (error != null && error.message != null && !error.message.isEmpty()) {
-                unique.add(error.message);
-            }
-        }
-        messages.addAll(unique);
-        return messages;
-    }
-
-    /** Counts distinct invalid fields (not duplicate messages). */
-    public static int countDistinctFields(List<FieldValidationError> errors) {
-        if (errors == null || errors.isEmpty()) {
-            return 0;
-        }
-        java.util.LinkedHashSet<String> keys = new java.util.LinkedHashSet<>();
-        for (FieldValidationError error : errors) {
-            if (error != null) {
-                keys.add(error.fieldKey);
-            }
-        }
-        return keys.size();
-    }
-
     /**
      * Maps a full CSV employee row to the seven table columns required by Feature 1.
      */
@@ -200,192 +65,65 @@ public class EmployeeRecordsModule {
      * Validates the employee record form before add or update.
      */
     public static List<String> validateForm(RecordFormData form, boolean isUpdate, String originalId) {
-        return messagesFromErrors(validateFormFields(form, isUpdate, originalId));
-    }
+        java.util.LinkedHashSet<String> errors = new java.util.LinkedHashSet<>();
 
-    /** Structured validation for HR Add/Edit popups and legacy forms. */
-    public static List<FieldValidationError> validateFormFields(RecordFormData form, boolean isUpdate,
-            String originalId) {
-        List<FieldValidationError> errors = new ArrayList<>();
         if (form == null) {
-            addError(errors, FieldKeys.GENERAL, "Form data is missing.");
-            return errors;
+            errors.add("Form data is missing.");
+            return new ArrayList<>(errors);
         }
 
         if (isBlank(form.empNo)) {
-            addError(errors, FieldKeys.EMP_NO, "Employee Number is required.");
+            errors.add("Employee Number is required.");
         } else if (!form.empNo.trim().matches("\\d+")) {
-            addError(errors, FieldKeys.EMP_NO, "Employee Number must be numeric.");
+            errors.add("Employee Number must be numeric.");
         } else if (!isUpdate && FileHandlerModule.employeeExists(form.empNo.trim())) {
-            addError(errors, FieldKeys.EMP_NO,
-                    "Employee Number \"" + form.empNo.trim() + "\" already exists.");
+            errors.add("Employee Number \"" + form.empNo.trim() + "\" already exists.");
         } else if (isUpdate && originalId != null && !originalId.trim().equals(form.empNo.trim())
                 && FileHandlerModule.employeeExists(form.empNo.trim())) {
-            addError(errors, FieldKeys.EMP_NO,
-                    "Employee Number \"" + form.empNo.trim() + "\" is already assigned to another record.");
+            errors.add("Employee Number \"" + form.empNo.trim() + "\" is already assigned to another record.");
         }
 
-        if (isBlank(form.lastName)) {
-            addError(errors, FieldKeys.LAST_NAME, "Last Name is required.");
-        } else if (!isValidPersonName(form.lastName)) {
-            addError(errors, FieldKeys.LAST_NAME,
-                    "Last Name must contain letters, spaces, hyphens and apostrophes only.");
-        }
-        if (isBlank(form.firstName)) {
-            addError(errors, FieldKeys.FIRST_NAME, "First Name is required.");
-        } else if (!isValidPersonName(form.firstName)) {
-            addError(errors, FieldKeys.FIRST_NAME,
-                    "First Name must contain letters, spaces, hyphens and apostrophes only.");
-        }
-
+        if (isBlank(form.lastName)) errors.add("Last Name is required.");
+        if (isBlank(form.firstName)) errors.add("First Name is required.");
         if (isBlank(form.birthday)) {
-            addError(errors, FieldKeys.BIRTHDAY,
-                    "Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
+            errors.add("Birthday is required. Click the calendar icon and select a date (MM/DD/YYYY).");
         } else if (!form.birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
-            addError(errors, FieldKeys.BIRTHDAY,
-                    "Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
+            errors.add("Birthday must be in MM/DD/YYYY format. Use the calendar icon to pick a valid date.");
         }
-        validateBirthdaySanity(form.birthday, errors);
+
+        if (isBlank(form.address)) {
+            errors.add("Address is required.");
+        }
 
         if (isBlank(form.phone)) {
-            addError(errors, FieldKeys.PHONE, "Phone number is required.");
+            errors.add("Phone number is required.");
         } else if (!form.phone.trim().matches("[0-9\\-]+")) {
-            addError(errors, FieldKeys.PHONE, "Phone number must contain digits and dashes only.");
-        } else {
-            validatePhoneDigitCount(form.phone, errors);
+            errors.add("Phone number must contain digits and dashes only.");
         }
 
-        checkDuplicateGovernmentIds(form, errors);
-        checkDuplicateGovernmentIdsAcrossDatabase(form, originalId, errors);
+        validateDigitsAndDashes(form.sss, "SSS Number", 10, errors);
+        validateDigitsAndDashes(form.philHealth, "PhilHealth Number", 12, errors);
+        validateDigitsAndDashes(form.tin, "TIN Number", 12, errors);
+        validateDigitsAndDashes(form.pagIbig, "PAGIBIG Number", 12, errors);
 
-        validateDigitsAndDashes(form.sss, FieldKeys.SSS, "SSS Number", 10, errors);
-        validateDigitsAndDashes(form.philHealth, FieldKeys.PHILHEALTH, "PhilHealth Number", 12, errors);
-        validateDigitsAndDashes(form.tin, FieldKeys.TIN, "TIN Number", 12, errors);
-        validateDigitsAndDashes(form.pagIbig, FieldKeys.PAGIBIG, "Pag-IBIG Number", 12, errors);
+        if (isBlank(form.status)) errors.add("Status is required.");
+        if (isBlank(form.position)) errors.add("Position is required.");
+        if (isBlank(form.department)) errors.add("Department is required.");
+        if (isBlank(form.supervisor)) errors.add("Supervisor is required.");
 
-        if (isBlank(form.status)) {
-            addError(errors, FieldKeys.STATUS, "Status is required.");
-        }
-        if (isBlank(form.position)) {
-            addError(errors, FieldKeys.POSITION, "Position is required.");
-        }
-        if (isBlank(form.department)) {
-            addError(errors, FieldKeys.DEPARTMENT, "Department is required.");
-        }
-        if (isBlank(form.supervisor)) {
-            addError(errors, FieldKeys.SUPERVISOR, "Supervisor is required.");
-        }
-
-        validateRequiredNumeric(form.basicSalary, FieldKeys.BASIC_SALARY, "Basic Salary", errors);
-        validateRequiredNumeric(form.riceSubsidy, FieldKeys.RICE_SUBSIDY, "Rice Subsidy", errors);
-        validateRequiredNumeric(form.phoneAllowance, FieldKeys.PHONE_ALLOWANCE, "Phone Allowance", errors);
-        validateRequiredNumeric(form.clothingAllowance, FieldKeys.CLOTHING_ALLOWANCE, "Clothing Allowance", errors);
+        validateRequiredNumeric(form.basicSalary, "Basic Salary", errors);
+        validateRequiredNumeric(form.riceSubsidy, "Rice Subsidy", errors);
+        validateRequiredNumeric(form.phoneAllowance, "Phone Allowance", errors);
+        validateRequiredNumeric(form.clothingAllowance, "Clothing Allowance", errors);
 
         if (!isBlank(form.grossSemiMonthly) && !isNumeric(form.grossSemiMonthly)) {
-            addError(errors, FieldKeys.GROSS_SEMI_MONTHLY, "Gross Semi-monthly must be a valid number.");
+            errors.add("Gross Semi-monthly must be a valid number.");
         }
         if (!isBlank(form.hourlyRate) && !isNumeric(form.hourlyRate)) {
-            addError(errors, FieldKeys.HOURLY_RATE, "Hourly Rate must be a valid number.");
+            errors.add("Hourly Rate must be a valid number.");
         }
 
-        return errors;
-    }
-
-    /** Non-blocking salary consistency warnings shown before save. */
-    public static List<String> collectFormWarnings(RecordFormData form) {
-        List<String> warnings = new ArrayList<>();
-        if (form == null) {
-            return warnings;
-        }
-        Double basic = parseNumericValue(form.basicSalary);
-        Double grossSemi = parseNumericValue(form.grossSemiMonthly);
-        if (basic != null) {
-            if (basic < MIN_BASIC_SALARY_MONTHLY) {
-                warnings.add(String.format(
-                        "Basic Salary (PHP %,.2f) is below the demo minimum of PHP %,.2f.",
-                        basic, MIN_BASIC_SALARY_MONTHLY));
-            }
-            if (basic > HIGH_BASIC_SALARY_WARNING) {
-                warnings.add(String.format(
-                        "Basic Salary (PHP %,.2f) is unusually high. Confirm this is intentional.",
-                        basic));
-            }
-        }
-        if (basic != null && grossSemi != null && basic > 0) {
-            double expectedGross = basic / 2.0;
-            if (Math.abs(grossSemi - expectedGross) > 0.01) {
-                warnings.add(String.format(
-                        "Gross Semi-monthly (PHP %,.2f) does not match Basic Salary / 2 (PHP %,.2f).",
-                        grossSemi, expectedGross));
-            }
-        }
-        return warnings;
-    }
-
-    /** Validates address and phone for the employee self-service profile editor. */
-    public static List<FieldValidationError> validateProfileContact(String address, String phone) {
-        RecordFormData form = new RecordFormData();
-        form.address = address;
-        form.phone = phone;
-        form.empNo = "0";
-        form.lastName = "Profile";
-        form.firstName = "User";
-        form.birthday = "01/01/1990";
-        form.sss = "11-1111111-1";
-        form.philHealth = "111111111111";
-        form.tin = "111-111-111-000";
-        form.pagIbig = "222222222222";
-        form.status = "Regular";
-        form.position = "Staff";
-        form.department = "Operations";
-        form.supervisor = "N/A";
-        form.basicSalary = "0";
-        form.riceSubsidy = "0";
-        form.phoneAllowance = "0";
-        form.clothingAllowance = "0";
-        form.grossSemiMonthly = "0";
-        form.hourlyRate = "0";
-
-        List<FieldValidationError> errors = new ArrayList<>();
-        if (isBlank(address)) {
-            addError(errors, FieldKeys.ADDRESS, "Address cannot be empty.");
-        }
-        if (isBlank(phone)) {
-            addError(errors, FieldKeys.PHONE, "Phone number is required.");
-        } else if (!phone.trim().matches("[0-9\\-]+")) {
-            addError(errors, FieldKeys.PHONE, "Phone number must contain digits and dashes only.");
-        } else {
-            validatePhoneDigitCount(phone, errors);
-        }
-        return errors;
-    }
-
-    /** Validates one popup field on blur for live feedback. */
-    public static List<FieldValidationError> validateSingleField(String fieldKey, RecordFormData form,
-            boolean isUpdate, String originalId) {
-        List<FieldValidationError> all = validateFormFields(form, isUpdate, originalId);
-        List<FieldValidationError> scoped = new ArrayList<>();
-        for (FieldValidationError error : all) {
-            if (fieldKey != null && fieldKey.equals(error.fieldKey)) {
-                scoped.add(error);
-            }
-        }
-        return scoped;
-    }
-
-    /** True when a person-name field contains only letters, spaces, hyphens, and apostrophes. */
-    public static boolean isValidPersonName(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return false;
-        }
-        for (int i = 0; i < value.trim().length(); i++) {
-            char ch = value.trim().charAt(i);
-            if (Character.isLetter(ch) || ch == ' ' || ch == '-' || ch == '\'') {
-                continue;
-            }
-            return false;
-        }
-        return true;
+        return new ArrayList<>(errors);
     }
 
     /**
@@ -425,27 +163,7 @@ public class EmployeeRecordsModule {
         row[EmployeeModule.HOURLY_RATE] = hourly.isEmpty()
                 ? defaultIfBlank(form.hourlyRate, safe(row, EmployeeModule.HOURLY_RATE))
                 : hourly;
-        clearPayrollOutputColumns(row);
         return row;
-    }
-
-    /** Clears payroll-run output columns so the master CSV stays profile-only. */
-    public static void clearPayrollOutputColumns(String[] row) {
-        if (row == null) {
-            return;
-        }
-        if (row.length > EmployeeModule.HOURS_WORKED) {
-            row[EmployeeModule.HOURS_WORKED] = "";
-        }
-        if (row.length > EmployeeModule.GROSS_PAY) {
-            row[EmployeeModule.GROSS_PAY] = "";
-        }
-        if (row.length > EmployeeModule.TOTAL_DEDUCTIONS) {
-            row[EmployeeModule.TOTAL_DEDUCTIONS] = "";
-        }
-        if (row.length > EmployeeModule.NET_PAY) {
-            row[EmployeeModule.NET_PAY] = "";
-        }
     }
 
     /**
@@ -527,22 +245,14 @@ public class EmployeeRecordsModule {
      * Validates all fields on the Add Employee popup before writing to CSV.
      */
     public static List<String> validateAddPopup(RecordFormData form) {
-        return messagesFromErrors(validateAddPopupFields(form));
-    }
-
-    public static List<FieldValidationError> validateAddPopupFields(RecordFormData form) {
-        return validateFormFields(form, false, null);
+        return validateForm(form, false, null);
     }
 
     /**
      * Validates all fields on the Edit Employee popup before updating CSV.
      */
     public static List<String> validateEditPopup(RecordFormData form, String originalId) {
-        return messagesFromErrors(validateEditPopupFields(form, originalId));
-    }
-
-    public static List<FieldValidationError> validateEditPopupFields(RecordFormData form, String originalId) {
-        return validateFormFields(form, true, originalId);
+        return validateForm(form, true, originalId);
     }
 
     /**
@@ -574,34 +284,7 @@ public class EmployeeRecordsModule {
         if (!isBlank(basic) && !isNumeric(basic)) {
             warnings.add("Basic Salary contains invalid numeric data.");
         }
-        for (FieldValidationError err : validateProfileContact(
-                safe(emp, EmployeeModule.ADDRESS), safe(emp, EmployeeModule.PHONE))) {
-            if (FieldKeys.PHONE.equals(err.fieldKey)) {
-                warnings.add("Stored phone number looks invalid.");
-            } else if (FieldKeys.ADDRESS.equals(err.fieldKey)) {
-                warnings.add("Stored address looks invalid.");
-            }
-        }
         return warnings;
-    }
-
-    /** Partially masks government IDs for read-only employee profile display. */
-    public static String maskSensitiveId(String value, int visiblePrefix, int visibleSuffix) {
-        if (isBlank(value) || "-".equals(value.trim())) {
-            return value == null ? "" : value.trim();
-        }
-        String trimmed = value.trim();
-        if (trimmed.length() <= visiblePrefix + visibleSuffix) {
-            return trimmed;
-        }
-        StringBuilder masked = new StringBuilder();
-        masked.append(trimmed, 0, visiblePrefix);
-        for (int i = visiblePrefix; i < trimmed.length() - visibleSuffix; i++) {
-            char ch = trimmed.charAt(i);
-            masked.append(ch == '-' || ch == ' ' ? ch : '•');
-        }
-        masked.append(trimmed.substring(trimmed.length() - visibleSuffix));
-        return masked.toString();
     }
 
     /**
@@ -742,149 +425,23 @@ public class EmployeeRecordsModule {
         if (changed) FileHandlerModule.rewriteEmployeeFile(all);
     }
 
-    /** Requires exactly nine digits in the phone field (dashes optional). */
-    private static void validatePhoneDigitCount(String value, List<FieldValidationError> errors) {
-        int digits = 0;
-        for (int i = 0; i < value.trim().length(); i++) {
-            if (Character.isDigit(value.charAt(i))) {
-                digits++;
-            }
-        }
-        if (digits != 9) {
-            addError(errors, FieldKeys.PHONE,
-                    "Phone number must contain exactly 9 digits (e.g. 966-860-270).");
-        }
-    }
-
-    /** Rejects birthdays in the future or unreasonably old. */
-    private static void validateBirthdaySanity(String birthday, List<FieldValidationError> errors) {
-        if (isBlank(birthday) || !birthday.trim().matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
-            return;
-        }
-        String[] parts = birthday.trim().split("/");
-        try {
-            int month = Integer.parseInt(parts[0]);
-            int day = Integer.parseInt(parts[1]);
-            int year = Integer.parseInt(parts[2]);
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            int currentYear = cal.get(java.util.Calendar.YEAR);
-            if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
-                addError(errors, FieldKeys.BIRTHDAY, "Birthday is not a valid calendar date.");
-            } else if (year > currentYear) {
-                addError(errors, FieldKeys.BIRTHDAY, "Birthday cannot be in the future.");
-            } else if (year < currentYear - 100) {
-                addError(errors, FieldKeys.BIRTHDAY,
-                        "Birthday year looks invalid (more than 100 years ago).");
-            }
-        } catch (NumberFormatException ignored) {
-            addError(errors, FieldKeys.BIRTHDAY, "Birthday is not a valid calendar date.");
-        }
-    }
-
-    /** Ensures government ID numbers are unique within the same form. */
-    private static void checkDuplicateGovernmentIds(RecordFormData form, List<FieldValidationError> errors) {
-        java.util.LinkedHashMap<String, String> seen = new java.util.LinkedHashMap<>();
-        addGovIdIfPresent(seen, FieldKeys.SSS, form.sss);
-        addGovIdIfPresent(seen, FieldKeys.PHILHEALTH, form.philHealth);
-        addGovIdIfPresent(seen, FieldKeys.TIN, form.tin);
-        addGovIdIfPresent(seen, FieldKeys.PAGIBIG, form.pagIbig);
-        java.util.Set<String> normalizedValues = new java.util.LinkedHashSet<>();
-        for (String value : seen.values()) {
-            if (!normalizedValues.add(value)) {
-                addError(errors, FieldKeys.GENERAL,
-                        "Duplicate government ID numbers are not allowed within the same employee record.");
-                return;
-            }
-        }
-    }
-
-    /** Rejects government IDs already assigned to another employee in the CSV. */
-    private static void checkDuplicateGovernmentIdsAcrossDatabase(RecordFormData form, String originalId,
-            List<FieldValidationError> errors) {
-        String excludeId = originalId == null ? "" : originalId.trim();
-        checkGovIdAgainstDatabase(form.sss, FieldKeys.SSS, "SSS Number", excludeId, errors);
-        checkGovIdAgainstDatabase(form.philHealth, FieldKeys.PHILHEALTH, "PhilHealth Number", excludeId, errors);
-        checkGovIdAgainstDatabase(form.tin, FieldKeys.TIN, "TIN Number", excludeId, errors);
-        checkGovIdAgainstDatabase(form.pagIbig, FieldKeys.PAGIBIG, "Pag-IBIG Number", excludeId, errors);
-    }
-
-    private static void checkGovIdAgainstDatabase(String value, String fieldKey, String label,
-            String excludeEmployeeId, List<FieldValidationError> errors) {
-        if (isBlank(value) || isNaPlaceholder(value)) {
-            return;
-        }
-        String normalized = normalizeGovId(value);
-        if (normalized.isEmpty()) {
-            return;
-        }
-        for (String[] row : FileHandlerModule.getAllEmployees()) {
-            if (row == null || row.length == 0) {
-                continue;
-            }
-            String rowId = safe(row, EmployeeModule.ID);
-            if (!excludeEmployeeId.isEmpty() && rowId.equals(excludeEmployeeId)) {
-                continue;
-            }
-            String existing = normalizeGovId(safe(row, govIdColumn(fieldKey)));
-            if (!existing.isEmpty() && existing.equals(normalized)) {
-                addError(errors, fieldKey,
-                        label + " is already used by employee #" + rowId + ".");
-                return;
-            }
-        }
-    }
-
-    private static int govIdColumn(String fieldKey) {
-        switch (fieldKey) {
-            case FieldKeys.SSS: return EmployeeModule.SSS;
-            case FieldKeys.PHILHEALTH: return EmployeeModule.PHILHEALTH;
-            case FieldKeys.TIN: return EmployeeModule.TIN;
-            case FieldKeys.PAGIBIG: return EmployeeModule.PAGIBIG;
-            default: return EmployeeModule.SSS;
-        }
-    }
-
-    private static String normalizeGovId(String value) {
-        return value == null ? "" : value.trim().replace("-", "").replace(" ", "");
-    }
-
-    private static void addGovIdIfPresent(java.util.Map<String, String> seen, String fieldKey, String value) {
-        if (isBlank(value) || isNaPlaceholder(value)) {
-            return;
-        }
-        String normalized = normalizeGovId(value);
-        if (!normalized.isEmpty()) {
-            seen.put(fieldKey, normalized);
-        }
-    }
-
-    private static void addError(List<FieldValidationError> errors, String fieldKey, String message) {
-        if (errors == null || message == null || message.isEmpty()) {
-            return;
-        }
-        for (FieldValidationError existing : errors) {
-            if (existing.fieldKey.equals(fieldKey) && existing.message.equals(message)) {
-                return;
-            }
-        }
-        errors.add(new FieldValidationError(fieldKey, message));
-    }
-
     /** Ensures a required numeric field parses after {@link #normalizeNumericInput}. */
-    private static void validateRequiredNumeric(String value, String fieldKey, String displayName,
-            List<FieldValidationError> errors) {
-        String normalized = normalizeNumericInput(value);
-        if (isBlank(value) || !isNumeric(normalized)) {
-            addError(errors, fieldKey,
-                    displayName + " must be a valid number (commas/periods allowed, or enter NA / 000 for zero).");
+    private static void validateRequiredNumeric(String value, String displayName, java.util.Set<String> errors) {
+        if (isBlank(value)) {
+            errors.add(displayName + " is required.");
+        } else {
+            String normalized = normalizeNumericInput(value);
+            if (!isNumeric(normalized)) {
+                errors.add(displayName + " must be a valid number (commas/periods allowed, or enter NA / 000 for zero).");
+            }
         }
     }
 
     /** Ensures a government ID style field contains only digits and dashes and respects digit limits. */
-    private static void validateDigitsAndDashes(String value, String fieldKey, String displayName,
-            int digitLimit, List<FieldValidationError> errors) {
+    private static void validateDigitsAndDashes(String value, String displayName,
+            int digitLimit, java.util.Set<String> errors) {
         if (isBlank(value)) {
-            addError(errors, fieldKey, displayName + " is required.");
+            errors.add(displayName + " is required.");
             return;
         }
         String trimmed = value.trim();
@@ -903,32 +460,17 @@ public class EmployeeRecordsModule {
         }
         if (!validChars || digits > digitLimit) {
             if ("SSS Number".equals(displayName)) {
-                addError(errors, fieldKey,
-                        "SSS Number must use numbers and hyphens only. It must not exceed 10 numbers.");
+                errors.add("SSS Number must use numbers and hyphens only. It must not exceed 10 numbers.");
             } else if ("TIN Number".equals(displayName)) {
-                addError(errors, fieldKey,
-                        "TIN Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+                errors.add("TIN Number must use numbers and hyphens only. It must not exceed 12 numbers.");
             } else if ("PhilHealth Number".equals(displayName)) {
-                addError(errors, fieldKey,
-                        "Philhealth Number must use numbers and hyphens only. It must not exceed 12 numbers.");
-            } else if ("Pag-IBIG Number".equals(displayName)) {
-                addError(errors, fieldKey,
-                        "PAGIBIG Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+                errors.add("PhilHealth Number must use numbers and hyphens only. It must not exceed 12 numbers.");
+            } else if ("PAGIBIG Number".equals(displayName)) {
+                errors.add("PAGIBIG Number must use numbers and hyphens only. It must not exceed 12 numbers.");
             } else {
-                addError(errors, fieldKey, "Use numbers, and hyphens only. This must not exceed "
+                errors.add("Use numbers, and hyphens only. This must not exceed "
                         + digitLimit + " numbers.");
             }
-        }
-    }
-
-    private static Double parseNumericValue(String value) {
-        if (isBlank(value) || isNaPlaceholder(value) || !isNumeric(normalizeNumericInput(value))) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(normalizeNumericInput(value).replace(",", "").trim());
-        } catch (NumberFormatException e) {
-            return null;
         }
     }
 
