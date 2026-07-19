@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - UIOverhaulV5
+  pull_request:
+    branches:
+      - main
+      - master
+      - UIOverhaulV5
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: none
+
+      - name: Verify bundled CSV resources exist
+        run: |
+          test -f "resources/MotorPH_Employee Data - Employee Details.csv"
+          test -f "resources/MotorPH_Employee Data - Attendance Record.csv"
+
+      - name: Compile sources
+        run: |
+          mkdir -p bin
+          javac -encoding UTF-8 -d bin src/motorph_employeeapp/*.java
+
+      - name: Verify main class was compiled
+        run: test -f bin/motorph_employeeapp/MotorPH_EmployeeApp.class
