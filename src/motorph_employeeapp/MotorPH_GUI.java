@@ -3776,53 +3776,91 @@ public class MotorPH_GUI {
     }
 
     private static void applyEmployeeProfileContactBlurValidation(JTextField addressField, JTextField phoneField,
-            JLabel addressError, JLabel phoneError) {
-        Runnable validate = () -> {
-            java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
-                    EmployeeRecordsModule.validateProfileContact(
-                            addressField.getText().trim(), phoneField.getText().trim());
-            boolean addrErr = false;
-            boolean phoneErr = false;
-            String addrMsg = " ";
-            String phoneMsg = " ";
-            for (EmployeeRecordsModule.FieldValidationError err : errors) {
-                if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
-                    addrErr = true;
-                    addrMsg = err.message;
-                }
-                if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
-                    phoneErr = true;
-                    phoneMsg = err.message;
-                }
-            }
-            if (addrErr) {
-                addressField.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
-            } else if (!addressField.getText().trim().equals(
-                    employeeProfileContactBaseline == null ? "" : employeeProfileContactBaseline.split("\u0000", 2)[0])) {
-                addressField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-            } else {
-                addressField.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-            }
-            if (phoneErr) {
-                phoneField.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
-            } else if (!phoneField.getText().trim().equals(
-                    employeeProfileContactBaseline == null || !employeeProfileContactBaseline.contains("\u0000")
-                            ? "" : employeeProfileContactBaseline.split("\u0000", 2)[1])) {
-                phoneField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-            } else {
-                phoneField.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-            }
-            addressError.setText(addrMsg);
-            phoneError.setText(phoneMsg);
-        };
+            JLabel addressError, JLabel phoneError, JLabel validationSummary) {
         java.awt.event.FocusAdapter blur = new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
-                validate.run();
+                applyEmployeeProfileContactErrors(
+                        EmployeeRecordsModule.validateProfileContact(
+                                addressField.getText().trim(), phoneField.getText().trim()),
+                        addressField, phoneField, addressError, phoneError, validationSummary, null);
             }
         };
         addressField.addFocusListener(blur);
         phoneField.addFocusListener(blur);
+    }
+
+    private static void applyEmployeeProfileContactErrors(
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors,
+            JTextField addressField, JTextField phoneField,
+            JLabel addressError, JLabel phoneError,
+            JLabel validationSummary, JLabel successBanner) {
+        addressError.setText(" ");
+        phoneError.setText(" ");
+        if (successBanner != null) {
+            successBanner.setVisible(false);
+        }
+
+        int errorCount = EmployeeRecordsModule.countDistinctFields(errors);
+        updatePopupValidationSummary(validationSummary, errorCount);
+
+        String baselineAddr = employeeProfileContactBaseline == null ? ""
+                : employeeProfileContactBaseline.split("\u0000", 2)[0];
+        String baselinePhone = employeeProfileContactBaseline == null
+                || !employeeProfileContactBaseline.contains("\u0000") ? ""
+                : employeeProfileContactBaseline.split("\u0000", 2)[1];
+
+        boolean addrErr = false;
+        boolean phoneErr = false;
+        if (errors != null) {
+            for (EmployeeRecordsModule.FieldValidationError err : errors) {
+                if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
+                    addrErr = true;
+                    addressError.setText(err.message);
+                    setPopupFieldError(addressField);
+                }
+                if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
+                    phoneErr = true;
+                    phoneError.setText(err.message);
+                    setPopupFieldError(phoneField);
+                }
+            }
+        }
+
+        if (!addrErr) {
+            if (!addressField.getText().trim().equals(baselineAddr)) {
+                addressField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+            } else {
+                resetPopupFieldBorder(addressField);
+            }
+        }
+        if (!phoneErr) {
+            if (!phoneField.getText().trim().equals(baselinePhone)) {
+                phoneField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+            } else {
+                resetPopupFieldBorder(phoneField);
+            }
+        }
+    }
+
+    private static void clearEmployeeProfileValidationState(JTextField addressField, JTextField phoneField,
+            JLabel addressError, JLabel phoneError, JLabel validationSummary) {
+        addressError.setText(" ");
+        phoneError.setText(" ");
+        updatePopupValidationSummary(validationSummary, 0);
+        resetPopupFieldBorder(addressField);
+        resetPopupFieldBorder(phoneField);
+    }
+
+    private static void showEmployeeProfileSuccess(JLabel successBanner, JLabel validationSummary,
+            String message) {
+        updatePopupValidationSummary(validationSummary, 0);
+        if (successBanner == null) {
+            return;
+        }
+        successBanner.setText(message);
+        successBanner.setForeground(new Color(22, 130, 70));
+        successBanner.setVisible(true);
     }
 
     /** Adds a new section to the employee record form. */
@@ -8575,9 +8613,26 @@ public class MotorPH_GUI {
         inner.add(lblPhoneWarning);
         y += FIELD_HEIGHT + 36;
 
+        JLabel lblProfileValidationSummary = new JLabel(" ");
+        lblProfileValidationSummary.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblProfileValidationSummary.setForeground(new Color(180, 60, 40));
+        lblProfileValidationSummary.setBounds(padX, y, contentW, 18);
+        lblProfileValidationSummary.setVisible(false);
+        inner.add(lblProfileValidationSummary);
+        y += 22;
+
+        JLabel lblProfileSuccess = new JLabel(" ");
+        lblProfileSuccess.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblProfileSuccess.setForeground(new Color(22, 130, 70));
+        lblProfileSuccess.setBounds(padX, y, contentW, 18);
+        lblProfileSuccess.setVisible(false);
+        inner.add(lblProfileSuccess);
+        y += 24;
+
         employeeProfileAddressField = fldAddress;
         employeeProfilePhoneField = fldPhone;
-        applyEmployeeProfileContactBlurValidation(fldAddress, fldPhone, lblAddrError, lblPhoneError);
+        applyEmployeeProfileContactBlurValidation(fldAddress, fldPhone, lblAddrError, lblPhoneError,
+                lblProfileValidationSummary);
 
         // Buttons
         int btnW = 152;
@@ -8605,6 +8660,32 @@ public class MotorPH_GUI {
         inner.add(btnBack);
 
         frame.getRootPane().setDefaultButton(btnSave);
+
+        javax.swing.event.DocumentListener profileErrorClearer = new javax.swing.event.DocumentListener() {
+            private void onChange() {
+                lblProfileSuccess.setVisible(false);
+                lblAddrError.setText(" ");
+                lblPhoneError.setText(" ");
+                updatePopupValidationSummary(lblProfileValidationSummary, 0);
+            }
+
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                onChange();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                onChange();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                onChange();
+            }
+        };
+        fldAddress.getDocument().addDocumentListener(profileErrorClearer);
+        fldPhone.getDocument().addDocumentListener(profileErrorClearer);
 
         fldAddress.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
@@ -8667,55 +8748,61 @@ public class MotorPH_GUI {
 
         inner.setPreferredSize(new java.awt.Dimension(innerW, y));
 
+        final JScrollPane profileScroll = new JScrollPane(inner,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        profileScroll.setBorder(null);
+        profileScroll.getViewport().setBackground(PALETTE_WHITE);
+        profileScroll.getVerticalScrollBar().setUnitIncrement(16);
+
         btnSave.addActionListener(e -> {
             String newAddr = fldAddress.getText().trim();
             String newPhone = fldPhone.getText().trim();
+            String currentSnapshot = newAddr + "\u0000" + newPhone;
+            if (currentSnapshot.equals(employeeProfileContactBaseline)) {
+                showToast("No changes to save.", new Color(100, 115, 140));
+                return;
+            }
+
             java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
                     EmployeeRecordsModule.validateProfileContact(newAddr, newPhone);
             if (!errors.isEmpty()) {
-                lblAddrError.setText(" ");
-                lblPhoneError.setText(" ");
-                for (EmployeeRecordsModule.FieldValidationError err : errors) {
-                    if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
-                        fldAddress.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
-                        lblAddrError.setText(err.message);
-                    }
-                    if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
-                        fldPhone.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
-                        lblPhoneError.setText(err.message);
-                    }
-                }
+                applyEmployeeProfileContactErrors(errors, fldAddress, fldPhone, lblAddrError, lblPhoneError,
+                        lblProfileValidationSummary, lblProfileSuccess);
+                lblProfileSuccess.setVisible(false);
+                java.util.Map<String, JTextField> fieldMap = new java.util.LinkedHashMap<>();
+                fieldMap.put("Address:", fldAddress);
+                fieldMap.put("Phone:", fldPhone);
+                java.util.Map<String, JComboBox<?>> comboMap = new java.util.LinkedHashMap<>();
+                scrollPopupToFirstError(profileScroll, inner, errors, fieldMap, comboMap);
                 showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
-                        "Validation Error", JOptionPane.WARNING_MESSAGE);
+                        "Cannot Save — Please Fix Errors", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+
             emp[EmployeeModule.ADDRESS] = newAddr;
             emp[EmployeeModule.PHONE] = newPhone;
             if (FileHandlerModule.updateEmployeeRecord(linkedId, emp)) {
-                employeeProfileContactBaseline = newAddr + "\u0000" + newPhone;
-                fldAddress.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-                fldPhone.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-                lblAddrError.setText(" ");
-                lblPhoneError.setText(" ");
+                employeeProfileContactBaseline = currentSnapshot;
+                clearEmployeeProfileValidationState(fldAddress, fldPhone, lblAddrError, lblPhoneError,
+                        lblProfileValidationSummary);
+                showEmployeeProfileSuccess(lblProfileSuccess, lblProfileValidationSummary,
+                        "Contact details saved successfully.");
                 showPopupSuccessAndClose(null,
                         "Profile updated successfully.",
                         "Your address and phone number were saved successfully.",
                         "Save Successful");
             } else {
-                showToast("Failed to save changes. The file may be open in another program.",
-                        new Color(180, 90, 40));
+                java.util.List<String> saveErrors = new java.util.ArrayList<>();
+                saveErrors.add("Could not save your profile changes.");
+                saveErrors.add("The employee data file may be open in another program. Close it and try again.");
+                showToast("Failed to save changes.", new Color(180, 90, 40));
+                showBulletErrorDialog(frame, saveErrors, "Save Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        JScrollPane scroll = new JScrollPane(inner,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.setBounds(0, 0, bounds.width, bounds.height);
-        scroll.setBorder(null);
-        scroll.getViewport().setBackground(PALETTE_WHITE);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-
-        card.add(scroll);
+        profileScroll.setBounds(0, 0, bounds.width, bounds.height);
+        card.add(profileScroll);
         frame.add(card);
         addStatusBar();
         updateDisplay();
