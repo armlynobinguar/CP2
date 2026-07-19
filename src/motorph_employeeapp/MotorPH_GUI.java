@@ -1057,7 +1057,7 @@ public class MotorPH_GUI {
     private static JPanel buildCollapsibleEmployeeCard(SalaryComputationModule.EmployeePayrollSummary s,
             boolean startExpanded) {
         int pw = richPane.getWidth() > 32 ? richPane.getWidth() - 32 : 420;
-        final int headerH = 110;
+        final int headerH = 84;
         final int detailsH = 420;
 
         JPanel card = new JPanel(null);
@@ -1072,20 +1072,20 @@ public class MotorPH_GUI {
         JLabel nameLbl = new JLabel(s.employeeName);
         nameLbl.setFont(new Font("Segoe UI", Font.BOLD, 18));
         nameLbl.setForeground(java.awt.Color.WHITE);
-        nameLbl.setBounds(16, 12, pw - 120, 24);
+        nameLbl.setBounds(16, 10, pw - 120, 24);
         header.add(nameLbl);
 
         JLabel idLbl = new JLabel("Employee #" + s.employeeId);
         idLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         idLbl.setForeground(java.awt.Color.WHITE);
-        idLbl.setBounds(16, 38, pw - 120, 18);
+        idLbl.setBounds(16, 34, pw - 120, 18);
         header.add(idLbl);
 
         JLabel summaryLbl = new JLabel("NET: PHP " + String.format("%,.2f", s.netPay));
         summaryLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         summaryLbl.setForeground(java.awt.Color.WHITE);
         summaryLbl.setHorizontalAlignment(SwingConstants.RIGHT);
-        summaryLbl.setBounds(pw - 178, 18, 162, 22);
+        summaryLbl.setBounds(pw - 178, 12, 162, 22);
         header.add(summaryLbl);
 
         JLabel arrowLbl = new JLabel(startExpanded ? "v" : ">");
@@ -8664,9 +8664,14 @@ public class MotorPH_GUI {
                         || "Pag-IBIG #:".equals(fieldLabel)) {
                     errorLabel.setText("Use numbers, and hyphens only. This must not exceed 12 numbers.");
                 } else if ("Phone:".equals(fieldLabel)) {
-                    errorLabel.setText("Use numbers, and hyphens only.");
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 11 numbers.");
+                } else if ("SSS #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 10 numbers.");
+                } else if ("PhilHealth #:".equals(fieldLabel) || "TIN #:".equals(fieldLabel)
+                        || "Pag-IBIG #:".equals(fieldLabel)) {
+                    errorLabel.setText("Use numbers and hyphens only. This must not exceed 12 numbers.");
                 } else {
-                    errorLabel.setText("Use numbers, and hyphens only.");
+                    errorLabel.setText("Use numbers and hyphens only.");
                 }
                 errorLabel.setVisible(true);
             }
@@ -8693,6 +8698,9 @@ public class MotorPH_GUI {
      * on its label.
      */
     private static int govIdDigitLimit(String fieldLabel) {
+        if ("Phone:".equals(fieldLabel)) {
+            return 11;
+        }
         if ("SSS #:".equals(fieldLabel)) {
             return 10;
         }
@@ -9021,7 +9029,7 @@ public class MotorPH_GUI {
      */
     private static final java.util.Set<String> SUBMIT_FORMAT_CHECK_FIELDS = new java.util.LinkedHashSet<>(
             java.util.Arrays.asList("Last Name:", "First Name:", "Supervisor:",
-                    "Phone:", "PhilHealth #:", "Pag-IBIG #:"));
+                    "Phone:", "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:"));
 
     /**
      * Re-runs the same per-field format rules used for live inline validation at
@@ -9861,20 +9869,7 @@ public class MotorPH_GUI {
                     errLbl.setBounds(fieldX, fy + rowH + 2, fieldW, 14);
                     form.add(errLbl);
                     errorLabels.put(row[0], errLbl);
-                    // SSS # and TIN # get auto-hyphen formatting; all others use the inline
-                    // validator
-                    if ("SSS #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[] { 2, 9 }, 10);
-                    } else if ("TIN #:".equals(row[0])) {
-                        attachIdAutoFormat(tf, errLbl, new int[] { 3, 6, 9 }, 12);
-                    } else {
-                        if ("PhilHealth #:".equals(row[0]) || "Pag-IBIG #:".equals(row[0])) {
-                            attachMaxLength(tf, 12);
-                        } else if ("Phone:".equals(row[0])) {
-                            attachMaxLength(tf, 11);
-                        }
-                        attachInlineValidator(tf, errLbl, row[0]);
-                    }
+                    attachInlineValidator(tf, errLbl, row[0]);
                 }
                 fields.add(tf);
                 fieldMap.put(row[0], tf);
@@ -10416,8 +10411,16 @@ public class MotorPH_GUI {
             case "PhilHealth #:":
             case "TIN #:":
             case "Pag-IBIG #:":
-                if (!value.matches("[0-9\\-]+"))
-                    return "Use numbers and hyphens only.";
+                int digitLimit = govIdDigitLimit(fieldLabel);
+                if (!value.matches("[0-9\\-]+")) {
+                    return digitLimit > 0
+                            ? "Use numbers and hyphens only. This must not exceed " + digitLimit + " numbers."
+                            : "Use numbers and hyphens only.";
+                }
+                int digits = countDigits(value);
+                if (digitLimit > 0 && digits > digitLimit) {
+                    return "Use numbers and hyphens only. This must not exceed " + digitLimit + " numbers.";
+                }
                 break;
             case "Basic Salary:":
             case "Rice Subsidy:":
@@ -10444,16 +10447,19 @@ public class MotorPH_GUI {
         tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void check() {
                 String err = validateAddEmployeeField(fieldLabel, tf.getText());
-                if (err != null) {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(new Color(200, 40, 40), 1),
-                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                String currentText = tf.getText() == null ? "" : tf.getText().trim();
+                if (err != null && !currentText.isEmpty()) {
+                    setPopupFieldError(tf);
                     errLbl.setText(err);
-                } else {
-                    tf.setBorder(BorderFactory.createCompoundBorder(
-                            BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
-                            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                    errLbl.setVisible(true);
+                } else if (!currentText.isEmpty()) {
+                    setPopupFieldValid(tf);
                     errLbl.setText("");
+                    errLbl.setVisible(false);
+                } else {
+                    resetPopupFieldBorder(tf);
+                    errLbl.setText("");
+                    errLbl.setVisible(false);
                 }
             }
 
