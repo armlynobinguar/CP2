@@ -19,6 +19,8 @@ final class EmployeeRecordsModuleTest {
         testCollectFormWarnings();
         testCountDistinctFields();
         testPopupLabelMapping();
+        testValidateProfileContact();
+        testMaskSensitiveId();
     }
 
     private static void testNormalizeNumericInput() {
@@ -131,6 +133,35 @@ final class EmployeeRecordsModuleTest {
         TestSupport.assertEquals(EmployeeRecordsModule.FieldKeys.PHONE,
                 EmployeeRecordsModule.fieldKeyForPopupLabel("Phone:"),
                 "Popup label maps to field key");
+    }
+
+    private static void testValidateProfileContact() {
+        List<EmployeeRecordsModule.FieldValidationError> emptyAddr =
+                EmployeeRecordsModule.validateProfileContact("", "966-860-270");
+        TestSupport.assertFalse(emptyAddr.isEmpty(), "Empty address should fail profile validation");
+
+        List<EmployeeRecordsModule.FieldValidationError> emptyPhone =
+                EmployeeRecordsModule.validateProfileContact("123 Main St", "");
+        TestSupport.assertFalse(emptyPhone.isEmpty(), "Empty phone should fail profile validation");
+
+        List<EmployeeRecordsModule.FieldValidationError> badPhoneChars =
+                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-270!");
+        TestSupport.assertFalse(badPhoneChars.isEmpty(), "Invalid phone characters should fail");
+
+        List<EmployeeRecordsModule.FieldValidationError> longPhone =
+                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-27011");
+        TestSupport.assertFalse(longPhone.isEmpty(), "11-digit phone should fail profile validation");
+
+        List<EmployeeRecordsModule.FieldValidationError> valid =
+                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-270");
+        TestSupport.assertTrue(valid.isEmpty(), "Valid profile contact should pass");
+    }
+
+    private static void testMaskSensitiveId() {
+        String masked = EmployeeRecordsModule.maskSensitiveId("44-4506057-3", 3, 2);
+        TestSupport.assertTrue(masked.startsWith("44-"), "SSS mask keeps prefix");
+        TestSupport.assertTrue(masked.endsWith("-3"), "SSS mask keeps suffix");
+        TestSupport.assertTrue(masked.contains("•"), "SSS mask hides middle digits");
     }
 
     private static EmployeeRecordsModule.RecordFormData baseValidForm() {

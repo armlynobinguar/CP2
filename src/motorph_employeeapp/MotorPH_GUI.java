@@ -172,6 +172,12 @@ public class MotorPH_GUI {
     static JComboBox<String> cmbEmployeePayFrom;
     static JComboBox<String> cmbEmployeePayTo;
     static boolean employeePayslipSuppressToast;
+    /** Last computed net pay shown on the employee dashboard card (session only). */
+    static String employeeSessionLastNetPay;
+    static boolean employeePayCutoffUsesPlaceholder;
+    private static String employeeProfileContactBaseline;
+    private static JTextField employeeProfileAddressField;
+    private static JTextField employeeProfilePhoneField;
 
     /** One semi-monthly pay cut-off window for employee payslip navigation. */
     private static final class EmployeePayCutoff {
@@ -179,11 +185,14 @@ public class MotorPH_GUI {
         final int year;
         /** 1 = days 1–15, 2 = days 16–end of month */
         final int half;
+        /** False when the period is a demo placeholder without attendance data. */
+        final boolean hasAttendance;
 
-        EmployeePayCutoff(int month, int year, int half) {
+        EmployeePayCutoff(int month, int year, int half, boolean hasAttendance) {
             this.month = month;
             this.year = year;
             this.half = half;
+            this.hasAttendance = hasAttendance;
         }
     }
 
@@ -1917,6 +1926,50 @@ public class MotorPH_GUI {
         return doc;
     }
 
+    /** Empty-state panel when no attendance exists for the selected pay period. */
+    private static JPanel buildEmployeePayslipEmptyStatePanel(String periodLabel, String detailMessage) {
+        int docW = resolveEmployeePayslipDocWidth();
+        int docH = 320;
+        JPanel doc = buildEmployeePayslipShell(docW, docH);
+
+        JLabel title = new JLabel("No Payslip for This Period", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        title.setForeground(new Color(180, 74, 40));
+        title.setBounds(24, 48, docW - 48, 22);
+        doc.add(title);
+
+        String body = "No time logs for " + periodLabel + ".";
+        if (detailMessage != null && !detailMessage.trim().isEmpty()) {
+            body += "\n\n" + detailMessage.trim();
+        }
+        JLabel lbl = new JLabel(
+                "<html><div style='text-align:center;color:#647088;'>"
+                        + escapeHtml(body).replace("\n", "<br>") + "</div></html>",
+                SwingConstants.CENTER);
+        lbl.setBounds(24, 78, docW - 48, 90);
+        doc.add(lbl);
+
+        JButton btnReport = new JButton("Report Issue");
+        btnReport.setBounds((docW - 148) / 2, 188, 148, BTN_HEIGHT);
+        btnReport.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnReport.setForeground(new Color(160, 70, 30));
+        btnReport.setBackground(new Color(255, 244, 236));
+        btnReport.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 150, 100), 1),
+                BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+        btnReport.setFocusPainted(false);
+        btnReport.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnReport.addActionListener(e -> showReportPayslipIssueDialog());
+        doc.add(btnReport);
+
+        return doc;
+    }
+
+    /** Shows the employee payslip empty state for a period without attendance. */
+    private static void showEmployeePayslipEmptyState(String periodLabel, String detailMessage) {
+        refreshEmployeePayslipViewport(buildEmployeePayslipEmptyStatePanel(periodLabel, detailMessage));
+    }
+
     /** Places a high visibility header section across data layout frames. */
     private static void addPayslipDocBand(JPanel doc, int y, int h, String title, Color bg, Color fg, int docW) {
         JPanel band = new JPanel(null);
@@ -2212,8 +2265,32 @@ public class MotorPH_GUI {
      * human review.
      */
     private static void showReportPayslipIssueDialog() {
-        if (!SalaryComputationModule.lastCalculationSucceeded) {
-            showToast("Generate a payslip before reporting an issue.", new Color(180, 90, 40));
+        String empId = getLoggedInEmployeeId();
+        String empName = "";
+        String period = "";
+        if (SalaryComputationModule.lastCalculationSucceeded
+                && SalaryComputationModule.lastEmpId != null
+                && !SalaryComputationModule.lastEmpId.isEmpty()) {
+            period = SalaryComputationModule.lastMonthName + " " + SalaryComputationModule.lastYear;
+            empId = SalaryComputationModule.lastEmpId;
+            empName = SalaryComputationModule.lastEmpName;
+        } else if (empId != null && !employeePayCutoffPeriods.isEmpty()) {
+            EmployeePayCutoff current = employeePayCutoffPeriods.get(employeePayslipCutoffIndex);
+            period = employeePayCutoffMonthName(current.month) + " " + current.year;
+            String rawLine = FileHandlerModule.findEmployeeData(empId);
+            if (rawLine != null) {
+                empName = EmployeeModule.fullName(FileHandlerModule.smartSplit(rawLine));
+            }
+        } else if (empId != null) {
+            String rawLine = FileHandlerModule.findEmployeeData(empId);
+            if (rawLine != null) {
+                empName = EmployeeModule.fullName(FileHandlerModule.smartSplit(rawLine));
+            }
+            period = "Current pay period";
+        }
+
+        if (empId == null || empId.isEmpty()) {
+            showToast("Employee profile is not linked. Contact HR.", new Color(180, 90, 40));
             return;
         }
 
@@ -2233,9 +2310,13 @@ public class MotorPH_GUI {
         title.setBounds(pad, 20, w, 22);
         dlg.add(title);
 
-        String period = SalaryComputationModule.lastMonthName + " " + SalaryComputationModule.lastYear;
-        JLabel sub = new JLabel("<html>Employee #" + escapeHtml(SalaryComputationModule.lastEmpId)
-                + " · " + escapeHtml(period) + "</html>");
+        String reportEmpId = empId;
+        String reportEmpName = empName;
+        String reportPeriod = period;
+
+        JLabel sub = new JLabel("<html>Employee #" + escapeHtml(reportEmpId)
+                + (reportEmpName.isEmpty() ? "" : " · " + escapeHtml(reportEmpName))
+                + " · " + escapeHtml(reportPeriod) + "</html>");
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         sub.setForeground(TEXT_MUTED);
         sub.setBounds(pad, 44, w, 18);
@@ -2301,9 +2382,9 @@ public class MotorPH_GUI {
             }
             String issueType = String.valueOf(cmbType.getSelectedItem());
             boolean saved = FileHandlerModule.appendPayslipIssueReport(
-                    SalaryComputationModule.lastEmpId,
-                    SalaryComputationModule.lastEmpName,
-                    period,
+                    reportEmpId,
+                    reportEmpName,
+                    reportPeriod,
                     issueType,
                     desc);
             if (saved) {
@@ -2312,9 +2393,11 @@ public class MotorPH_GUI {
                 JOptionPane.showMessageDialog(frame,
                         "Your payslip concern has been submitted.\n\n"
                                 + "HR / Payroll will review it within 3 working days.\n"
-                                + "Reference: " + period + " · " + issueType,
+                                + "Reference: " + reportPeriod + " · " + issueType,
                         "Report Submitted", JOptionPane.INFORMATION_MESSAGE);
             } else {
+                showToast("Could not save your report. Please try again or contact HR.",
+                        new Color(180, 90, 40));
                 JOptionPane.showMessageDialog(dlg,
                         "Could not save your report. Please try again or contact HR directly.",
                         "Submit Failed", JOptionPane.ERROR_MESSAGE);
@@ -2395,13 +2478,14 @@ public class MotorPH_GUI {
         java.util.Set<Integer> months = empId != null ? getAttendanceMonths(empId) : new java.util.HashSet<>();
         java.util.List<Integer> sorted = new ArrayList<>(months);
         java.util.Collections.sort(sorted);
+        employeePayCutoffUsesPlaceholder = sorted.isEmpty();
         for (int month : sorted) {
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 1));
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 2));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 1, true));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(month, 2024, 2, true));
         }
         if (employeePayCutoffPeriods.isEmpty()) {
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 1));
-            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 2));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 1, false));
+            employeePayCutoffPeriods.add(new EmployeePayCutoff(6, 2024, 2, false));
         }
         if (employeePayslipCutoffIndex < 0
                 || employeePayslipCutoffIndex >= employeePayCutoffPeriods.size()) {
@@ -2457,11 +2541,17 @@ public class MotorPH_GUI {
     private static String formatEmployeePayCutoffPeriod(EmployeePayCutoff period) {
         String monthName = employeePayCutoffMonthName(period.month);
         String shortMonth = monthName.substring(0, 3);
+        String base;
         if (period.half == 1) {
-            return monthName + " " + period.year + " · " + shortMonth + " 1–15";
+            base = monthName + " " + period.year + " · " + shortMonth + " 1–15";
+        } else {
+            int last = employeePayCutoffLastDay(period.month, period.year);
+            base = monthName + " " + period.year + " · " + shortMonth + " 16–" + last;
         }
-        int last = employeePayCutoffLastDay(period.month, period.year);
-        return monthName + " " + period.year + " · " + shortMonth + " 16–" + last;
+        if (!period.hasAttendance) {
+            return base + " · no time logs";
+        }
+        return base;
     }
 
     /** Formats the header string for a given employee payroll cutoff period. */
@@ -2480,6 +2570,7 @@ public class MotorPH_GUI {
         }
         if (cmbEmployeePayPeriod != null) {
             cmbEmployeePayPeriod.setModel(model);
+            applyEmployeePayCutoffComboRenderer(cmbEmployeePayPeriod);
             if (employeePayslipCutoffIndex >= 0 && employeePayslipCutoffIndex < model.getSize()) {
                 cmbEmployeePayPeriod.setSelectedIndex(employeePayslipCutoffIndex);
             }
@@ -2493,14 +2584,43 @@ public class MotorPH_GUI {
         }
         if (cmbEmployeePayFrom != null) {
             cmbEmployeePayFrom.setModel(fromModel);
+            applyEmployeePayCutoffComboRenderer(cmbEmployeePayFrom);
             cmbEmployeePayFrom.setSelectedIndex(0);
         }
         if (cmbEmployeePayTo != null) {
             cmbEmployeePayTo.setModel(toModel);
+            applyEmployeePayCutoffComboRenderer(cmbEmployeePayTo);
             if (toModel.getSize() > 0) {
                 cmbEmployeePayTo.setSelectedIndex(toModel.getSize() - 1);
             }
         }
+    }
+
+    /** Italicizes pay periods that have no attendance time logs. */
+    private static void applyEmployeePayCutoffComboRenderer(JComboBox<String> combo) {
+        if (combo == null) {
+            return;
+        }
+        combo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value,
+                    int index, boolean isSelected, boolean cellHasFocus) {
+                Component c = super.getListCellRendererComponent(
+                        list, value, index, isSelected, cellHasFocus);
+                boolean noData = index >= 0
+                        && index < employeePayCutoffPeriods.size()
+                        && !employeePayCutoffPeriods.get(index).hasAttendance;
+                if (noData && !isSelected) {
+                    setForeground(BORDER_ERROR);
+                    setFont(getFont().deriveFont(Font.ITALIC));
+                } else {
+                    setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+                    setFont(getFont().deriveFont(Font.PLAIN));
+                }
+                return c;
+            }
+        });
+        combo.repaint();
     }
 
     /** Converts a month number to its corresponding index in the combo box. */
@@ -2621,6 +2741,16 @@ public class MotorPH_GUI {
         title.setBounds(0, fy, innerW, 20);
         inner.add(title);
         fy += 28;
+
+        if (employeePayCutoffUsesPlaceholder) {
+            JLabel placeholderHint = new JLabel(
+                    "<html><i>June 2024 shown as demo default — italic entries have no time logs.</i></html>");
+            placeholderHint.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+            placeholderHint.setForeground(TEXT_MUTED);
+            placeholderHint.setBounds(0, fy, innerW, 28);
+            inner.add(placeholderHint);
+            fy += 30;
+        }
 
         JLabel lblPeriod = new JLabel("Pay period");
         lblPeriod.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -3077,6 +3207,33 @@ public class MotorPH_GUI {
                 allNotifications.add(new NotificationModule.Notification("Attendance",
                         "Attendance cut-off is " + (daysToCut == 0 ? "today" : "in " + daysToCut + " day(s)")
                                 + ". Make sure all your time-in/out entries are complete for this period."));
+            }
+
+            String linkedEmpId = getLoggedInEmployeeId();
+            if (linkedEmpId != null) {
+                for (PayslipIssueModule.PayslipIssue issue : FileHandlerModule.loadPayslipIssues()) {
+                    if (!linkedEmpId.equals(issue.employeeId)) {
+                        continue;
+                    }
+                    if (issue.isResolved()) {
+                        String note = issue.hrNote == null || issue.hrNote.isEmpty()
+                                ? ""
+                                : " HR note: " + issue.hrNote;
+                        allNotifications.add(new NotificationModule.Notification("Payroll",
+                                "Your payslip concern for " + issue.payPeriod + " was resolved by HR." + note));
+                    } else if (issue.needsHrAction()) {
+                        allNotifications.add(new NotificationModule.Notification("Payroll",
+                                "HR is reviewing your payslip report for " + issue.payPeriod
+                                        + " (" + issue.issueType + ")."));
+                    }
+                }
+                if (SalaryComputationModule.lastCalculationSucceeded
+                        && linkedEmpId.equals(SalaryComputationModule.lastEmpId)) {
+                    allNotifications.add(new NotificationModule.Notification("Payroll",
+                            "Payroll processed for " + SalaryComputationModule.lastMonthName + " "
+                                    + SalaryComputationModule.lastYear + ". Net pay: "
+                                    + String.format("PHP %,.2f", SalaryComputationModule.summaryNet) + "."));
+                }
             }
         }
 
@@ -3578,6 +3735,96 @@ public class MotorPH_GUI {
         return choice == JOptionPane.YES_OPTION;
     }
 
+    private static void clearEmployeeProfileContactTracking() {
+        employeeProfileContactBaseline = null;
+        employeeProfileAddressField = null;
+        employeeProfilePhoneField = null;
+        if (frame != null && frame.getRootPane() != null) {
+            frame.getRootPane().setDefaultButton(null);
+        }
+    }
+
+    private static boolean confirmDiscardEmployeeProfileIfDirty() {
+        if (!"My Profile".equals(currentView) || !isEmployeeUser()) {
+            return true;
+        }
+        if (employeeProfileAddressField == null || employeeProfilePhoneField == null) {
+            return true;
+        }
+        String current = employeeProfileAddressField.getText().trim() + "\u0000"
+                + employeeProfilePhoneField.getText().trim();
+        if (employeeProfileContactBaseline == null || current.equals(employeeProfileContactBaseline)) {
+            return true;
+        }
+        return JOptionPane.showConfirmDialog(frame,
+                "You have unsaved changes to your address or phone. Discard them?",
+                "Unsaved Changes", JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION;
+    }
+
+    private static void navigateEmployeePortal(Runnable action) {
+        if (!confirmDiscardEmployeeProfileIfDirty()) {
+            return;
+        }
+        clearEmployeeProfileContactTracking();
+        action.run();
+    }
+
+    private static void showExportFailure(String message) {
+        showToast(message, new Color(180, 90, 40));
+        JOptionPane.showMessageDialog(frame, message, "Export Failed", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static void applyEmployeeProfileContactBlurValidation(JTextField addressField, JTextField phoneField,
+            JLabel addressError, JLabel phoneError) {
+        Runnable validate = () -> {
+            java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
+                    EmployeeRecordsModule.validateProfileContact(
+                            addressField.getText().trim(), phoneField.getText().trim());
+            boolean addrErr = false;
+            boolean phoneErr = false;
+            String addrMsg = " ";
+            String phoneMsg = " ";
+            for (EmployeeRecordsModule.FieldValidationError err : errors) {
+                if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
+                    addrErr = true;
+                    addrMsg = err.message;
+                }
+                if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
+                    phoneErr = true;
+                    phoneMsg = err.message;
+                }
+            }
+            if (addrErr) {
+                addressField.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+            } else if (!addressField.getText().trim().equals(
+                    employeeProfileContactBaseline == null ? "" : employeeProfileContactBaseline.split("\u0000", 2)[0])) {
+                addressField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+            } else {
+                addressField.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+            }
+            if (phoneErr) {
+                phoneField.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+            } else if (!phoneField.getText().trim().equals(
+                    employeeProfileContactBaseline == null || !employeeProfileContactBaseline.contains("\u0000")
+                            ? "" : employeeProfileContactBaseline.split("\u0000", 2)[1])) {
+                phoneField.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
+            } else {
+                phoneField.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+            }
+            addressError.setText(addrMsg);
+            phoneError.setText(phoneMsg);
+        };
+        java.awt.event.FocusAdapter blur = new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                validate.run();
+            }
+        };
+        addressField.addFocusListener(blur);
+        phoneField.addFocusListener(blur);
+    }
+
     /** Adds a new section to the employee record form. */
     private static int addRecordFormSection(JPanel panel, int fy, int fieldX, int fieldW,
             int rowGap, String title) {
@@ -3649,9 +3896,7 @@ public class MotorPH_GUI {
             } catch (Exception ignored) {
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(frame,
-                    "Could not save PDF: " + ex.getMessage(),
-                    "Export Failed", JOptionPane.ERROR_MESSAGE);
+            showExportFailure("Could not save PDF: " + ex.getMessage());
         }
     }
 
@@ -4202,9 +4447,7 @@ public class MotorPH_GUI {
             writer.write(text);
             showToast("Saved: " + target.getName());
         } catch (java.io.IOException ex) {
-            JOptionPane.showMessageDialog(frame,
-                    "Could not save file: " + ex.getMessage(),
-                    "Export Failed", JOptionPane.ERROR_MESSAGE);
+            showExportFailure("Could not save file: " + ex.getMessage());
         }
     }
 
@@ -4332,6 +4575,31 @@ public class MotorPH_GUI {
         lblPassError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         lblPassError.setForeground(new Color(200, 40, 40));
         lblPassError.setBounds(32, 143 + FIELD_HEIGHT + 2, 292, 14);
+
+        javax.swing.event.DocumentListener loginErrorClearer = new javax.swing.event.DocumentListener() {
+            private void clearErrors() {
+                lblUserError.setText(" ");
+                lblPassError.setText(" ");
+                resetLoginFieldBorders();
+            }
+
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                clearErrors();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                clearErrors();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                clearErrors();
+            }
+        };
+        usernameField.getDocument().addDocumentListener(loginErrorClearer);
+        passwordField.getDocument().addDocumentListener(loginErrorClearer);
 
         final JCheckBox chkShowPassword = new JCheckBox("Show password");
         chkShowPassword.setBounds(32, 191, 292, 22);
@@ -4610,6 +4878,11 @@ public class MotorPH_GUI {
     }
 
     private static void performLogout() {
+        if (!confirmDiscardEmployeeProfileIfDirty()) {
+            return;
+        }
+        clearEmployeeProfileContactTracking();
+        employeeSessionLastNetPay = null;
         if (frame != null) {
             frame.dispose();
             frame = null;
@@ -5009,7 +5282,10 @@ public class MotorPH_GUI {
         String mon = today.getMonth().name().charAt(0)
                 + today.getMonth().name().substring(1, 3).toLowerCase();
         String period = dom <= 15 ? (mon + " 1 – 15") : (mon + " 16 – " + last);
-        String salary = emp != null ? "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) : "—";
+        String salaryLabel = employeeSessionLastNetPay != null ? "Last Net Pay" : "Basic Salary (reference)";
+        String salary = employeeSessionLastNetPay != null
+                ? employeeSessionLastNetPay
+                : (emp != null ? "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) : "—");
         LocalDate nextPay = dom < 15 ? today.withDayOfMonth(15)
                 : dom < last ? today.withDayOfMonth(last)
                         : today.plusMonths(1).withDayOfMonth(15);
@@ -5023,7 +5299,7 @@ public class MotorPH_GUI {
         int cx = DASH_CARD_INSET, cw = w - DASH_CARD_INSET * 2, rh = 20, cy = 74;
         addPreviewRow(card, "Pay Period", period, cx, cy, cw, rh);
         cy += rh + 8;
-        addPreviewRow(card, "Basic Salary", salary, cx, cy, cw, rh);
+        addPreviewRow(card, salaryLabel, salary, cx, cy, cw, rh);
         cy += rh + 8;
         addPreviewRow(card, "Next Pay Day", payInfo, cx, cy, cw, rh);
         cy += rh;
@@ -5087,7 +5363,10 @@ public class MotorPH_GUI {
             shown++;
         }
         if (shown == 0) {
-            JLabel none = new JLabel("No new notifications.");
+            String emptyMsg = isEmployeeUser()
+                    ? "No new notifications — payroll and issue updates appear here."
+                    : "No new notifications.";
+            JLabel none = new JLabel(emptyMsg);
             none.setFont(new Font("Segoe UI", Font.ITALIC, 12));
             none.setForeground(TEXT_MUTED);
             none.setBounds(cx, cy, cw, rh);
@@ -5300,7 +5579,9 @@ public class MotorPH_GUI {
         int btnY = 108;
         int btnH = SIDEBAR_NAV_BTN_H;
         addSidebarNavButton(sidebar, "Dashboard", 0, btnY, sw, btnH, "Dashboard".equals(activePage),
-                e -> showDashboard());
+                isEmployeeUser()
+                        ? e -> navigateEmployeePortal(MotorPH_GUI::showDashboard)
+                        : e -> showDashboard());
         btnY += btnH + SIDEBAR_NAV_GAP;
 
         if (isHrUser()) {
@@ -5312,19 +5593,25 @@ public class MotorPH_GUI {
             btnY += btnH + SIDEBAR_NAV_GAP;
         } else {
             addSidebarNavButton(sidebar, "My Profile", 0, btnY, sw, btnH,
-                    "My Profile".equals(activePage), e -> showEmployeeLookupUI());
+                    "My Profile".equals(activePage),
+                    e -> navigateEmployeePortal(MotorPH_GUI::showEmployeeLookupUI));
             btnY += btnH + SIDEBAR_NAV_GAP;
             addSidebarNavButton(sidebar, "My Payslip", 0, btnY, sw, btnH, "Payroll".equals(activePage),
-                    e -> setupPayrollUI());
+                    e -> navigateEmployeePortal(MotorPH_GUI::setupPayrollUI));
             btnY += btnH + SIDEBAR_NAV_GAP;
         }
 
         int unread = countUnreadNotifications();
         String notifLabel = unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
         addSidebarNavButton(sidebar, notifLabel, 0, btnY, sw, btnH, "Notifications".equals(activePage),
-                e -> showNotificationsUI());
+                isEmployeeUser()
+                        ? e -> navigateEmployeePortal(MotorPH_GUI::showNotificationsUI)
+                        : e -> showNotificationsUI());
         btnY += btnH + SIDEBAR_NAV_GAP;
-        addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage), e -> showHelpCenterUI());
+        addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage),
+                isEmployeeUser()
+                        ? e -> navigateEmployeePortal(MotorPH_GUI::showHelpCenterUI)
+                        : e -> showHelpCenterUI());
 
         // Anchor Sign Out to a fixed slot above the sidebar bottom with extra clearance
         final int LOGOUT_BTN_H = BTN_HEIGHT;
@@ -8068,6 +8355,30 @@ public class MotorPH_GUI {
         inner.add(strip);
         y = 76 + 20;
 
+        java.util.List<String> profileWarnings = EmployeeRecordsModule.collectViewWarnings(emp);
+        if (!profileWarnings.isEmpty()) {
+            JPanel warnBanner = new JPanel(null);
+            warnBanner.setBackground(new Color(255, 248, 232));
+            warnBanner.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(220, 170, 90), 1),
+                    BorderFactory.createEmptyBorder(10, 14, 10, 14)));
+            String warnSummary = profileWarnings.stream()
+                    .filter(w -> w.toLowerCase().contains("birthday")
+                            || w.toLowerCase().contains("phone")
+                            || w.toLowerCase().contains("address"))
+                    .findFirst()
+                    .orElse(profileWarnings.get(0));
+            JLabel warnLbl = new JLabel("<html><b>Data quality notice:</b> "
+                    + escapeHtml(warnSummary) + " Contact HR if this looks wrong.</html>");
+            warnLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            warnLbl.setForeground(new Color(130, 85, 20));
+            warnLbl.setBounds(0, 0, contentW - 28, 36);
+            warnBanner.setBounds(padX, y, contentW, 52);
+            warnBanner.add(warnLbl);
+            inner.add(warnBanner);
+            y += 64;
+        }
+
         // Section: Employee Information
         JLabel secInfo = new JLabel("Employee Information");
         secInfo.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -8083,10 +8394,11 @@ public class MotorPH_GUI {
                 { "Position", safeColumn(emp, EmployeeModule.POSITION) },
                 { "Immediate Supervisor", safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) },
                 { "Basic Salary", "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) },
-                { "SSS #", safeColumn(emp, EmployeeModule.SSS) },
-                { "PhilHealth #", safeColumn(emp, EmployeeModule.PHILHEALTH) },
-                { "TIN #", safeColumn(emp, EmployeeModule.TIN) },
-                { "Pag-IBIG #", safeColumn(emp, EmployeeModule.PAGIBIG) },
+                { "SSS #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.SSS), 3, 2) },
+                { "PhilHealth #",
+                        EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.PHILHEALTH), 4, 4) },
+                { "TIN #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.TIN), 3, 3) },
+                { "Pag-IBIG #", EmployeeRecordsModule.maskSensitiveId(safeColumn(emp, EmployeeModule.PAGIBIG), 4, 4) },
         };
 
         int rowY = y;
@@ -8172,6 +8484,29 @@ public class MotorPH_GUI {
         inner.add(sep);
         y += 18;
 
+        // Section: Account & Security
+        JLabel secAccount = new JLabel("Account & Security");
+        secAccount.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        secAccount.setForeground(ACCENT_BLUE);
+        secAccount.setBounds(padX, y, contentW, 18);
+        inner.add(secAccount);
+        y += 26;
+
+        JPanel accountPanel = new JPanel(null);
+        accountPanel.setBackground(new Color(248, 250, 254));
+        accountPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1),
+                BorderFactory.createEmptyBorder(12, 14, 12, 14)));
+        accountPanel.setBounds(padX, y, contentW, 88);
+        JLabel accountInfo = new JLabel("<html>Portal password changes are handled by HR in this demo.<br>"
+                + "Contact HR / Payroll for account lockouts, username updates, or password resets.</html>");
+        accountInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        accountInfo.setForeground(TEXT_MUTED);
+        accountInfo.setBounds(0, 0, contentW - 28, 64);
+        accountPanel.add(accountInfo);
+        inner.add(accountPanel);
+        y += 104;
+
         // Section: Contact Details (editable)
         JLabel secContact = new JLabel("Contact Details");
         secContact.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -8199,12 +8534,20 @@ public class MotorPH_GUI {
 
         final String originalAddress = safeColumn(emp, EmployeeModule.ADDRESS);
         final String originalPhone = safeColumn(emp, EmployeeModule.PHONE);
+        employeeProfileContactBaseline = originalAddress + "\u0000" + originalPhone;
 
         JTextField fldAddress = new JTextField(originalAddress);
         fldAddress.setBounds(padX, y, contentW, FIELD_HEIGHT);
         styleInputField(fldAddress);
         inner.add(fldAddress);
-        y += FIELD_HEIGHT + 14;
+        y += FIELD_HEIGHT + 2;
+
+        JLabel lblAddrError = new JLabel(" ");
+        lblAddrError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblAddrError.setForeground(new Color(200, 40, 40));
+        lblAddrError.setBounds(padX, y, contentW, 14);
+        inner.add(lblAddrError);
+        y += 16;
 
         JLabel lblPhone = new JLabel("Phone Number");
         lblPhone.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -8218,13 +8561,23 @@ public class MotorPH_GUI {
         styleInputField(fldPhone);
         inner.add(fldPhone);
 
-        JLabel lblPhoneWarning = new JLabel("Use numbers, and hyphens only.");
+        JLabel lblPhoneError = new JLabel(" ");
+        lblPhoneError.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        lblPhoneError.setForeground(new Color(200, 40, 40));
+        lblPhoneError.setBounds(padX, y + FIELD_HEIGHT + 2, singleColumn ? contentW : halfW, 14);
+        inner.add(lblPhoneError);
+
+        JLabel lblPhoneWarning = new JLabel("Use numbers and hyphens only.");
         lblPhoneWarning.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPhoneWarning.setForeground(new Color(180, 60, 40));
-        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 4, singleColumn ? contentW : halfW, 16);
+        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 18, singleColumn ? contentW : halfW, 16);
         lblPhoneWarning.setVisible(false);
         inner.add(lblPhoneWarning);
-        y += FIELD_HEIGHT + 24;
+        y += FIELD_HEIGHT + 36;
+
+        employeeProfileAddressField = fldAddress;
+        employeeProfilePhoneField = fldPhone;
+        applyEmployeeProfileContactBlurValidation(fldAddress, fldPhone, lblAddrError, lblPhoneError);
 
         // Buttons
         int btnW = 152;
@@ -8243,8 +8596,15 @@ public class MotorPH_GUI {
             y += BTN_HEIGHT + 32;
         }
         styleStandardButton(btnBack);
-        btnBack.addActionListener(e -> showDashboard());
+        btnBack.addActionListener(e -> {
+            if (confirmDiscardEmployeeProfileIfDirty()) {
+                clearEmployeeProfileContactTracking();
+                showDashboard();
+            }
+        });
         inner.add(btnBack);
+
+        frame.getRootPane().setDefaultButton(btnSave);
 
         fldAddress.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             private void refresh() {
@@ -8313,12 +8673,16 @@ public class MotorPH_GUI {
             java.util.List<EmployeeRecordsModule.FieldValidationError> errors =
                     EmployeeRecordsModule.validateProfileContact(newAddr, newPhone);
             if (!errors.isEmpty()) {
+                lblAddrError.setText(" ");
+                lblPhoneError.setText(" ");
                 for (EmployeeRecordsModule.FieldValidationError err : errors) {
                     if (EmployeeRecordsModule.FieldKeys.ADDRESS.equals(err.fieldKey)) {
                         fldAddress.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+                        lblAddrError.setText(err.message);
                     }
                     if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
                         fldPhone.setBorder(BorderFactory.createLineBorder(new Color(200, 40, 40), 2));
+                        lblPhoneError.setText(err.message);
                     }
                 }
                 showBulletErrorDialog(frame, EmployeeRecordsModule.messagesFromErrors(errors),
@@ -8328,6 +8692,11 @@ public class MotorPH_GUI {
             emp[EmployeeModule.ADDRESS] = newAddr;
             emp[EmployeeModule.PHONE] = newPhone;
             if (FileHandlerModule.updateEmployeeRecord(linkedId, emp)) {
+                employeeProfileContactBaseline = newAddr + "\u0000" + newPhone;
+                fldAddress.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+                fldPhone.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
+                lblAddrError.setText(" ");
+                lblPhoneError.setText(" ");
                 showPopupSuccessAndClose(null,
                         "Profile updated successfully.",
                         "Your address and phone number were saved successfully.",
@@ -12843,6 +13212,19 @@ public class MotorPH_GUI {
         sp.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(sp);
 
+        JLabel emptyLbl = new JLabel(
+                "<html><center>No notifications match this filter.<br>"
+                        + (isEmployeeUser()
+                                ? "Payroll updates and issue resolutions will appear here."
+                                : "System reminders will appear here.")
+                        + "</center></html>",
+                SwingConstants.CENTER);
+        emptyLbl.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        emptyLbl.setForeground(TEXT_MUTED);
+        emptyLbl.setBounds(20, listTop + 40, listW, 80);
+        emptyLbl.setVisible(model.isEmpty());
+        panel.add(emptyLbl);
+
         // Tracks which filter chip is currently active so actions know the view context
         final String[] activeFilter = { "All" };
 
@@ -12850,6 +13232,7 @@ public class MotorPH_GUI {
         Runnable refreshCount = () -> {
             long uc = allNotifications.stream().filter(nn -> !nn.read).count();
             unreadLbl.setText(uc + " unread of " + allNotifications.size());
+            emptyLbl.setVisible(list.getModel().getSize() == 0);
         };
 
         // Helper: mark as read — removes from view only when the Unread filter is
@@ -12972,6 +13355,7 @@ public class MotorPH_GUI {
                         filtered.addElement(n);
                 }
                 list.setModel(filtered);
+                emptyLbl.setVisible(filtered.isEmpty());
             });
         }
 
@@ -13384,7 +13768,10 @@ public class MotorPH_GUI {
                 rpSet(errText, rsWarn);
                 showBulletErrorDialog(frame, errors, "Input Error", JOptionPane.WARNING_MESSAGE);
             } else {
-                showEmployeePayslipError(errText);
+                String periodLabel = monthCombo.getSelectedIndex() > 0
+                        ? String.valueOf(monthCombo.getSelectedItem()) + " " + year
+                        : year;
+                showEmployeePayslipEmptyState(periodLabel, errText);
             }
             return;
         }
@@ -13403,7 +13790,9 @@ public class MotorPH_GUI {
                 rpSet(errText, rsWarn);
                 showBulletErrorDialog(frame, noData, "No Attendance Data", JOptionPane.WARNING_MESSAGE);
             } else {
-                showEmployeePayslipError(errText);
+                showEmployeePayslipEmptyState(
+                        monthCombo.getSelectedItem() + " " + year,
+                        "Select a pay period with attendance records, or report a concern to HR.");
             }
             return;
         }
@@ -13431,7 +13820,10 @@ public class MotorPH_GUI {
             if (isHrUser()) {
                 rpSet(failMsg, rsWarn);
             } else {
-                showEmployeePayslipError(failMsg);
+                String periodLabel = monthCombo.getSelectedIndex() > 0
+                        ? String.valueOf(monthCombo.getSelectedItem()) + " " + year
+                        : year;
+                showEmployeePayslipEmptyState(periodLabel, failMsg);
             }
         }
 
@@ -13440,6 +13832,9 @@ public class MotorPH_GUI {
                     SalaryComputationModule.summaryGross,
                     SalaryComputationModule.summaryDeductions,
                     SalaryComputationModule.summaryNet);
+            if (isEmployeeUser()) {
+                employeeSessionLastNetPay = String.format("PHP %,.2f", SalaryComputationModule.summaryNet);
+            }
         } else {
             resetPayrollStatChips();
         }

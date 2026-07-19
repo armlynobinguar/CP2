@@ -574,7 +574,34 @@ public class EmployeeRecordsModule {
         if (!isBlank(basic) && !isNumeric(basic)) {
             warnings.add("Basic Salary contains invalid numeric data.");
         }
+        for (FieldValidationError err : validateProfileContact(
+                safe(emp, EmployeeModule.ADDRESS), safe(emp, EmployeeModule.PHONE))) {
+            if (FieldKeys.PHONE.equals(err.fieldKey)) {
+                warnings.add("Stored phone number looks invalid.");
+            } else if (FieldKeys.ADDRESS.equals(err.fieldKey)) {
+                warnings.add("Stored address looks invalid.");
+            }
+        }
         return warnings;
+    }
+
+    /** Partially masks government IDs for read-only employee profile display. */
+    public static String maskSensitiveId(String value, int visiblePrefix, int visibleSuffix) {
+        if (isBlank(value) || "-".equals(value.trim())) {
+            return value == null ? "" : value.trim();
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= visiblePrefix + visibleSuffix) {
+            return trimmed;
+        }
+        StringBuilder masked = new StringBuilder();
+        masked.append(trimmed, 0, visiblePrefix);
+        for (int i = visiblePrefix; i < trimmed.length() - visibleSuffix; i++) {
+            char ch = trimmed.charAt(i);
+            masked.append(ch == '-' || ch == ' ' ? ch : '•');
+        }
+        masked.append(trimmed.substring(trimmed.length() - visibleSuffix));
+        return masked.toString();
     }
 
     /**
