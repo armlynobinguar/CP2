@@ -8866,6 +8866,25 @@ public class MotorPH_GUI {
         return EmployeeRecordsModule.validateAddPopup(buildRecordFormFromPopup(fieldMap));
     }
 
+    /** Checks whether the same government ID value appears more than once in the popup. */
+    private static boolean hasDuplicateGovernmentIds(java.util.Map<String, JTextField> fieldMap) {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        String[] labels = { "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:" };
+        for (String label : labels) {
+            JTextField tf = fieldMap.get(label);
+            if (tf == null)
+                continue;
+            String value = tf.getText() == null ? "" : tf.getText().trim();
+            if (value.isEmpty())
+                continue;
+            if (seen.contains(value)) {
+                return true;
+            }
+            seen.add(value);
+        }
+        return false;
+    }
+
     /** Checks if a string represents a valid name text. */
     public static boolean isNameTextValid(String str) {
         if (str == null) {
@@ -9191,6 +9210,17 @@ public class MotorPH_GUI {
                 if (lbl != null) {
                     lbl.setText(err);
                     lbl.setVisible(true);
+                }
+            }
+            if (err.contains("Duplicate government ID numbers")) {
+                String[] idLabels = { "SSS #:", "PhilHealth #:", "TIN #:", "Pag-IBIG #:" };
+                for (String idLabel : idLabels) {
+                    setPopupFieldError(fieldMap.get(idLabel));
+                    JLabel lbl = errorLabels.get(idLabel);
+                    if (lbl != null) {
+                        lbl.setText(err);
+                        lbl.setVisible(true);
+                    }
                 }
             }
             if (err.contains("Basic Salary")) {
@@ -9779,6 +9809,9 @@ public class MotorPH_GUI {
             java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
             List<String> validationErrors = validateEmployeeEditPopup(fieldMap, emp[EmployeeModule.ID]);
             validationErrors.addAll(collectEditPopupNameErrors(fieldMap, emp));
+            if (hasDuplicateGovernmentIds(fieldMap)) {
+                validationErrors.add("Duplicate government ID numbers are not allowed within the same employee record.");
+            }
             validationErrors = reorderEditPopupErrors(validationErrors);
             validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
 
@@ -10042,6 +10075,9 @@ public class MotorPH_GUI {
             resetEditPopupFieldBorders(fieldMap);
             java.util.Map<String, String> submitFormatErrors = collectSubmitFormatErrors(fieldMap);
             List<String> validationErrors = validateEmployeeAddPopup(fieldMap);
+            if (hasDuplicateGovernmentIds(fieldMap)) {
+                validationErrors.add("Duplicate government ID numbers are not allowed within the same employee record.");
+            }
             validationErrors = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(validationErrors));
             if (!validationErrors.isEmpty()) {
                 markEditPopupFieldErrors(validationErrors, fieldMap, errorLabels, submitFormatErrors);
