@@ -3116,9 +3116,6 @@ public class MotorPH_GUI {
             case "Notifications":
                 showNotificationsUI();
                 break;
-            case "Help":
-                showHelpCenterUI();
-                break;
             default:
                 showDashboard();
                 break;
@@ -5029,11 +5026,8 @@ public class MotorPH_GUI {
         }
 
         card.putClientProperty(DASH_SUBTITLE_BOTTOM_KEY, cy);
-        addDashboardCardButtons(card, w, h,
-                new String[] { "Notifications", "Help Center" },
-                splitButtonWidths(w, 2),
-                new boolean[] { true, false },
-                new ActionListener[] { e -> showNotificationsUI(), e -> showHelpCenterUI() });
+        addDashboardCardButton(card, w, h, "Open Notifications", w - DASH_CARD_INSET * 2, false,
+                e -> showNotificationsUI());
         addCardHoverAndClick(card, h, e -> showNotificationsUI());
         return card;
     }
@@ -5256,8 +5250,6 @@ public class MotorPH_GUI {
         String notifLabel = unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
         addSidebarNavButton(sidebar, notifLabel, 0, btnY, sw, btnH, "Notifications".equals(activePage),
                 e -> showNotificationsUI());
-        btnY += btnH + SIDEBAR_NAV_GAP;
-        addSidebarNavButton(sidebar, "Help", 0, btnY, sw, btnH, "Help".equals(activePage), e -> showHelpCenterUI());
 
         // Anchor Sign Out to a fixed slot above the sidebar bottom with extra clearance
         final int LOGOUT_BTN_H = BTN_HEIGHT;
@@ -12207,115 +12199,6 @@ public class MotorPH_GUI {
         dlg.setVisible(true);
     }
 
-    /** Shows the Help Center UI. */
-    static void showHelpCenterUI() {
-        currentView = "Help";
-        frame.getContentPane().removeAll();
-        frame.setLayout(null);
-        frame.getContentPane().setBackground(APP_BG);
-        buildAndAddSidebar("Help");
-        addPageHeader("Help Center");
-
-        java.awt.Rectangle bounds = getContentBounds();
-        int panelW = bounds.width;
-        int panelH = bounds.height;
-
-        JPanel panel = new JPanel(null);
-        panel.setBackground(PALETTE_WHITE);
-        panel.setBounds(bounds.x, bounds.y, panelW, panelH);
-        panel.setBorder(cardBorder());
-
-        JLabel faqTitle = new JLabel("Frequently Asked Questions");
-        faqTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        faqTitle.setForeground(TEXT_DARK_NAVY);
-        faqTitle.setBounds(16, 16, panelW - 32, 24);
-        panel.add(faqTitle);
-
-        String[][] faqs = {
-                { "How is my basic salary calculated?",
-                        "Your basic salary is your agreed monthly rate. It is divided by the number of working days to get your daily rate, then multiplied by actual attendance days for the pay period." },
-                { "What are the pay periods at MotorPH?",
-                        "MotorPH pays twice a month - on the 15th and at the end of the month. The 15th cutoff covers days 1-15; the end-of-month covers day 16 to the last day of the month." },
-                { "How is SSS contribution computed?",
-                        "SSS is based on your Monthly Salary Credit (MSC). Both you and MotorPH contribute according to the latest SSS contribution table. The employee share is deducted from your gross pay each period." },
-                { "How is PhilHealth computed?",
-                        "PhilHealth premium is 5% of your monthly basic salary (as of 2024), split equally - 2.5% employee + 2.5% employer. Minimum is ₱500/month, maximum ₱5,000/month." },
-                { "How is Pag-IBIG computed?",
-                        "Pag-IBIG (HDMF) employee share is 2% of monthly salary, with a salary basis cap of ₱5,000 - so the maximum employee contribution is ₱100/month. MotorPH matches this amount." },
-                { "How is withholding tax calculated?",
-                        "Withholding tax uses BIR tax tables. Taxable income = gross pay minus SSS, PhilHealth, and Pag-IBIG contributions. A graduated rate is then applied on the net taxable income." },
-                { "How do I check my attendance records?",
-                        "Click \"Directory\" in the sidebar, search for your employee name or ID, and your attendance records will appear - including login and logout times for each day." },
-                { "What counts as overtime?",
-                        "Any work beyond 8 hours a day is overtime. Regular-day OT pay is your hourly rate x 1.25. Special holiday and rest-day OT rates are higher per DOLE rules." },
-                { "Who do I contact for payroll issues?",
-                        "For salary discrepancies, contact your HR or Payroll Officer. You can also raise concerns via the Notifications panel in this system." },
-                { "When are payslips available?",
-                        "Payslips are generated each pay period (15th and end of month) and can be viewed under the Pay Coverage section via the sidebar." }
-        };
-
-        DefaultListModel<String> qModel = new DefaultListModel<>();
-        for (String[] faq : faqs)
-            qModel.addElement(faq[0]);
-
-        JList<String> qList = new JList<>(qModel);
-        qList.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        qList.setBackground(PALETTE_WHITE);
-        qList.setSelectionBackground(new Color(220, 236, 255));
-        qList.setSelectionForeground(ACCENT_BLUE);
-        qList.setFixedCellHeight(44);
-        qList.setCellRenderer((lst, value, index, isSel, hasFocus) -> {
-            JLabel lbl = new JLabel("  •  " + value);
-            lbl.setFont(new Font("Segoe UI", isSel ? Font.BOLD : Font.PLAIN, 15));
-            lbl.setForeground(isSel ? ACCENT_BLUE : TEXT_DARK_NAVY);
-            lbl.setBackground(isSel ? new Color(232, 244, 255) : PALETTE_WHITE);
-            lbl.setOpaque(true);
-            lbl.setBorder(BorderFactory.createMatteBorder(0, isSel ? 3 : 0, 1, 0,
-                    isSel ? ACCENT_BLUE : new Color(238, 241, 247)));
-            return lbl;
-        });
-
-        int qListH = (int) (panelH * 0.52);
-        JScrollPane qScroll = new JScrollPane(qList);
-        qScroll.setBounds(0, 48, panelW, qListH);
-        qScroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0, CARD_BORDER_COLOR));
-        qScroll.getVerticalScrollBar().setUnitIncrement(16);
-        panel.add(qScroll);
-
-        JLabel ansHeader = new JLabel("Answer");
-        ansHeader.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        ansHeader.setForeground(new Color(100, 115, 140));
-        ansHeader.setBounds(16, 48 + qListH + 10, panelW - 32, 18);
-        panel.add(ansHeader);
-
-        JTextArea ansArea = new JTextArea("Select a question above to read the answer here.");
-        ansArea.setEditable(false);
-        ansArea.setLineWrap(true);
-        ansArea.setWrapStyleWord(true);
-        ansArea.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        ansArea.setForeground(new Color(40, 55, 90));
-        ansArea.setBackground(new Color(246, 249, 255));
-        ansArea.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
-
-        int ansY = 48 + qListH + 32;
-        int ansH = panelH - ansY - 12;
-        JScrollPane ansScroll = new JScrollPane(ansArea);
-        ansScroll.setBounds(0, ansY, panelW, ansH);
-        ansScroll.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 0, CARD_BORDER_COLOR));
-        panel.add(ansScroll);
-
-        qList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && qList.getSelectedIndex() >= 0) {
-                ansArea.setText(faqs[qList.getSelectedIndex()][1]);
-                ansArea.setCaretPosition(0);
-            }
-        });
-
-        frame.add(panel);
-        addStatusBar();
-        updateDisplay();
-    }
-
     /** Scrolls the text area to the bottom. */
     private static void scrollToBottom(JTextArea ta) {
         ta.setCaretPosition(ta.getDocument().getLength());
@@ -13945,8 +13828,6 @@ public class MotorPH_GUI {
             showEmployeeRecordsUI();
         else if (l.contains("lookup") || l.contains("directory"))
             showEmployeeLookupUI();
-        else if (l.contains("help"))
-            showHelpCenterUI();
         else
             showDashboard();
     }
