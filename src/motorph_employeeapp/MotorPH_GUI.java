@@ -4179,8 +4179,14 @@ public class MotorPH_GUI {
                     setLoginFieldError(usernameField);
                     setLoginFieldError(passwordField);
                     List<String> authErrors = new ArrayList<>();
-                    authErrors.add("Invalid username or password.");
-                    authErrors.add("Please check your credentials and try again.");
+                    boolean employeeAttempt = MotorPH_EmployeeApp.EMPLOYEE_USERNAME.equals(user)
+                            && MotorPH_EmployeeApp.EMPLOYEE_PASSWORD.equals(pass);
+                    if (employeeAttempt) {
+                        authErrors.add("Access restricted to HR personnel only.");
+                    } else {
+                        authErrors.add("Invalid username or password.");
+                        authErrors.add("Please check your credentials and try again.");
+                    }
                     showBulletErrorDialog(loginDialog, authErrors, "Login Failed",
                             JOptionPane.ERROR_MESSAGE);
                 }
@@ -4450,11 +4456,9 @@ public class MotorPH_GUI {
             if (singleColumnCards) {
                 cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
                 cards.add(buildHrPayrollCard(0, dashRowH + DASH_CARD_GAP, colW, dashRowH));
-                cards.add(buildHrAnnouncementsCard(0, 2 * (dashRowH + DASH_CARD_GAP), colW, dashRowH));
             } else {
                 cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
                 cards.add(buildHrPayrollCard(colW + DASH_CARD_GAP, 0, colW, dashRowH));
-                cards.add(buildHrAnnouncementsCard(0, dashRowH + DASH_CARD_GAP, leftW, dashRowH));
             }
         } else {
             String linkedId = MotorPH_EmployeeApp.getLinkedEmployeeId(loggedInUser);
@@ -11987,263 +11991,6 @@ public class MotorPH_GUI {
         dlg.setVisible(true);
     }
 
-    /** Scrolls the text area to the bottom. */
-    private static void scrollToBottom(JTextArea ta) {
-        ta.setCaretPosition(ta.getDocument().getLength());
-    }
-
-    /** Escapes a string for JSON serialization. */
-    private static String jsonEscape(String s) {
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "")
-                .replace("\t", "\\t");
-    }
-
-    /**
-     * Retrieves the local AI response based on the user's question and conversation
-     * history.
-     */
-    private static String getLocalAIResponse(String question, java.util.List<String[]> history) {
-        String q = question.toLowerCase().trim();
-
-        // Greetings
-        if (q.matches("hi|hello|hey|good morning|good afternoon|good evening|sup|howdy")) {
-            return "Hello! I'm your MotorPH HR Assistant. I can help you with:\n"
-                    + "  - Salary computation and pay periods\n"
-                    + "  - SSS, PhilHealth, and Pag-IBIG contributions\n"
-                    + "  - Overtime, holiday, and leave pay\n"
-                    + "  - Tax / withholding questions\n"
-                    + "  - 13th month pay, loans, and payslips\n"
-                    + "  - Attendance and employee record queries\n\n"
-                    + "What would you like to know?";
-        }
-
-        // Thanks
-        if (q.matches(".*\\b(thank|thanks|thank you|ty|salamat)\\b.*") && q.length() < 40) {
-            return "You're welcome! Feel free to ask any other payroll or HR questions.";
-        }
-
-        // Salary / basic pay calculation
-        if (q.contains("calculat") || q.contains("comput") || q.contains("how is") || q.contains("how do")) {
-            if (q.contains("salary") || q.contains("basic pay") || q.contains("gross pay")) {
-                return "Basic Salary Computation:\n\n"
-                        + "  Daily rate  = Monthly salary / 22 working days\n"
-                        + "  Pay period  = Daily rate x days actually worked\n\n"
-                        + "MotorPH pays twice a month:\n"
-                        + "  - 15th: covers days 1-15\n"
-                        + "  - Last day: covers days 16 to end of month\n\n"
-                        + "Example: Php 20,000/month\n"
-                        + "  Daily rate = 20,000 / 22 = Php 909.09\n"
-                        + "  Half-month (11 days) = Php 10,000";
-            }
-        }
-
-        // Net pay
-        if (q.contains("net pay") || q.contains("take home") || q.contains("take-home") || q.contains("actual pay")) {
-            return "Net Pay Calculation:\n\n"
-                    + "  Net Pay = Gross Pay - Total Deductions\n\n"
-                    + "Mandatory deductions per pay period:\n"
-                    + "  - SSS employee share\n"
-                    + "  - PhilHealth: 2.5% of monthly salary\n"
-                    + "  - Pag-IBIG: Php 100 max\n"
-                    + "  - Withholding tax (if applicable)\n\n"
-                    + "Use the Payroll section (sidebar) to compute your exact net pay for any period.";
-        }
-
-        // SSS
-        if (q.contains("sss") || q.contains("social security")) {
-            return "SSS Contribution:\n\n"
-                    + "  Employee share : 4.5% of Monthly Salary Credit (MSC)\n"
-                    + "  Employer share : 9.5% of MSC\n"
-                    + "  MSC range      : Php 4,000 - Php 30,000\n\n"
-                    + "Example at Php 20,000 salary:\n"
-                    + "  MSC = Php 20,000\n"
-                    + "  Employee pays = 20,000 x 4.5% = Php 900/month\n\n"
-                    + "Deducted equally: Php 450 per cut-off (15th and end of month).";
-        }
-
-        // PhilHealth
-        if (q.contains("philhealth") || q.contains("phil health") || q.contains("health insurance")
-                || q.contains("health contribution")) {
-            return "PhilHealth Contribution (2024):\n\n"
-                    + "  Total premium : 5% of monthly basic salary\n"
-                    + "  Employee share: 2.5%\n"
-                    + "  Employer share: 2.5%\n"
-                    + "  Minimum       : Php 500/month\n"
-                    + "  Maximum       : Php 5,000/month\n\n"
-                    + "Example at Php 20,000 salary:\n"
-                    + "  Monthly premium = 20,000 x 5% = Php 1,000\n"
-                    + "  Employee pays   = Php 500/month (Php 250 per cut-off)";
-        }
-
-        // Pag-IBIG / HDMF
-        if (q.contains("pag-ibig") || q.contains("pagibig") || q.contains("pag ibig") || q.contains("hdmf")) {
-            return "Pag-IBIG (HDMF) Contribution:\n\n"
-                    + "  Employee share: 2% of monthly salary\n"
-                    + "  Employer match: 2%\n"
-                    + "  Salary basis cap: Php 5,000\n"
-                    + "  Maximum employee contribution: Php 100/month\n\n"
-                    + "Example at Php 20,000 salary:\n"
-                    + "  Contribution = Php 5,000 x 2% = Php 100 (max)\n"
-                    + "  Php 50 deducted per pay cut-off";
-        }
-
-        // Withholding tax / BIR
-        if (q.contains("tax") || q.contains("withhold") || q.contains("bir") || q.contains("income tax")) {
-            return "Withholding Tax (BIR Graduated Rates):\n\n"
-                    + "  Taxable income = Gross Pay - SSS - PhilHealth - Pag-IBIG\n\n"
-                    + "  Monthly taxable income brackets:\n"
-                    + "  Up to Php 20,833       : 0%  (tax-exempt)\n"
-                    + "  Php 20,834 - 33,332    : 20% on excess over Php 20,833\n"
-                    + "  Php 33,333 - 66,666    : 25% on excess + Php 2,500\n"
-                    + "  Php 66,667 - 166,666   : 30% on excess + Php 10,833\n"
-                    + "  Php 166,667 - 666,666  : 32% on excess + Php 40,833\n"
-                    + "  Over Php 666,667       : 35% on excess + Php 200,833\n\n"
-                    + "Employees earning Php 250,000/year or less pay zero income tax.";
-        }
-
-        // Pay period / payday
-        if (q.contains("pay day") || q.contains("payday") || q.contains("pay period") || q.contains("pay date")
-                || (q.contains("when") && (q.contains("pay") || q.contains("salary")))) {
-            return "MotorPH Pay Schedule:\n\n"
-                    + "  1st pay day : 15th of the month (covers days 1-15)\n"
-                    + "  2nd pay day : Last day of the month (covers days 16-end)\n\n"
-                    + "If a pay day falls on a weekend or public holiday, pay is released on the last working day before it.\n\n"
-                    + "The calendar on the Dashboard highlights both pay days for the current month.";
-        }
-
-        // Overtime
-        if (q.contains("overtime") || q.contains("ot rate") || q.contains("extra hours")) {
-            return "Overtime Pay (DOLE Rules):\n\n"
-                    + "  Regular day OT       : Hourly rate x 1.25\n"
-                    + "  Rest day work        : Hourly rate x 1.30\n"
-                    + "  Rest day OT          : Hourly rate x 1.30 x 1.30 = x1.69\n"
-                    + "  Special holiday work : Hourly rate x 1.30\n"
-                    + "  Regular holiday work : Hourly rate x 2.00\n"
-                    + "  Regular holiday OT   : Hourly rate x 2.00 x 1.30 = x2.60\n\n"
-                    + "Hourly rate = (Monthly salary / 22 days) / 8 hours";
-        }
-
-        // Holiday pay
-        if (q.contains("holiday") && (q.contains("pay") || q.contains("rate") || q.contains("work"))) {
-            return "Holiday Pay (DOLE):\n\n"
-                    + "Regular Holidays (Christmas, New Year, etc.):\n"
-                    + "  Did not work : 100% of daily rate (paid)\n"
-                    + "  Worked       : 200% of daily rate\n\n"
-                    + "Special Non-Working Holidays (EDSA Day, etc.):\n"
-                    + "  Did not work : No pay (no work, no pay)\n"
-                    + "  Worked       : 130% of daily rate\n\n"
-                    + "Check the current DOLE proclamation for the official list of holidays each year.";
-        }
-
-        // Leave
-        if (q.contains("leave") || q.contains("vacation") || q.contains("sick day") || q.contains("absent")) {
-            return "Leave Benefits at MotorPH:\n\n"
-                    + "  Service Incentive Leave (SIL) : 5 days/year (DOLE-mandated)\n"
-                    + "  Maternity Leave               : 105 days paid (RA 11210)\n"
-                    + "  Paternity Leave               : 7 days paid\n"
-                    + "  Solo Parent Leave             : 7 days paid\n"
-                    + "  VAWC Leave                    : 10 days paid\n\n"
-                    + "Unused SIL may be converted to cash at year-end.\n"
-                    + "Contact HR for your current leave balance.";
-        }
-
-        // 13th month
-        if (q.contains("13th month") || q.contains("thirteenth") || q.contains("christmas bonus")) {
-            return "13th Month Pay:\n\n"
-                    + "  Formula : Total basic salary earned in year / 12\n"
-                    + "  Who     : All rank-and-file employees who worked at least 1 month\n"
-                    + "  When    : On or before December 24\n"
-                    + "  Tax     : Exempt up to Php 90,000\n\n"
-                    + "Example: Php 20,000/month x 12 months / 12 = Php 20,000\n"
-                    + "Proportional for those who did not work the full year.";
-        }
-
-        // Payslip
-        if (q.contains("payslip") || q.contains("pay slip") || q.contains("pay stub")
-                || q.contains("salary breakdown")) {
-            return "Viewing Your Payslip:\n\n"
-                    + "  1. Click 'Payroll' in the left sidebar\n"
-                    + "  2. Enter your Employee ID and the coverage period\n"
-                    + "  3. Your payslip shows:\n"
-                    + "     - Gross pay (basic + OT + allowances)\n"
-                    + "     - Deductions (SSS, PhilHealth, Pag-IBIG, tax)\n"
-                    + "     - Net pay (take-home)\n\n"
-                    + "Payslips are generated every 15th and last day of the month.";
-        }
-
-        // Attendance / time log
-        if (q.contains("attendance") || q.contains("time in") || q.contains("time-in") || q.contains("time out")
-                || q.contains("log") && q.contains("time")) {
-            return "Attendance Policy:\n\n"
-                    + "  - Log time-in and time-out every working day\n"
-                    + "  - Standard shift: 8 hours/day\n"
-                    + "  - Tardiness and undertime are deducted from your salary\n"
-                    + "  - Missed punch: Report to HR the same day for correction\n\n"
-                    + "View your own attendance records:\n"
-                    + "  Sidebar > Directory > Enter your name or employee ID";
-        }
-
-        // Loans
-        if (q.contains("loan") || q.contains("cash advance") || q.contains("salary loan")) {
-            return "Employee Loan Options:\n\n"
-                    + "SSS Salary Loan:\n"
-                    + "  - Requires 36+ monthly contributions\n"
-                    + "  - Loanable: up to 2 months' MSC\n"
-                    + "  - Repaid via monthly payroll deductions\n\n"
-                    + "Pag-IBIG Multi-Purpose Loan:\n"
-                    + "  - Requires 24 monthly contributions\n"
-                    + "  - Loanable: up to 80% of total Pag-IBIG savings\n\n"
-                    + "Apply through HR. Approved deductions appear on your next payslip.";
-        }
-
-        // Employee record update
-        if ((q.contains("change") || q.contains("update") || q.contains("correct") || q.contains("edit"))
-                && (q.contains("name") || q.contains("address") || q.contains("record") || q.contains("info")
-                        || q.contains("profile"))) {
-            return "Updating Your Employee Record:\n\n"
-                    + "Personal information (name, address, civil status, etc.) must be updated through HR.\n\n"
-                    + "Steps:\n"
-                    + "  1. Submit a written request to HR\n"
-                    + "  2. Attach supporting documents (e.g., PSA certificate for name change)\n"
-                    + "  3. HR processes and updates the system within 3-5 working days\n\n"
-                    + "Important: Name or civil status changes must also be updated with SSS, PhilHealth, and Pag-IBIG directly.";
-        }
-
-        // Deductions general
-        if (q.contains("deduction") || q.contains("how much is deducted") || q.contains("what is deducted")) {
-            return "Mandatory Salary Deductions:\n\n"
-                    + "  SSS          : ~4.5% of Monthly Salary Credit\n"
-                    + "  PhilHealth   : 2.5% of monthly salary (min Php 250/cut-off)\n"
-                    + "  Pag-IBIG     : 2% of salary, max Php 100/month\n"
-                    + "  Withholding tax: based on BIR graduated rates\n\n"
-                    + "Total mandatory deductions at Php 20,000/month:\n"
-                    + "  SSS ~Php 900 + PhilHealth Php 500 + Pag-IBIG Php 100 = ~Php 1,500/month\n\n"
-                    + "Ask me about any specific deduction for a detailed breakdown.";
-        }
-
-        // HR contact / dispute
-        if (q.contains("dispute") || q.contains("discrepancy") || q.contains("wrong") && q.contains("pay")
-                || q.contains("contact") && q.contains("hr")) {
-            return "Payroll Disputes:\n\n"
-                    + "  - Raise your concern with HR within 3 working days of pay day\n"
-                    + "  - Late disputes may be processed in the next pay cycle\n"
-                    + "  - Bring your payslip as reference when reporting\n\n"
-                    + "You can also send a concern through the HR or payroll support channels in this app.";
-        }
-
-        // Default / unknown
-        return "I can help with MotorPH payroll and HR topics. Here are some things you can ask:\n\n"
-                + "  'How is my SSS contribution computed?'\n"
-                + "  'When is the next pay day?'\n"
-                + "  'What are my leave benefits?'\n"
-                + "  'How is overtime calculated?'\n"
-                + "  'What deductions are taken from my salary?'\n"
-                + "  'How is the 13th month pay computed?'\n\n"
-                + "Try rephrasing your question, or ask about a specific topic above.";
-    }
 
     /** Calendar icon for HR birthday picker button. */
     static class CalendarPickerIcon implements Icon {

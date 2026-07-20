@@ -98,10 +98,10 @@ public class MotorPH_EmployeeApp {
      * @return {@code true} when credentials match employee or HR (including legacy HR pair)
      */
     static boolean authenticate(String username, String password) {
-        // Employee portal credentials
+        // Employee portal credentials are not permitted for this HR-only login flow.
         if (EMPLOYEE_USERNAME.equals(username) && EMPLOYEE_PASSWORD.equals(password)) {
-            loggedInRole = UserRole.EMPLOYEE;
-            return true;
+            loggedInRole = null;
+            return false;
         }
         // HR portal — accept both current and legacy username/password pairs
         if ((HR_USERNAME.equals(username) && HR_PASSWORD.equals(password))
@@ -120,10 +120,15 @@ public class MotorPH_EmployeeApp {
      * @param args command-line arguments (unused)
      */
     public static void main(String[] args) {
-        // Bypass the login dialog and open the HR interface directly on startup.
-        loginSuccessful = true;
-        loggedInRole = UserRole.HR;
-        MotorPH_GUI.loggedInUser = HR_USERNAME;
-        MotorPH_GUI.initialize();
+        // Step 1: Modal login — no payroll data or main window until auth succeeds
+        MotorPH_GUI.showCustomLoginDialog();
+
+        if (loginSuccessful) {
+            // Step 2: Build JFrame, sidebar, and role-specific dashboard
+            MotorPH_GUI.initialize();
+        } else {
+            // User closed the dialog or never logged in
+            System.exit(0);
+        }
     }
 }
