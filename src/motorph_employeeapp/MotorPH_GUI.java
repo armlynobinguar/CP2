@@ -7226,7 +7226,6 @@ public class MotorPH_GUI {
         int btnRowY = totalStripY + 60;
         int btnGap = 8;
         int btnW2 = (w - btnGap) / 2;
-        int btnRow2Y = btnRowY + BTN_HEIGHT + btnGap;
 
         JButton btnCopy = new JButton("Copy to Clipboard");
         btnCopy.setBounds(pad, btnRowY, btnW2, BTN_HEIGHT);
@@ -7238,55 +7237,8 @@ public class MotorPH_GUI {
         });
         dlg.add(btnCopy);
 
-        JButton btnTxt = new JButton("Download .txt");
-        btnTxt.setBounds(pad + btnW2 + btnGap, btnRowY, btnW2, BTN_HEIGHT);
-        styleStandardButton(btnTxt);
-        btnTxt.addActionListener(e -> {
-            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".txt"));
-            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
-                // 🟢 Fixed: Changed from setSelectedFile() to getSelectedFile()
-                try (java.io.FileWriter fw = new java.io.FileWriter(chooser.getSelectedFile())) {
-                    fw.write(summaryText);
-                    showToast("Summary saved: " + chooser.getSelectedFile().getName());
-                } catch (java.io.IOException ex) {
-                    JOptionPane.showMessageDialog(dlg, "Could not save file: " + ex.getMessage(),
-                            "Export Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        dlg.add(btnTxt);
-
-        JButton btnPdf = new JButton("Download Payslips");
-        btnPdf.setBounds(pad, btnRow2Y, btnW2, BTN_HEIGHT);
-        guiStyleAccentButton(btnPdf);
-        btnPdf.addActionListener(e -> {
-            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-            chooser.setSelectedFile(new java.io.File("PayrollSummary_" + monthName + "_" + year + ".pdf"));
-            if (chooser.showSaveDialog(dlg) == javax.swing.JFileChooser.APPROVE_OPTION) {
-                java.io.File target = chooser.getSelectedFile();
-                if (!target.getName().toLowerCase().endsWith(".pdf"))
-                    target = new java.io.File(target.getAbsolutePath() + ".pdf");
-                try {
-                    byte[] pdf = buildBatchSummaryPdf(computed, monthName, year);
-                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
-                        fos.write(pdf);
-                    }
-                    showToast("Summary PDF saved: " + target.getName());
-                    try {
-                        java.awt.Desktop.getDesktop().open(target);
-                    } catch (Exception ignored) {
-                    }
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(dlg, "Could not save PDF: " + ex.getMessage(),
-                            "Export Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-        dlg.add(btnPdf);
-
         JButton btnExportCsv = new JButton("Export Payroll Summary");
-        btnExportCsv.setBounds(pad + btnW2 + btnGap, btnRow2Y, btnW2, BTN_HEIGHT);
+        btnExportCsv.setBounds(pad + btnW2 + btnGap, btnRowY, btnW2, BTN_HEIGHT);
         guiStyleAccentButton(btnExportCsv);
         btnExportCsv.addActionListener(e -> {
             javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
@@ -7310,7 +7262,7 @@ public class MotorPH_GUI {
         });
         dlg.add(btnExportCsv);
 
-        int closeY = btnRow2Y + BTN_HEIGHT + btnGap;
+        int closeY = btnRowY + BTN_HEIGHT + btnGap;
         JButton btnClose = new JButton("Close");
         btnClose.setBounds(pad, closeY, w, BTN_HEIGHT);
         styleStandardButton(btnClose);
@@ -12721,7 +12673,7 @@ public class MotorPH_GUI {
         southPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, CARD_BORDER_COLOR));
 
         // Export row
-        JPanel exportRow = new JPanel(new java.awt.GridLayout(1, 3, 8, 0));
+        JPanel exportRow = new JPanel(new java.awt.GridLayout(1, 2, 8, 0));
         exportRow.setBackground(APP_BG);
         exportRow.setBorder(BorderFactory.createEmptyBorder(10, 14, 6, 14));
 
@@ -12729,11 +12681,6 @@ public class MotorPH_GUI {
         styleStandardButton(btnCopy);
         btnCopy.addActionListener(e -> copyPayslipToClipboard());
         exportRow.add(btnCopy);
-
-        JButton btnPdf = new JButton("Download Payslips");
-        styleStandardButton(btnPdf);
-        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
-        exportRow.add(btnPdf);
 
         JButton btnExportCsv = new JButton("Export Payroll Summary");
         styleStandardButton(btnExportCsv);
