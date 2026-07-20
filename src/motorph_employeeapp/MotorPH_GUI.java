@@ -1724,17 +1724,47 @@ public class MotorPH_GUI {
         btnCopy.addActionListener(e -> copyPayslipToClipboard());
         panel.add(btnCopy);
 
-        JButton btnExport = new JButton("Download .txt");
-        btnExport.setBounds(x + exportW + 8, y, exportW, BTN_HEIGHT);
-        styleStandardButton(btnExport);
-        btnExport.addActionListener(e -> exportPayrollTextToFile());
-        panel.add(btnExport);
-
-        JButton btnPdf = new JButton("Download .pdf");
-        btnPdf.setBounds(x, y + BTN_HEIGHT + 6, width, BTN_HEIGHT);
-        styleStandardButton(btnPdf);
-        btnPdf.addActionListener(e -> exportBatchPayslipsAsZip());
-        panel.add(btnPdf);
+        JButton btnExportSummary = new JButton("Export Payroll Summary");
+        btnExportSummary.setBounds(x + exportW + 8, y, exportW, BTN_HEIGHT);
+        guiStyleAccentButton(btnExportSummary);
+        btnExportSummary.addActionListener(e -> {
+            java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed = new java.util.ArrayList<>();
+            for (SalaryComputationModule.EmployeePayrollSummary s : lastBatchSummaries) {
+                if (s.computed) {
+                    computed.add(s);
+                }
+            }
+            if (computed.isEmpty()) {
+                JOptionPane.showMessageDialog(frame,
+                        "No payroll data available.\nPlease calculate payroll first.",
+                        "No Data", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            String monthName = computed.get(0).monthName;
+            String year = computed.get(0).year;
+            String csvText = buildBatchSummaryCsv(computed, monthName, year);
+            
+            javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+            chooser.setDialogTitle("Export Payroll Summary");
+            chooser.setSelectedFile(new java.io.File("BatchSummary_" + monthName + "_" + year + ".csv"));
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV File (*.csv)", "csv"));
+            if (chooser.showSaveDialog(frame) != javax.swing.JFileChooser.APPROVE_OPTION)
+                return;
+            java.io.File target = chooser.getSelectedFile();
+            if (!target.getName().toLowerCase().endsWith(".csv")) {
+                target = new java.io.File(target.getAbsolutePath() + ".csv");
+            }
+            try (java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(
+                    new java.io.FileOutputStream(target), java.nio.charset.StandardCharsets.UTF_8)) {
+                osw.write(csvText);
+                showToast("Batch summary exported: " + target.getName());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "Could not export file: " + ex.getMessage(),
+                        "Export Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        panel.add(btnExportSummary);
     }
 
     /**
