@@ -5298,6 +5298,7 @@ public class MotorPH_GUI {
 
         int pendingReports = FileHandlerModule.countPayslipIssuesNeedingAction();
         String reportsLabel = pendingReports > 0 ? "Reports (" + pendingReports + ")" : "Reports";
+        /*
         JButton btnReports = new JButton(reportsLabel);
         btnReports.setBounds((btnW + gap) * 2, 0, btnW, switchH);
         btnReports.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -5312,6 +5313,7 @@ public class MotorPH_GUI {
             }
         });
         modeSwitch.add(btnReports);
+        */
     }
 
     /** Styles the payroll mode buttons based on their active state and position. */
