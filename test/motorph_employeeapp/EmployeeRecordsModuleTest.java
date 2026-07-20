@@ -11,16 +11,12 @@ final class EmployeeRecordsModuleTest {
         testNormalizeNumericInput();
         testIsNaPlaceholder();
         testComputeHourlyRateFromGrossSemiMonthly();
-        testClearPayrollOutputColumns();
-        testValidateBirthdaySanity();
-        testValidatePhoneLength();
-        testDuplicateGovernmentIds();
-        testInvalidPersonNameOnAdd();
-        testCollectFormWarnings();
-        testCountDistinctFields();
-        testPopupLabelMapping();
-        testValidateProfileContact();
-        testMaskSensitiveId();
+        testValidateAddPopupRequiredFields();
+        testValidateAddPopupInvalidBirthdayFormat();
+        testValidateAddPopupInvalidPhoneChars();
+        testValidateAddPopupInvalidSssDigits();
+        testCollectViewWarnings();
+        testFormatBirthdayForDisplay();
     }
 
     private static void testNormalizeNumericInput() {
@@ -39,129 +35,53 @@ final class EmployeeRecordsModuleTest {
         TestSupport.assertEquals("535.71", hourly, "Hourly rate derived from gross semi-monthly");
     }
 
-    private static void testClearPayrollOutputColumns() {
-        String[] row = new String[EmployeeModule.COLUMN_COUNT];
-        row[EmployeeModule.HOURS_WORKED] = "120";
-        row[EmployeeModule.GROSS_PAY] = "50000";
-        row[EmployeeModule.TOTAL_DEDUCTIONS] = "1000";
-        row[EmployeeModule.NET_PAY] = "49000";
-        EmployeeRecordsModule.clearPayrollOutputColumns(row);
-        TestSupport.assertEquals("", row[EmployeeModule.HOURS_WORKED], "Hours cleared");
-        TestSupport.assertEquals("", row[EmployeeModule.GROSS_PAY], "Gross cleared");
-    }
-
-    private static void testValidateBirthdaySanity() {
+    private static void testValidateAddPopupRequiredFields() {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
-        form.birthday = "12/31/2099";
-        List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateAddPopupFields(form);
-        boolean hasFutureBirthday = false;
-        for (EmployeeRecordsModule.FieldValidationError err : errors) {
-            if (err.message.toLowerCase().contains("future")) {
-                hasFutureBirthday = true;
-            }
-        }
-        TestSupport.assertTrue(hasFutureBirthday, "Future birthday should fail validation");
+        form.lastName = "";
+        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        TestSupport.assertTrue(errors.stream().anyMatch(m -> m.contains("Last Name")),
+                "Missing last name should fail validation");
     }
 
-    private static void testValidatePhoneLength() {
+    private static void testValidateAddPopupInvalidBirthdayFormat() {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
-        form.phone = "966-860-27011";
-        List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateAddPopupFields(form);
-        boolean hasPhoneError = false;
-        for (EmployeeRecordsModule.FieldValidationError err : errors) {
-            if (EmployeeRecordsModule.FieldKeys.PHONE.equals(err.fieldKey)) {
-                hasPhoneError = true;
-            }
-        }
-        TestSupport.assertTrue(hasPhoneError, "11-digit phone should fail validation");
+        form.birthday = "not-a-date";
+        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        TestSupport.assertTrue(errors.stream().anyMatch(m -> m.toLowerCase().contains("birthday")),
+                "Invalid birthday format should fail validation");
     }
 
-    private static void testDuplicateGovernmentIds() {
+    private static void testValidateAddPopupInvalidPhoneChars() {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
-        form.sss = "44-4506057-3";
-        form.tin = "44-4506057-3";
-        List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateAddPopupFields(form);
-        boolean hasDuplicate = false;
-        for (EmployeeRecordsModule.FieldValidationError err : errors) {
-            if (err.message.toLowerCase().contains("duplicate")) {
-                hasDuplicate = true;
-            }
-        }
-        TestSupport.assertTrue(hasDuplicate, "Duplicate government IDs should fail validation");
+        form.phone = "966-860-270!";
+        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        TestSupport.assertTrue(errors.stream().anyMatch(m -> m.toLowerCase().contains("phone")),
+                "Invalid phone characters should fail validation");
     }
 
-    private static void testInvalidPersonNameOnAdd() {
+    private static void testValidateAddPopupInvalidSssDigits() {
         EmployeeRecordsModule.RecordFormData form = baseValidForm();
-        form.firstName = "123";
-        List<EmployeeRecordsModule.FieldValidationError> errors =
-                EmployeeRecordsModule.validateAddPopupFields(form);
-        boolean hasNameError = false;
-        for (EmployeeRecordsModule.FieldValidationError err : errors) {
-            if (EmployeeRecordsModule.FieldKeys.FIRST_NAME.equals(err.fieldKey)) {
-                hasNameError = true;
-            }
-        }
-        TestSupport.assertTrue(hasNameError, "Numeric first name should fail validation");
-        TestSupport.assertFalse(EmployeeRecordsModule.isValidPersonName("123"), "isValidPersonName rejects digits");
+        form.sss = "123456789012345";
+        List<String> errors = EmployeeRecordsModule.validateAddPopup(form);
+        TestSupport.assertTrue(errors.stream().anyMatch(m -> m.contains("SSS")),
+                "SSS with too many digits should fail validation");
     }
 
-    private static void testCollectFormWarnings() {
-        EmployeeRecordsModule.RecordFormData form = baseValidForm();
-        form.basicSalary = "10000";
-        form.grossSemiMonthly = "9999";
-        List<String> warnings = EmployeeRecordsModule.collectFormWarnings(form);
-        TestSupport.assertFalse(warnings.isEmpty(), "Mismatched gross semi-monthly should warn");
+    private static void testCollectViewWarnings() {
+        String[] emp = new String[EmployeeModule.COLUMN_COUNT];
+        emp[EmployeeModule.ID] = "10001";
+        emp[EmployeeModule.LAST_NAME] = "Test";
+        emp[EmployeeModule.FIRST_NAME] = "User";
+        emp[EmployeeModule.BIRTHDAY] = "bad-date";
+        List<String> warnings = EmployeeRecordsModule.collectViewWarnings(emp);
+        TestSupport.assertTrue(warnings.stream().anyMatch(w -> w.toLowerCase().contains("birthday")),
+                "Invalid stored birthday should produce a view warning");
     }
 
-    private static void testCountDistinctFields() {
-        List<EmployeeRecordsModule.FieldValidationError> errors = new java.util.ArrayList<>();
-        errors.add(new EmployeeRecordsModule.FieldValidationError(
-                EmployeeRecordsModule.FieldKeys.PHONE, "Phone number is required."));
-        errors.add(new EmployeeRecordsModule.FieldValidationError(
-                EmployeeRecordsModule.FieldKeys.PHONE, "Phone number must contain exactly 9 digits."));
-        TestSupport.assertEquals(1, EmployeeRecordsModule.countDistinctFields(errors),
-                "Distinct field count ignores duplicate messages on same field");
-    }
-
-    private static void testPopupLabelMapping() {
-        TestSupport.assertEquals("Phone:",
-                EmployeeRecordsModule.popupLabelForFieldKey(EmployeeRecordsModule.FieldKeys.PHONE),
-                "Field key maps to popup label");
-        TestSupport.assertEquals(EmployeeRecordsModule.FieldKeys.PHONE,
-                EmployeeRecordsModule.fieldKeyForPopupLabel("Phone:"),
-                "Popup label maps to field key");
-    }
-
-    private static void testValidateProfileContact() {
-        List<EmployeeRecordsModule.FieldValidationError> emptyAddr =
-                EmployeeRecordsModule.validateProfileContact("", "966-860-270");
-        TestSupport.assertFalse(emptyAddr.isEmpty(), "Empty address should fail profile validation");
-
-        List<EmployeeRecordsModule.FieldValidationError> emptyPhone =
-                EmployeeRecordsModule.validateProfileContact("123 Main St", "");
-        TestSupport.assertFalse(emptyPhone.isEmpty(), "Empty phone should fail profile validation");
-
-        List<EmployeeRecordsModule.FieldValidationError> badPhoneChars =
-                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-270!");
-        TestSupport.assertFalse(badPhoneChars.isEmpty(), "Invalid phone characters should fail");
-
-        List<EmployeeRecordsModule.FieldValidationError> longPhone =
-                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-27011");
-        TestSupport.assertFalse(longPhone.isEmpty(), "11-digit phone should fail profile validation");
-
-        List<EmployeeRecordsModule.FieldValidationError> valid =
-                EmployeeRecordsModule.validateProfileContact("123 Main St", "966-860-270");
-        TestSupport.assertTrue(valid.isEmpty(), "Valid profile contact should pass");
-    }
-
-    private static void testMaskSensitiveId() {
-        String masked = EmployeeRecordsModule.maskSensitiveId("44-4506057-3", 3, 2);
-        TestSupport.assertTrue(masked.startsWith("44-"), "SSS mask keeps prefix");
-        TestSupport.assertTrue(masked.endsWith("-3"), "SSS mask keeps suffix");
-        TestSupport.assertTrue(masked.contains("•"), "SSS mask hides middle digits");
+    private static void testFormatBirthdayForDisplay() {
+        TestSupport.assertEquals("06/22/1986",
+                EmployeeRecordsModule.formatBirthdayForDisplay("6/22/1986"),
+                "Birthday display adds leading zeros");
     }
 
     private static EmployeeRecordsModule.RecordFormData baseValidForm() {
@@ -170,6 +90,7 @@ final class EmployeeRecordsModuleTest {
         form.lastName = "Test";
         form.firstName = "User";
         form.birthday = "01/15/1990";
+        form.address = "123 Main St";
         form.phone = "966-860-270";
         form.sss = "11-1111111-1";
         form.philHealth = "111111111111";

@@ -70,4 +70,18 @@
     nbproject/build-impl.xml file. 
 
     -->
+
+    <target name="test" depends="compile">
+        <mkdir dir="${build.test.classes.dir}"/>
+        <javac srcdir="${test.src.dir}"
+               destdir="${build.test.classes.dir}"
+               classpath="${build.classes.dir}"
+               includeantruntime="false"
+               source="${javac.source}"
+               target="${javac.target}"
+               encoding="${source.encoding}"/>
+        <java classname="motorph_employeeapp.AllTests"
+              classpath="${run.test.classpath}"
+              failonerror="true"/>
+    </target>
 </project>

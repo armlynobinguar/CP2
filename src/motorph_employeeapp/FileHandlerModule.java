@@ -27,6 +27,17 @@ public class FileHandlerModule {
     /** Relative path to the employee master data CSV file. */
     public static final String EMPLOYEE_FILE = "resources/MotorPH_Employee Data - Employee Details.csv";
 
+    /** Optional override used by unit tests to avoid touching bundled project data. */
+    private static String testEmployeeFileOverride = null;
+
+    static void setTestEmployeeFileOverrideForTests(String absolutePath) {
+        testEmployeeFileOverride = absolutePath;
+    }
+
+    static void clearTestEmployeeFileOverrideForTests() {
+        testEmployeeFileOverride = null;
+    }
+
     /**
      * Resolves CSV paths whether the app is run from the project root, bin/, or IDE.
      *
@@ -39,6 +50,9 @@ public class FileHandlerModule {
      * @return absolute or relative + relative path string for FileReader
      */
     private static String resolveDataFile(String relativePath) {
+        if (testEmployeeFileOverride != null && EMPLOYEE_FILE.equals(relativePath)) {
+            return testEmployeeFileOverride;
+        }
         File direct = new File(relativePath);
         if (direct.isFile()) {
             return direct.getPath();
