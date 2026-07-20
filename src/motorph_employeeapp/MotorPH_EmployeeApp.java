@@ -120,15 +120,10 @@ public class MotorPH_EmployeeApp {
      * @param args command-line arguments (unused)
      */
     public static void main(String[] args) {
-        // Step 1: Modal login — no payroll data or main window until auth succeeds
-        MotorPH_GUI.showCustomLoginDialog();
-
-        if (loginSuccessful) {
-            // Step 2: Build JFrame, sidebar, and role-specific dashboard
-            MotorPH_GUI.initialize();
-        } else {
-            // User closed the dialog or never logged in
-            System.exit(0);
-        }
+        // Bypass the login dialog and open the HR interface directly on startup.
+        loginSuccessful = true;
+        loggedInRole = UserRole.HR;
+        MotorPH_GUI.loggedInUser = HR_USERNAME;
+        MotorPH_GUI.initialize();
     }
 }
