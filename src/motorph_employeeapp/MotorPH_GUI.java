@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EventObject;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -271,7 +270,6 @@ public class MotorPH_GUI {
     static String currentView = "Dashboard";
     static JLabel statusToastLbl;
     static javax.swing.Timer toastTimer;
-    static final Set<String> readNotificationKeys = new HashSet<>();
     static boolean resizeHandlerInstalled = false;
     static boolean reloadingLayout = false;
 
@@ -2914,170 +2912,6 @@ public class MotorPH_GUI {
         return 1; // Default to January (index 1 in MONTH_NUMBERS)
     }
 
-    /** Generates a unique key for a notification based on its category and text. */
-    private static String notificationKey(NotificationModule.Notification n) {
-        return n.category + "::" + n.text;
-    }
-
-    /**
-     * Builds the list of system notifications based on the current date and user
-     * role.
-     */
-    private static List<NotificationModule.Notification> buildSystemNotifications() {
-        List<NotificationModule.Notification> allNotifications = new ArrayList<>();
-        LocalDate today = LocalDate.now();
-        int dom = today.getDayOfMonth();
-        int lastDay = today.lengthOfMonth();
-
-        // Shared cut-off math
-        int cutoffDay = dom <= 15 ? 15 : lastDay;
-        long daysToCut = cutoffDay - dom;
-        String cutoffPeriod = cutoffDay == 15 ? "1st–15th" : "16th–end of month";
-        String cutoffMonth = today.getMonth().name().charAt(0)
-                + today.getMonth().name().substring(1, 3).toLowerCase();
-
-        if (isHrUser()) {
-            // ── HR notifications: payroll processing, attendance oversight, birthdays ──
-
-            // Payroll cut-off reminder (processing frame, not receiving)
-            if (daysToCut == 0) {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Payroll cut-off is today (" + cutoffMonth + " " + cutoffDay
-                                + "). Finalize all salary computations for the " + cutoffPeriod + " period now."));
-            } else if (daysToCut <= 3) {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Payroll cut-off in " + daysToCut + " day(s) — " + cutoffMonth + " " + cutoffDay
-                                + ". Prepare and review salary computations for the " + cutoffPeriod + " period."));
-            } else {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Next payroll cut-off: " + cutoffMonth + " " + cutoffDay
-                                + " (" + daysToCut + " day(s) away). Period: " + cutoffPeriod + "."));
-            }
-
-            allNotifications.add(new NotificationModule.Notification("Payroll",
-                    "Reminder: Verify SSS, PhilHealth, and Pag-IBIG deduction amounts for all "
-                            + "employees before finalizing this period's payroll run."));
-
-            // Attendance cut-off — HR oversight framing
-            if (daysToCut >= 0 && daysToCut <= 5) {
-                allNotifications.add(new NotificationModule.Notification("Attendance",
-                        "Attendance cut-off is " + (daysToCut == 0 ? "today" : "in " + daysToCut + " day(s)")
-                                + ". Review all employee time-in/out entries before processing payroll."));
-            }
-
-            // Birthday notifications for ALL employees
-            for (String[] emp : FileHandlerModule.getAllEmployees()) {
-                String b = safeColumn(emp, EmployeeModule.BIRTHDAY);
-                if (b == null || b.isEmpty() || b.equals("-") || !b.contains("/"))
-                    continue;
-                try {
-                    String[] parts = b.split("/");
-                    int m = Integer.parseInt(parts[0].trim());
-                    int d = Integer.parseInt(parts[1].trim());
-                    if (m == today.getMonthValue() && d == today.getDayOfMonth()) {
-                        allNotifications.add(new NotificationModule.Notification("Birthday",
-                                "Today is " + EmployeeModule.fullName(emp)
-                                        + "'s birthday. Don't forget to send greetings!"));
-                    }
-                } catch (NumberFormatException ex) {
-                    /* ignore malformed */ }
-            }
-
-        } else {
-            // ── Employee notifications: personal pay, payslip, and attendance ──
-
-            LocalDate nextPay = dom < 15 ? today.withDayOfMonth(15)
-                    : dom < lastDay ? today.withDayOfMonth(lastDay)
-                            : today.plusMonths(1).withDayOfMonth(15);
-            long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, nextPay);
-            String payMonth = nextPay.getMonth().name().charAt(0)
-                    + nextPay.getMonth().name().substring(1, 3).toLowerCase();
-            String payPeriod = nextPay.getDayOfMonth() == 15 ? "1st–15th" : "16th–end of month";
-
-            if (daysUntil == 0) {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Pay day is today! Your salary for the " + payPeriod + " period of "
-                                + payMonth + " has been processed. Check My Payslip for your breakdown."));
-            } else if (daysUntil <= 3) {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Pay day in " + daysUntil + " day(s) — " + payMonth + " " + nextPay.getDayOfMonth()
-                                + ". Your salary for the " + payPeriod + " period will be released then."));
-            } else {
-                allNotifications.add(new NotificationModule.Notification("Payroll",
-                        "Next pay day: " + payMonth + " " + nextPay.getDayOfMonth()
-                                + " (" + daysUntil + " day(s) away). Period covered: " + payPeriod + "."));
-            }
-
-            allNotifications.add(new NotificationModule.Notification("Payroll",
-                    "Reminder: SSS, PhilHealth, and Pag-IBIG contributions are automatically "
-                            + "deducted each pay period. Review your payslip for the full breakdown."));
-
-            allNotifications.add(new NotificationModule.Notification("Payroll",
-                    "Your most recent payslip is ready. Open My Payslip in the sidebar to view your full breakdown."));
-
-            // Birthday only for the logged-in employee
-            for (String[] emp : FileHandlerModule.getAllEmployees()) {
-                String b = safeColumn(emp, EmployeeModule.BIRTHDAY);
-                if (b == null || b.isEmpty() || b.equals("-") || !b.contains("/"))
-                    continue;
-                try {
-                    String[] parts = b.split("/");
-                    int m = Integer.parseInt(parts[0].trim());
-                    int d = Integer.parseInt(parts[1].trim());
-                    if (m == today.getMonthValue() && d == today.getDayOfMonth()) {
-                        String fullName = EmployeeModule.fullName(emp);
-                        boolean isThisUser = fullName.equalsIgnoreCase(loggedInUser)
-                                || (emp.length > EmployeeModule.FIRST_NAME
-                                        && emp[EmployeeModule.FIRST_NAME].equalsIgnoreCase(loggedInUser))
-                                || getLoggedInEmployeeId() != null
-                                        && getLoggedInEmployeeId().equals(safeColumn(emp, EmployeeModule.ID));
-                        if (isThisUser) {
-                            allNotifications.add(new NotificationModule.Notification("Birthday",
-                                    "Happy Birthday, " + emp[EmployeeModule.FIRST_NAME]
-                                            + "! Wishing you a wonderful day!"));
-                        }
-                    }
-                } catch (NumberFormatException ex) {
-                    /* ignore malformed */ }
-            }
-
-            // Attendance cut-off — personal framing
-            if (daysToCut >= 0 && daysToCut <= 5) {
-                allNotifications.add(new NotificationModule.Notification("Attendance",
-                        "Attendance cut-off is " + (daysToCut == 0 ? "today" : "in " + daysToCut + " day(s)")
-                                + ". Make sure all your time-in/out entries are complete for this period."));
-            }
-        }
-
-        for (NotificationModule.Notification n : allNotifications) {
-            n.read = readNotificationKeys.contains(notificationKey(n));
-        }
-        return allNotifications;
-    }
-
-    /** Counts the number of unread notifications. */
-    private static int countUnreadNotifications() {
-        int count = 0;
-        for (NotificationModule.Notification n : buildSystemNotifications()) {
-            if (!n.read) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    /**
-     * Flags a system notification object as read and logs its reference signature
-     * to file arrays.
-     */
-    private static void markNotificationRead(NotificationModule.Notification n) {
-        if (n == null) {
-            return;
-        }
-        n.read = true;
-        readNotificationKeys.add(notificationKey(n));
-    }
-
     /** Reloads the current view. */
     private static void reloadCurrentView() {
         if (frame == null || currentView == null || reloadingLayout) {
@@ -3112,9 +2946,6 @@ public class MotorPH_GUI {
                 } else {
                     showMyProfileUI();
                 }
-                break;
-            case "Notifications":
-                showNotificationsUI();
                 break;
             default:
                 showDashboard();
@@ -4996,39 +4827,19 @@ public class MotorPH_GUI {
      * notifications.
      */
     private static JPanel buildEmployeeUpdatesCard(int x, int y, int w, int h) {
-        List<NotificationModule.Notification> notifs = buildSystemNotifications();
-
         JPanel card = makeDashboardCardShell(x, y, w, h);
         addCardIconAndTitle(card, "N", "Updates", w);
 
         int cx = DASH_CARD_INSET, cw = w - DASH_CARD_INSET * 2, rh = 18, cy = 74;
-        int shown = 0;
-        for (NotificationModule.Notification n : notifs) {
-            if (shown >= 3)
-                break;
-            int maxChars = cw / 7;
-            String line = n.text.length() > maxChars ? n.text.substring(0, maxChars - 1) + "…" : n.text;
-            JLabel bullet = new JLabel("• " + line);
-            bullet.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            bullet.setForeground(new Color(55, 70, 105));
-            bullet.setBounds(cx, cy, cw, rh);
-            card.add(bullet);
-            cy += rh + 6;
-            shown++;
-        }
-        if (shown == 0) {
-            JLabel none = new JLabel("No new notifications.");
-            none.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-            none.setForeground(TEXT_MUTED);
-            none.setBounds(cx, cy, cw, rh);
-            card.add(none);
-            cy += rh;
-        }
+        JLabel none = new JLabel("No updates available at the moment.");
+        none.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        none.setForeground(TEXT_MUTED);
+        none.setBounds(cx, cy, cw, rh);
+        card.add(none);
+        cy += rh;
 
         card.putClientProperty(DASH_SUBTITLE_BOTTOM_KEY, cy);
-        addDashboardCardButton(card, w, h, "Open Notifications", w - DASH_CARD_INSET * 2, false,
-                e -> showNotificationsUI());
-        addCardHoverAndClick(card, h, e -> showNotificationsUI());
+        addCardHoverAndClick(card, h, e -> showDashboard());
         return card;
     }
 
@@ -5130,39 +4941,19 @@ public class MotorPH_GUI {
      * resources.
      */
     private static JPanel buildHrAnnouncementsCard(int x, int y, int w, int h) {
-        List<NotificationModule.Notification> notifs = buildSystemNotifications();
-
         JPanel card = makeDashboardCardShell(x, y, w, h);
         addCardIconAndTitle(card, "A", "HR Announcements", w);
 
         int cx = DASH_CARD_INSET, cw = w - DASH_CARD_INSET * 2, rh = 18, cy = 74;
-        int shown = 0;
-        for (NotificationModule.Notification n : notifs) {
-            if (shown >= 3)
-                break;
-            int maxChars = cw / 7;
-            String line = n.text.length() > maxChars ? n.text.substring(0, maxChars - 1) + "…" : n.text;
-            JLabel bullet = new JLabel("• " + line);
-            bullet.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            bullet.setForeground(new Color(55, 70, 105));
-            bullet.setBounds(cx, cy, cw, rh);
-            card.add(bullet);
-            cy += rh + 6;
-            shown++;
-        }
-        if (shown == 0) {
-            JLabel none = new JLabel("No announcements at this time.");
-            none.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-            none.setForeground(TEXT_MUTED);
-            none.setBounds(cx, cy, cw, rh);
-            card.add(none);
-            cy += rh;
-        }
+        JLabel none = new JLabel("No announcements at this time.");
+        none.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        none.setForeground(TEXT_MUTED);
+        none.setBounds(cx, cy, cw, rh);
+        card.add(none);
+        cy += rh;
 
         card.putClientProperty(DASH_SUBTITLE_BOTTOM_KEY, cy);
-        addDashboardCardButton(card, w, h, "Open Notifications", w - DASH_CARD_INSET * 2, false,
-                e -> showNotificationsUI());
-        addCardHoverAndClick(card, h, e -> showNotificationsUI());
+        addCardHoverAndClick(card, h, e -> showDashboard());
         return card;
     }
 
@@ -5245,11 +5036,6 @@ public class MotorPH_GUI {
                     e -> setupPayrollUI());
             btnY += btnH + SIDEBAR_NAV_GAP;
         }
-
-        int unread = countUnreadNotifications();
-        String notifLabel = unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
-        addSidebarNavButton(sidebar, notifLabel, 0, btnY, sw, btnH, "Notifications".equals(activePage),
-                e -> showNotificationsUI());
 
         // Anchor Sign Out to a fixed slot above the sidebar bottom with extra clearance
         final int LOGOUT_BTN_H = BTN_HEIGHT;
@@ -12443,7 +12229,7 @@ public class MotorPH_GUI {
                     + "  - Raise your concern with HR within 3 working days of pay day\n"
                     + "  - Late disputes may be processed in the next pay cycle\n"
                     + "  - Bring your payslip as reference when reporting\n\n"
-                    + "You can also send a concern via the Notifications panel in this app.";
+                    + "You can also send a concern through the HR or payroll support channels in this app.";
         }
 
         // Default / unknown
@@ -12455,344 +12241,6 @@ public class MotorPH_GUI {
                 + "  'What deductions are taken from my salary?'\n"
                 + "  'How is the 13th month pay computed?'\n\n"
                 + "Try rephrasing your question, or ask about a specific topic above.";
-    }
-
-    /** Shows the Notifications UI. */
-    static void showNotificationsUI() {
-        currentView = "Notifications";
-        frame.getContentPane().removeAll();
-        frame.setLayout(null);
-        frame.getContentPane().setBackground(APP_BG);
-        buildAndAddSidebar("Notifications");
-        addPageHeader("Notifications");
-
-        java.awt.Rectangle bounds = getContentBounds();
-        int panelW = bounds.width;
-        int panelH = bounds.height;
-        int panelX = bounds.x;
-        boolean stackActions = panelW < RESP_NOTIF_STACK_ACTIONS;
-
-        JPanel panel = new JPanel(null);
-        panel.setBackground(PALETTE_WHITE);
-        panel.setBounds(panelX, bounds.y, panelW, panelH);
-        panel.setBorder(cardBorder());
-
-        List<NotificationModule.Notification> allNotifications = buildSystemNotifications();
-        DefaultListModel<NotificationModule.Notification> model = new DefaultListModel<>();
-        for (NotificationModule.Notification n : allNotifications)
-            model.addElement(n);
-
-        // ── Filter bar (wraps to two rows on narrow panels) ────────────────
-        final int filterTop = 16;
-        final int filterRowH = 28;
-        int filterBtnW = 88;
-        final int filterBtnGap = 8;
-        final int filterStartX = 20;
-        String[] filters = { "All", "Unread", "Payroll", "Birthday", "Attendance" };
-        int filtersAreaW = panelW - filterStartX - 56 - 20;
-        while (filters.length * (filterBtnW + filterBtnGap) - filterBtnGap > filtersAreaW && filterBtnW > 68) {
-            filterBtnW -= 4;
-        }
-        boolean filterWrap = filters.length * (filterBtnW + filterBtnGap) - filterBtnGap > filtersAreaW;
-        int perFilterRow = filterWrap ? (filters.length + 1) / 2 : filters.length;
-        int filterRows = filterWrap ? 2 : 1;
-        final int listTop = filterTop + filterRows * (filterRowH + 6) + 14;
-
-        JLabel filterLbl = new JLabel("Filter:");
-        filterLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        filterLbl.setForeground(TEXT_DARK_NAVY);
-        filterLbl.setBounds(filterStartX, filterTop + 4, 48, 20);
-        panel.add(filterLbl);
-
-        JButton[] filterBtns = new JButton[filters.length];
-        for (int fi = 0; fi < filters.length; fi++) {
-            JButton fb = new JButton(filters[fi]);
-            fb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            fb.setFocusable(false);
-            fb.setOpaque(true);
-            fb.setBackground(fi == 0 ? ACCENT_BLUE : new Color(240, 244, 252));
-            fb.setForeground(fi == 0 ? PALETTE_WHITE : TEXT_DARK_NAVY);
-            fb.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-            int row = filterWrap ? fi / perFilterRow : 0;
-            int col = filterWrap ? fi % perFilterRow : fi;
-            fb.setBounds(filterStartX + 56 + col * (filterBtnW + filterBtnGap),
-                    filterTop + row * (filterRowH + 6), filterBtnW, filterRowH);
-            filterBtns[fi] = fb;
-            panel.add(fb);
-        }
-
-        // ── Unread count label (declared early so lambdas can reference it) ─
-        JLabel unreadLbl = new JLabel();
-        unreadLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        unreadLbl.setForeground(new Color(100, 115, 145));
-
-        // ── Notification list ──────────────────────────────────────────────
-        JList<NotificationModule.Notification> list = new JList<>(model);
-        list.setCellRenderer(new NotificationCellRenderer());
-        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        list.setFixedCellHeight(64);
-        list.setBackground(new Color(248, 250, 254));
-
-        int listW = stackActions ? panelW - 40 : panelW - 220;
-        int actionBlockH = stackActions ? 196 : 0;
-        int listH = stackActions ? panelH - listTop - actionBlockH - 20 : panelH - listTop - 44;
-        JScrollPane sp = new JScrollPane(list);
-        sp.setBounds(20, listTop, listW, Math.max(120, listH));
-        sp.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-        sp.getVerticalScrollBar().setUnitIncrement(16);
-        panel.add(sp);
-
-        // Tracks which filter chip is currently active so actions know the view context
-        final String[] activeFilter = { "All" };
-
-        // Helper: refresh the unread count text after any state change
-        Runnable refreshCount = () -> {
-            long uc = allNotifications.stream().filter(nn -> !nn.read).count();
-            unreadLbl.setText(uc + " unread of " + allNotifications.size());
-        };
-
-        // Helper: mark as read — removes from view only when the Unread filter is
-        // active
-        java.util.function.Consumer<NotificationModule.Notification> markReadInView = n -> {
-            markNotificationRead(n);
-            if ("Unread".equals(activeFilter[0])) {
-                DefaultListModel<NotificationModule.Notification> m = (DefaultListModel<NotificationModule.Notification>) list
-                        .getModel();
-                m.removeElement(n);
-            } else {
-                list.repaint(); // re-render row to show dimmed/read style
-            }
-            refreshCount.run();
-        };
-
-        // Helper: dismiss — permanently removes from backing list and current view
-        java.util.function.Consumer<NotificationModule.Notification> dismissFromView = n -> {
-            allNotifications.remove(n);
-            DefaultListModel<NotificationModule.Notification> m = (DefaultListModel<NotificationModule.Notification>) list
-                    .getModel();
-            m.removeElement(n);
-            refreshCount.run();
-        };
-
-        // ── Single-click selects; double-click opens detail and marks read ─
-        list.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() != 2)
-                    return;
-                int idx = list.locationToIndex(e.getPoint());
-                if (idx < 0)
-                    return;
-                NotificationModule.Notification n = ((DefaultListModel<NotificationModule.Notification>) list
-                        .getModel()).getElementAt(idx);
-                if (n == null)
-                    return;
-                markReadInView.accept(n);
-                showNotificationDetail(n);
-            }
-        });
-
-        // ── Action panel (right column, or below list when narrow) ─────────
-        int actionX = stackActions ? 20 : listW + 36;
-        int actionW = stackActions ? listW : panelW - actionX - 16;
-        int actionsTop = stackActions ? listTop + Math.max(120, listH) + 16 : listTop;
-
-        JLabel actTitle = new JLabel("Actions");
-        actTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        actTitle.setForeground(TEXT_DARK_NAVY);
-        actTitle.setBounds(actionX, actionsTop, actionW, 22);
-        panel.add(actTitle);
-
-        JButton btnMarkRead = new JButton("Mark as Read");
-        btnMarkRead.setBounds(actionX, actionsTop + 30, actionW, 32);
-        guiStyleAccentButton(btnMarkRead);
-        btnMarkRead.addActionListener(e -> {
-            int idx = list.getSelectedIndex();
-            if (idx >= 0) {
-                NotificationModule.Notification n = ((DefaultListModel<NotificationModule.Notification>) list
-                        .getModel()).getElementAt(idx);
-                markReadInView.accept(n);
-                showToast("Notification marked as read.");
-            }
-        });
-        panel.add(btnMarkRead);
-
-        JButton btnDismiss = new JButton("Dismiss");
-        btnDismiss.setBounds(actionX, actionsTop + 72, actionW, 32);
-        styleStandardButton(btnDismiss);
-        btnDismiss.addActionListener(e -> {
-            int idx = list.getSelectedIndex();
-            if (idx >= 0) {
-                NotificationModule.Notification n = ((DefaultListModel<NotificationModule.Notification>) list
-                        .getModel()).getElementAt(idx);
-                dismissFromView.accept(n);
-            }
-        });
-        panel.add(btnDismiss);
-
-        JButton btnMarkAll = new JButton("Mark All Read");
-        btnMarkAll.setBounds(actionX, actionsTop + 114, actionW, 32);
-        styleStandardButton(btnMarkAll);
-        btnMarkAll.addActionListener(e -> {
-            for (NotificationModule.Notification n : allNotifications)
-                markNotificationRead(n);
-            if ("Unread".equals(activeFilter[0])) {
-                ((DefaultListModel<NotificationModule.Notification>) list.getModel()).clear();
-            } else {
-                list.repaint();
-            }
-            refreshCount.run();
-            showToast("All notifications marked as read.");
-        });
-        panel.add(btnMarkAll);
-
-        // Position and populate the unread count label now that actionX/Y are known
-        unreadLbl.setBounds(actionX, actionsTop + 162, actionW, 18);
-        refreshCount.run();
-        panel.add(unreadLbl);
-
-        // ── Filter button wiring ───────────────────────────────────────────
-        for (int fi = 0; fi < filters.length; fi++) {
-            final String cat = filters[fi];
-            final int idx = fi;
-            filterBtns[fi].addActionListener(e -> {
-                activeFilter[0] = cat;
-                for (int j = 0; j < filterBtns.length; j++) {
-                    filterBtns[j].setBackground(j == idx ? ACCENT_BLUE : new Color(240, 244, 252));
-                    filterBtns[j].setForeground(j == idx ? PALETTE_WHITE : TEXT_DARK_NAVY);
-                }
-                DefaultListModel<NotificationModule.Notification> filtered = new DefaultListModel<>();
-                for (NotificationModule.Notification n : allNotifications) {
-                    if ("All".equals(cat))
-                        filtered.addElement(n);
-                    else if ("Unread".equals(cat) && !n.read)
-                        filtered.addElement(n);
-                    else if (n.category.equals(cat))
-                        filtered.addElement(n);
-                }
-                list.setModel(filtered);
-            });
-        }
-
-        frame.add(panel);
-        addStatusBar();
-        updateDisplay();
-    }
-
-    /** Shows the detail view for a specific notification. */
-    private static void showNotificationDetail(NotificationModule.Notification n) {
-        javax.swing.JDialog dialog = new javax.swing.JDialog(frame, "Notification", true);
-        dialog.setSize(480, 220);
-        dialog.setLocationRelativeTo(frame);
-        dialog.setResizable(false);
-        dialog.setLayout(new java.awt.BorderLayout());
-
-        // Category badge strip
-        JPanel strip = new JPanel(new java.awt.BorderLayout(0, 0));
-        strip.setBackground(ACCENT_BLUE);
-        strip.setPreferredSize(new java.awt.Dimension(0, 40));
-        strip.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 16));
-
-        JLabel catLbl = new JLabel(n.category.toUpperCase());
-        catLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        catLbl.setForeground(PALETTE_WHITE);
-        strip.add(catLbl, java.awt.BorderLayout.WEST);
-
-        String ts = n.timestamp;
-        try {
-            java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(ts);
-            String mon = ldt.getMonth().name();
-            mon = mon.charAt(0) + mon.substring(1).toLowerCase();
-            ts = mon + " " + ldt.getDayOfMonth() + ", " + ldt.getYear()
-                    + "  " + String.format("%02d:%02d", ldt.getHour(), ldt.getMinute());
-        } catch (Exception ignored) {
-        }
-        JLabel tsLbl = new JLabel(ts);
-        tsLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        tsLbl.setForeground(new Color(220, 230, 245));
-        strip.add(tsLbl, java.awt.BorderLayout.EAST);
-
-        dialog.add(strip, java.awt.BorderLayout.NORTH);
-
-        // Message body fills remaining space
-        JTextArea body = new JTextArea(n.text);
-        body.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        body.setForeground(TEXT_DARK_NAVY);
-        body.setBackground(PALETTE_WHITE);
-        body.setEditable(false);
-        body.setLineWrap(true);
-        body.setWrapStyleWord(true);
-        body.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
-        JScrollPane bodyScroll = new JScrollPane(body,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        bodyScroll.setBorder(null);
-        dialog.add(bodyScroll, java.awt.BorderLayout.CENTER);
-
-        dialog.setVisible(true);
-    }
-
-    // Renderer: show colored circular badges per category and neutral row
-    // background
-    static class NotificationCellRenderer implements ListCellRenderer<NotificationModule.Notification> {
-        @Override
-        public java.awt.Component getListCellRendererComponent(
-                javax.swing.JList<? extends NotificationModule.Notification> list,
-                NotificationModule.Notification value,
-                int index, boolean isSelected, boolean cellHasFocus) {
-            String text = value == null ? "" : value.toString();
-            JLabel lbl = new JLabel(text);
-            lbl.setOpaque(true);
-            Color fg = new Color(11, 29, 58);
-            Color bg = Color.white;
-            Icon icon = null;
-            if (value != null) {
-                icon = new ColoredCircleIcon(value.read ? new Color(190, 205, 230) : ACCENT_BLUE, 12);
-                if (value.read)
-                    fg = new Color(160, 170, 185);
-            }
-            lbl.setIcon(icon);
-            lbl.setIconTextGap(10);
-            if (isSelected) {
-                lbl.setBackground(list.getSelectionBackground());
-                lbl.setForeground(list.getSelectionForeground());
-            } else {
-                lbl.setBackground(bg);
-                lbl.setForeground(fg);
-            }
-            lbl.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-            return lbl;
-        }
-    }
-
-    // Simple colored circle icon for badges
-    static class ColoredCircleIcon implements Icon {
-        private final Color color;
-        private final int size;
-
-        ColoredCircleIcon(Color color, int size) {
-            this.color = color;
-            this.size = size;
-        }
-
-        @Override
-        public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
-            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(color);
-            g2.fillOval(x, y, size, size);
-            g2.dispose();
-        }
-
-        @Override
-        public int getIconWidth() {
-            return size;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return size;
-        }
     }
 
     /** Calendar icon for HR birthday picker button. */
@@ -13820,8 +13268,6 @@ public class MotorPH_GUI {
         String l = label.toLowerCase();
         if (l.contains("dashboard") || l.contains("main menu"))
             showDashboard();
-        else if (l.contains("notification"))
-            showNotificationsUI();
         else if (l.contains("pay") || l.contains("coverage"))
             setupPayrollUI();
         else if (l.contains("employee") || l.contains("record"))
