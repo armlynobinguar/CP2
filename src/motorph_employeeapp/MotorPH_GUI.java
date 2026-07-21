@@ -79,16 +79,9 @@ import javax.swing.table.TableRowSorter;
  * lines).
  *
  * <p>
- * Two role-based portals share this class:
+ * This presentation layer now serves as an HR-only administration tool for
+ * employee records, payroll processing, and attendance oversight.
  * </p>
- * <ul>
- * <li><b>Employee</b> — dashboard, PDF-style My Payslip (period navigation +
- * filter),
- * profile </li>
- * <li><b>HR</b> — employee records CRUD, revision history, single/batch
- * payroll,
- * attendance view </li>
- * </ul>
  *
  * <p>
  * Layout uses null layout ({@code setBounds}) with responsive breakpoints via
@@ -106,11 +99,11 @@ import javax.swing.table.TableRowSorter;
  * theme constants</li>
  * <li>399–1195 — table styling, HR batch payroll selection UI, export
  * helpers</li>
- * <li>1196–2230 — employee payslip PDF viewer, cut-off navigation, filter
- * dialog, bulk PDF export</li>
+ * <li>1196–2230 — employee payslip viewer, cut-off navigation, filter
+ * dialog, bulk export</li>
  * <li>2237–2680 — toasts, view reload, live search
  * filters</li>
- * <li>2681–3310 — payslip PDF rendering, CSV undo/redo snapshot helpers</li>
+ * <li>2681–3310 — payslip rendering, CSV undo/redo snapshot helpers</li>
  * <li>3315–3688 — login dialog and {@link #initialize()} bootstrap</li>
  * <li>3689–4290 — dashboards (employee + HR cards, calendar, sidebar)</li>
  * <li>4291–5050 — page headers, breadcrumbs, shared layout helpers</li>
@@ -150,12 +143,12 @@ public class MotorPH_GUI {
     static JTextArea txtResultArea;
     /** Styled payslip display shown in the payroll results panel. */
     static JTextPane richPane;
-    /** Last computed batch payroll summaries; used for ZIP PDF export. */
+    /** Last computed batch payroll summaries; used for ZIP export. */
     private static java.util.List<SalaryComputationModule.EmployeePayrollSummary> lastBatchSummaries = new java.util.ArrayList<>();
     private static javax.swing.text.Style rsNormal, rsBold, rsHeader, rsNet, rsMuted,
             rsSectionTitle, rsDeduct, rsWarn;
 
-    /** Employee payslip PDF-style viewer host (employee portal only). */
+    /** Employee payslip PDF-style viewer host retained for HR payroll export workflows. */
     static JPanel employeePayslipViewport;
     static JScrollPane employeePayslipScroll;
     static int employeePayslipViewportW;
@@ -1894,7 +1887,7 @@ public class MotorPH_GUI {
         JPanel footer = new JPanel(null);
         footer.setBackground(new Color(240, 242, 246));
         footer.setBounds(0, docH - 48, docW, 48);
-        JLabel foot = new JLabel("MotorPH Employee Portal  ·  Confidential", SwingConstants.CENTER);
+        JLabel foot = new JLabel("MotorPH HR Administration  ·  Confidential", SwingConstants.CENTER);
         foot.setFont(new Font("Segoe UI", Font.PLAIN, 9));
         foot.setForeground(new Color(107, 112, 128));
         foot.setBounds(0, 16, docW, 16);
@@ -2332,7 +2325,7 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Employee portal payslip screen: period header (Older/Newer + filter funnel),
+     * HR payroll payslip view: period header (Older/Newer + filter funnel),
      * auto-loaded PDF-style document, and action bar (Copy, Download PDF/txt,
      * Report Issue).
      * HR users never reach this method — they use
@@ -4068,7 +4061,7 @@ public class MotorPH_GUI {
         lblTitle.setForeground(PALETTE_WHITE);
         lblTitle.setBounds(0, 22, 356, 32);
 
-        JLabel lblSubtitle = new JLabel("Employee & HR Portals", SwingConstants.CENTER);
+        JLabel lblSubtitle = new JLabel("HR Administration", SwingConstants.CENTER);
         lblSubtitle.setFont(LOGIN_APP_FONT_PLAIN);
         lblSubtitle.setForeground(new Color(175, 205, 250));
         lblSubtitle.setBounds(0, 56, 356, 22);
@@ -4209,14 +4202,8 @@ public class MotorPH_GUI {
                     setLoginFieldError(usernameField);
                     setLoginFieldError(passwordField);
                     List<String> authErrors = new ArrayList<>();
-                    boolean employeeAttempt = MotorPH_EmployeeApp.EMPLOYEE_USERNAME.equals(user)
-                            && MotorPH_EmployeeApp.EMPLOYEE_PASSWORD.equals(pass);
-                    if (employeeAttempt) {
-                        authErrors.add("Access restricted to HR personnel only.");
-                    } else {
-                        authErrors.add("Invalid username or password.");
-                        authErrors.add("Please check your credentials and try again.");
-                    }
+                    authErrors.add("Invalid username or password.");
+                    authErrors.add("Please check your credentials and try again.");
                     showBulletErrorDialog(loginDialog, authErrors, "Login Failed",
                             JOptionPane.ERROR_MESSAGE);
                 }
@@ -4396,13 +4383,18 @@ public class MotorPH_GUI {
      */
     public static void initialize() {
         frame = new JFrame();
-        frame.setTitle(isHrUser() ? "MotorPH HR Management System" : "MotorPH Employee Portal");
+        frame.setTitle("MotorPH HR Management System");
         frame.setMinimumSize(new Dimension(1024, 680));
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(true);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         installWindowResizeHandler();
         installGlobalShortcuts();
+        if (loggedInUser == null || loggedInUser.trim().isEmpty()) {
+            loggedInUser = "HR Admin";
+        }
+        MotorPH_EmployeeApp.loggedInRole = MotorPH_EmployeeApp.UserRole.HR;
+        MotorPH_EmployeeApp.loginSuccessful = true;
         showDashboard();
     }
 
@@ -4414,12 +4406,7 @@ public class MotorPH_GUI {
         loggedInUser = "";
         MotorPH_EmployeeApp.loggedInRole = null;
         MotorPH_EmployeeApp.loginSuccessful = false;
-        showCustomLoginDialog();
-        if (MotorPH_EmployeeApp.loginSuccessful) {
-            initialize();
-        } else {
-            System.exit(0);
-        }
+        System.exit(0);
     }
 
     /**
@@ -4434,26 +4421,8 @@ public class MotorPH_GUI {
         frame.getContentPane().setBackground(APP_BG);
 
         buildAndAddSidebar("Dashboard");
-        String dashSubtitle;
-        if (!isHrUser()) {
-            String empId = MotorPH_EmployeeApp.getLinkedEmployeeId(loggedInUser);
-            String empName = loggedInUser;
-            if (empId != null) {
-                String rawLine = FileHandlerModule.findEmployeeData(empId);
-                if (rawLine != null) {
-                    String[] empRow = FileHandlerModule.smartSplit(rawLine);
-                    String full = EmployeeModule.fullName(empRow);
-                    if (!"Unknown".equals(full))
-                        empName = full;
-                }
-            }
-            dashSubtitle = "Welcome back, " + empName + ".";
-        } else {
-            dashSubtitle = "Welcome back — " + getRoleDisplayName() + " Portal";
-        }
-        addPageHeader(
-                isHrUser() ? "HR Dashboard" : "Employee Dashboard",
-                dashSubtitle);
+        String dashSubtitle = "HR administration workspace ready for payroll and employee records.";
+        addPageHeader("HR Dashboard", dashSubtitle);
 
         java.awt.Rectangle bounds = getContentBounds();
         int calGap = 20;
@@ -4482,28 +4451,12 @@ public class MotorPH_GUI {
         JPanel cards = new JPanel(null);
         cards.setBackground(APP_BG);
 
-        if (isHrUser()) {
-            if (singleColumnCards) {
-                cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
-                cards.add(buildHrPayrollCard(0, dashRowH + DASH_CARD_GAP, colW, dashRowH));
-            } else {
-                cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
-                cards.add(buildHrPayrollCard(colW + DASH_CARD_GAP, 0, colW, dashRowH));
-            }
+        if (singleColumnCards) {
+            cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
+            cards.add(buildHrPayrollCard(0, dashRowH + DASH_CARD_GAP, colW, dashRowH));
         } else {
-            String linkedId = MotorPH_EmployeeApp.getLinkedEmployeeId(loggedInUser);
-            String empLine = linkedId != null ? FileHandlerModule.findEmployeeData(linkedId) : null;
-            String[] emp = empLine != null ? FileHandlerModule.smartSplit(empLine) : null;
-
-            if (singleColumnCards) {
-                cards.add(buildEmployeePayslipCard(0, 0, colW, dashRowH, emp));
-                cards.add(buildEmployeeProfileCard(0, dashRowH + DASH_CARD_GAP, colW, dashRowH, emp));
-                cards.add(buildEmployeeUpdatesCard(0, 2 * (dashRowH + DASH_CARD_GAP), colW, dashRowH));
-            } else {
-                cards.add(buildEmployeePayslipCard(0, 0, colW, dashRowH, emp));
-                cards.add(buildEmployeeProfileCard(colW + DASH_CARD_GAP, 0, colW, dashRowH, emp));
-                cards.add(buildEmployeeUpdatesCard(0, dashRowH + DASH_CARD_GAP, leftW, dashRowH));
-            }
+            cards.add(buildHrEmployeeRecordsCard(0, 0, colW, dashRowH));
+            cards.add(buildHrPayrollCard(colW + DASH_CARD_GAP, 0, colW, dashRowH));
         }
 
         cards.setPreferredSize(new java.awt.Dimension(leftW, cardY));
@@ -4794,8 +4747,7 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Instantiates an employee payslip card with dynamic content based on provided
-     * employee data.
+     * Legacy helper retained for compatibility; the HR dashboard no longer uses it.
      */
     private static JPanel buildEmployeePayslipCard(int x, int y, int w, int h, String[] emp) {
         LocalDate today = LocalDate.now();
@@ -4830,8 +4782,7 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Instantiates an employee profile card with dynamic content based on provided
-     * employee data.
+     * Legacy helper retained for compatibility; the HR dashboard no longer uses it.
      */
     private static JPanel buildEmployeeProfileCard(int x, int y, int w, int h, String[] emp) {
         String name = emp != null ? EmployeeModule.fullName(emp) : "—";
@@ -4857,8 +4808,7 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Instantiates an employee updates card with dynamic content based on provided
-     * notifications.
+     * Legacy helper retained for compatibility; the HR dashboard no longer uses it.
      */
     private static JPanel buildEmployeeUpdatesCard(int x, int y, int w, int h) {
         JPanel card = makeDashboardCardShell(x, y, w, h);
@@ -5027,12 +4977,12 @@ public class MotorPH_GUI {
         brand.setFont(new Font("Segoe UI", Font.BOLD, 20));
         brand.setForeground(PALETTE_WHITE);
         brand.setBounds(20, 18, sw - 40, 28);
-        JLabel brandSub = new JLabel(isHrUser() ? "HR Portal" : "Employee Portal");
+        JLabel brandSub = new JLabel("HR Administration");
         brandSub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         brandSub.setForeground(new Color(150, 180, 230));
         brandSub.setBounds(20, 46, sw - 40, 16);
         JPanel rolePill = new JPanel(null);
-        rolePill.setBackground(isHrUser() ? new Color(55, 90, 160) : new Color(40, 100, 90));
+        rolePill.setBackground(new Color(55, 90, 160));
         rolePill.setBounds(20, 68, 72, 20);
         JLabel roleBadge = new JLabel(getRoleDisplayName().toUpperCase(), SwingConstants.CENTER);
         roleBadge.setFont(new Font("Segoe UI", Font.BOLD, 9));
@@ -5054,22 +5004,12 @@ public class MotorPH_GUI {
         addSidebarNavButton(sidebar, "Dashboard", 0, btnY, sw, btnH, "Dashboard".equals(activePage),
                 e -> showDashboard());
         btnY += btnH + SIDEBAR_NAV_GAP;
-
-        if (isHrUser()) {
-            addSidebarNavButton(sidebar, "Records", 0, btnY, sw, btnH, "Records".equals(activePage),
-                    e -> showEmployeeRecordsUI());
-            btnY += btnH + SIDEBAR_NAV_GAP;
-            addSidebarNavButton(sidebar, "Payroll", 0, btnY, sw, btnH, "Payroll".equals(activePage),
-                    e -> setupPayrollUI());
-            btnY += btnH + SIDEBAR_NAV_GAP;
-        } else {
-            addSidebarNavButton(sidebar, "My Profile", 0, btnY, sw, btnH,
-                    "My Profile".equals(activePage), e -> showEmployeeLookupUI());
-            btnY += btnH + SIDEBAR_NAV_GAP;
-            addSidebarNavButton(sidebar, "My Payslip", 0, btnY, sw, btnH, "Payroll".equals(activePage),
-                    e -> setupPayrollUI());
-            btnY += btnH + SIDEBAR_NAV_GAP;
-        }
+        addSidebarNavButton(sidebar, "Records", 0, btnY, sw, btnH, "Records".equals(activePage),
+                e -> showEmployeeRecordsUI());
+        btnY += btnH + SIDEBAR_NAV_GAP;
+        addSidebarNavButton(sidebar, "Payroll", 0, btnY, sw, btnH, "Payroll".equals(activePage),
+                e -> setupPayrollUI());
+        btnY += btnH + SIDEBAR_NAV_GAP;
 
         // Anchor Sign Out to a fixed slot above the sidebar bottom with extra clearance
         final int LOGOUT_BTN_H = BTN_HEIGHT;
@@ -7272,33 +7212,6 @@ public class MotorPH_GUI {
         return cleaned;
     }
 
-    /** Exports the batch summary as a PDF document. */
-    private static void exportBatchSummaryPdf(java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed,
-            String monthName, String year, JDialog parent) {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Save Batch Summary as PDF");
-        chooser.setSelectedFile(new java.io.File("BatchSummary_" + monthName + "_" + year + ".pdf"));
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
-        if (chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-
-        java.io.File target = chooser.getSelectedFile();
-        if (!target.getName().toLowerCase().endsWith(".pdf")) {
-            target = new java.io.File(target.getAbsolutePath() + ".pdf");
-        }
-
-        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
-            byte[] pdf = buildBatchSummaryPdf(computed, monthName, year);
-            fos.write(pdf);
-            showToast("Batch summary PDF saved: " + target.getName());
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(parent,
-                    "Could not save PDF: " + ex.getMessage(),
-                    "Export Failed", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
     /**
      * Captures compiled plain text rows and routes file stream utilities to create
      * local system-compatible batch summary sheets.
@@ -7326,95 +7239,6 @@ public class MotorPH_GUI {
                     "Could not save CSV: " + ex.getMessage(),
                     "Export Failed", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    /** Generates a PDF document containing the batch payroll summary. */
-    private static byte[] buildBatchSummaryPdf(java.util.List<SalaryComputationModule.EmployeePayrollSummary> computed,
-            String monthName, String year) throws java.io.IOException {
-        StringBuilder cs = new StringBuilder();
-        final int pageLeft = 50;
-        final int pageWidth = 495;
-        final int pageRight = pageLeft + pageWidth;
-
-        pdfFillRect(cs, 0.13f, 0.25f, 0.55f, pageLeft, 750, pageWidth, 48);
-        pdfDrawTextCentered(cs, pageLeft, pageWidth, 780, "BATCH SUMMARY", 16f, true, 1f, 1f, 1f);
-        pdfDrawTextCentered(cs, pageLeft, pageWidth, 765,
-                monthName + " " + year + "  ·  " + computed.size() + " employees", 9f, false, 1f, 1f, 1f);
-
-        int y = 720;
-        pdfDrawText(cs, pageLeft, y, "Employee ID", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 125, y, "Name", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 300, y, "Total Gross", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 405, y, "Total Deductions", 9f, true, 0f, 0f, 0f);
-        pdfDrawText(cs, 520, y, "Final Net Pay", 9f, true, 0f, 0f, 0f);
-        pdfDrawLine(cs, 0.75f, 0.80f, 0.88f, 0.8f, pageLeft, y - 4, pageRight, y - 4);
-
-        y -= 18;
-        for (SalaryComputationModule.EmployeePayrollSummary s : computed) {
-            pdfDrawText(cs, pageLeft, y, s.employeeId, 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 125, y, s.employeeName, 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 300, y, String.format("PHP %,.2f", s.grossFirst + s.grossSecond), 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 405, y, String.format("PHP %,.2f", s.totalDeductions), 8.5f, false, 0f, 0f, 0f);
-            pdfDrawText(cs, 520, y, String.format("PHP %,.2f", s.netPay), 8.5f, false, 0f, 0f, 0f);
-            y -= 14;
-            if (y < 120) {
-                break;
-            }
-        }
-
-        pdfDrawLine(cs, 0.13f, 0.25f, 0.55f, 1f, pageLeft, 110, pageRight, 110);
-        pdfDrawText(cs, pageLeft, 94, "Generated by MotorPH Payroll System", 8f, false, 0.42f, 0.44f, 0.50f);
-
-        byte[] csBytes = cs.toString().getBytes("ISO-8859-1");
-        String s1 = "1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n";
-        String s2 = "2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n";
-        String s3 = "3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources <</Font <</F1 5 0 R /F2 6 0 R>>>>>>\nendobj\n";
-        String s4h = "4 0 obj\n<</Length " + csBytes.length + ">>\nstream\n";
-        String s4f = "\nendstream\nendobj\n";
-        String s5 = "5 0 obj\n<</Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>\nendobj\n";
-        String s6 = "6 0 obj\n<</Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding>>\nendobj\n";
-
-        byte[] hdr = "%PDF-1.4\n".getBytes("ISO-8859-1");
-        byte[] b1 = s1.getBytes("ISO-8859-1");
-        byte[] b2 = s2.getBytes("ISO-8859-1");
-        byte[] b3 = s3.getBytes("ISO-8859-1");
-        byte[] b4h = s4h.getBytes("ISO-8859-1");
-        byte[] b4c = csBytes;
-        byte[] b4f = s4f.getBytes("ISO-8859-1");
-        byte[] b5 = s5.getBytes("ISO-8859-1");
-        byte[] b6 = s6.getBytes("ISO-8859-1");
-
-        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-        out.write(hdr);
-        int o1 = out.size();
-        out.write(b1);
-        int o2 = out.size();
-        out.write(b2);
-        int o3 = out.size();
-        out.write(b3);
-        int o4 = out.size();
-        out.write(b4h);
-        out.write(b4c);
-        out.write(b4f);
-        int o5 = out.size();
-        out.write(b5);
-        int o6 = out.size();
-        out.write(b6);
-
-        StringBuilder x = new StringBuilder();
-        x.append("xref\n0 7\n0000000000 65535 f \n");
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o1));
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o2));
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o3));
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o4));
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o5));
-        x.append(String.format(java.util.Locale.US, "%010d 00000 n \n", o6));
-        byte[] xBytes = x.toString().getBytes("ISO-8859-1");
-        int xrefPos = out.size();
-        out.write(xBytes);
-        String trailer = "trailer\n<</Size 7 /Root 1 0 R>>\nstartxref\n" + xrefPos + "\n%%EOF";
-        out.write(trailer.getBytes("ISO-8859-1"));
-        return out.toByteArray();
     }
 
     /**
@@ -7473,8 +7297,7 @@ public class MotorPH_GUI {
     }
 
     /**
-     * Routes to HR payroll (single/batch) or employee My Payslip based on
-     * {@link #isHrUser()}.
+     * Routes to the HR payroll dashboard.
      * Entry point from sidebar, dashboard cards, and deep links such as
      * {@link #openPayrollForEmployee}.
      */
@@ -7485,23 +7308,11 @@ public class MotorPH_GUI {
         frame.getContentPane().setBackground(APP_BG);
 
         buildAndAddSidebar("Payroll");
-        if (isHrUser()) {
-            String payrollSubtitle = "Reports".equals(payrollSubView)
-                    ? "Review employee payslip concerns, fix payroll data, and mark reports resolved."
-                    : "Set pay period, select employees, then calculate payroll.";
-            addPageHeader("Payroll Processing", payrollSubtitle, true);
-        } else {
-            addPageHeader("My Payslip");
-        }
-
-        if (isHrUser()) {
-            setupHrPayrollWithSubMenu();
-            addStatusBar();
-            updateDisplay();
-            return;
-        }
-
-        setupEmployeePayslipContent();
+        String payrollSubtitle = "Reports".equals(payrollSubView)
+                ? "Review employee payslip concerns, fix payroll data, and mark reports resolved."
+                : "Set pay period, select employees, then calculate payroll.";
+        addPageHeader("Payroll Processing", payrollSubtitle, true);
+        setupHrPayrollWithSubMenu();
         addStatusBar();
         updateDisplay();
     }
@@ -7513,17 +7324,13 @@ public class MotorPH_GUI {
      * or displays validation errors in the text area and a JOptionPane dialog.
      */
     static void showEmployeeLookupUI() {
-        if (!isHrUser()) {
-            showMyProfileUI();
-            return;
-        }
         currentView = "Directory";
         frame.getContentPane().removeAll();
         frame.setLayout(null);
         frame.getContentPane().setBackground(APP_BG);
 
-        buildAndAddSidebar(isHrUser() ? HR_DIRECTORY_NAV : "My Profile");
-        addPageHeader(isHrUser() ? HR_DIRECTORY_TITLE : "My Profile");
+        buildAndAddSidebar(HR_DIRECTORY_NAV);
+        addPageHeader(HR_DIRECTORY_TITLE);
 
         java.awt.Rectangle bounds = getContentBounds();
         JPanel lookupPanel = new JPanel();
@@ -7532,15 +7339,13 @@ public class MotorPH_GUI {
         lookupPanel.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
         lookupPanel.setBorder(cardBorder());
 
-        JLabel lblPrompt = createStyledLabel(isHrUser()
-                ? "Employee ID or Name"
-                : "Employee ID");
+        JLabel lblPrompt = createStyledLabel("Employee ID or Name");
         lblPrompt.setBounds(32, 28, bounds.width - 64, 24);
 
         txtLookupInput = createStyledTextField(true);
         txtLookupInput.setBounds(32, 56, bounds.width - 64, FIELD_HEIGHT);
         attachFocusHighlight(txtLookupInput);
-        attachPlaceholder(txtLookupInput, isHrUser() ? "e.g. 10001 or Garcia" : "e.g. 10024");
+        attachPlaceholder(txtLookupInput, "e.g. 10001 or Garcia");
         txtLookupInput.addKeyListener(new KeyListener() {
             @Override
             public void keyTyped(KeyEvent e) {
@@ -7598,371 +7403,23 @@ public class MotorPH_GUI {
         updateDisplay();
     }
 
-    /**
-     * My Profile screen for employee portal users.
-     * Auto-loads the linked employee record (10001 — Manuel Garcia III) and
-     * displays
-     * a structured card with read-only employment info and editable address /
-     * phone.
-     */
+    /** HR-only profile entry point. */
     static void showMyProfileUI() {
-        currentView = "My Profile";
-        frame.getContentPane().removeAll();
-        frame.setLayout(null);
-        frame.getContentPane().setBackground(APP_BG);
-
-        buildAndAddSidebar("My Profile");
-        addPageHeader("My Profile");
-
-        java.awt.Rectangle bounds = getContentBounds();
-
-        String empId = MotorPH_EmployeeApp.getLinkedEmployeeId(loggedInUser);
-        String[] empData = null;
-        if (empId != null) {
-            String rawLine = FileHandlerModule.findEmployeeData(empId);
-            if (rawLine != null)
-                empData = FileHandlerModule.smartSplit(rawLine);
-        }
-
-        JPanel card = new JPanel(null);
-        card.setBackground(PALETTE_WHITE);
-        card.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
-        card.setBorder(cardBorder());
-
-        if (empData == null) {
-            JLabel err = new JLabel("Employee profile could not be loaded.");
-            err.setBounds(32, 32, bounds.width - 64, 24);
-            err.setFont(APP_FONT_PLAIN);
-            err.setForeground(TEXT_MUTED);
-            card.add(err);
-            frame.add(card);
-            addStatusBar();
-            updateDisplay();
-            return;
-        }
-
-        final String[] emp = empData;
-        final String linkedId = empId;
-
-        int padX = 32;
-        int innerW = bounds.width - 16;
-        int contentW = innerW - padX * 2;
-        boolean singleColumn = bounds.width < RESP_PROFILE_SINGLE_COL;
-        int halfW = singleColumn ? contentW : (contentW - 16) / 2;
-        int col2X = padX + halfW + 16;
-
-        JPanel inner = new JPanel(null);
-        inner.setBackground(PALETTE_WHITE);
-
-        int y = 0;
-
-        // Profile header strip
-        JPanel strip = new JPanel(null);
-        strip.setBackground(SIDEBAR_BG);
-        strip.setBounds(0, 0, innerW, 76);
-        JLabel lblName = new JLabel(EmployeeModule.fullName(emp));
-        lblName.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        lblName.setForeground(PALETTE_WHITE);
-        lblName.setBounds(padX, 14, contentW, 24);
-        strip.add(lblName);
-        JLabel lblIdPos = new JLabel("Employee #" + safeColumn(emp, EmployeeModule.ID)
-                + "   ·   " + safeColumn(emp, EmployeeModule.POSITION));
-        lblIdPos.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblIdPos.setForeground(new Color(175, 205, 250));
-        lblIdPos.setBounds(padX, 42, contentW, 18);
-        strip.add(lblIdPos);
-        inner.add(strip);
-        y = 76 + 20;
-
-        // Section: Employee Information
-        JLabel secInfo = new JLabel("Employee Information");
-        secInfo.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        secInfo.setForeground(ACCENT_BLUE);
-        secInfo.setBounds(padX, y, contentW, 18);
-        inner.add(secInfo);
-        y += 26;
-
-        String[][] infoRows = {
-                { "Birthday",
-                        EmployeeRecordsModule.formatBirthdayForDisplay(safeColumn(emp, EmployeeModule.BIRTHDAY)) },
-                { "Status", safeColumn(emp, EmployeeModule.STATUS) },
-                { "Position", safeColumn(emp, EmployeeModule.POSITION) },
-                { "Immediate Supervisor", safeColumn(emp, EmployeeModule.IMMEDIATE_SUPERVISOR) },
-                { "Basic Salary", "PHP " + safeColumn(emp, EmployeeModule.BASIC_SALARY) },
-                { "SSS #", safeColumn(emp, EmployeeModule.SSS) },
-                { "PhilHealth #", safeColumn(emp, EmployeeModule.PHILHEALTH) },
-                { "TIN #", safeColumn(emp, EmployeeModule.TIN) },
-                { "Pag-IBIG #", safeColumn(emp, EmployeeModule.PAGIBIG) },
-        };
-
-        int rowY = y;
-        for (int i = 0; i < infoRows.length; i++) {
-            int col = singleColumn ? 0 : i % 2;
-            int xPos = col == 0 ? padX : col2X;
-
-            JLabel lbl = new JLabel(infoRows[i][0]);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
-            lbl.setForeground(TEXT_MUTED);
-            lbl.setBounds(xPos, rowY, halfW, 14);
-            inner.add(lbl);
-
-            JLabel val = new JLabel(infoRows[i][1]);
-            val.setFont(APP_FONT_PLAIN);
-            val.setForeground(TEXT_DARK_NAVY);
-            val.setBounds(xPos, rowY + 16, halfW, 20);
-            inner.add(val);
-
-            if (singleColumn || col == 1 || i == infoRows.length - 1) {
-                rowY += 48;
-            }
-        }
-        y = rowY + 8;
-
-        // Separator
-        JPanel sep0 = new JPanel();
-        sep0.setBackground(CARD_BORDER_COLOR);
-        sep0.setBounds(padX, y, contentW, 1);
-        inner.add(sep0);
-        y += 18;
-
-        // Section: Compensation & Benefits
-        JLabel secComp = new JLabel("Compensation & Benefits");
-        secComp.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        secComp.setForeground(ACCENT_BLUE);
-        secComp.setBounds(padX, y, contentW, 18);
-        inner.add(secComp);
-        y += 26;
-
-        double profileBasic = 0;
-        try {
-            profileBasic = Double.parseDouble(safeColumn(emp, EmployeeModule.BASIC_SALARY).replace(",", "").trim());
-        } catch (NumberFormatException ignored) {
-        }
-        double profileGross = profileBasic / 2.0;
-        double profileHourly = profileGross * 2.0 / 168.0;
-        String[][] compRows = {
-                { "Rice Subsidy", "PHP " + safeColumn(emp, EmployeeModule.RICE_SUBSIDY) },
-                { "Phone Allowance", "PHP " + safeColumn(emp, EmployeeModule.PHONE_ALLOWANCE) },
-                { "Clothing Allowance", "PHP " + safeColumn(emp, EmployeeModule.CLOTHING_ALLOWANCE) },
-                { "Gross Semi-monthly", String.format("PHP %,.2f", profileGross) },
-                { "Hourly Rate", String.format("PHP %.2f", profileHourly) },
-        };
-
-        int compRowY = y;
-        for (int i = 0; i < compRows.length; i++) {
-            int col = singleColumn ? 0 : i % 2;
-            int xPos = col == 0 ? padX : col2X;
-
-            JLabel lbl = new JLabel(compRows[i][0]);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
-            lbl.setForeground(TEXT_MUTED);
-            lbl.setBounds(xPos, compRowY, halfW, 14);
-            inner.add(lbl);
-
-            JLabel val = new JLabel(compRows[i][1]);
-            val.setFont(APP_FONT_PLAIN);
-            val.setForeground(TEXT_DARK_NAVY);
-            val.setBounds(xPos, compRowY + 16, halfW, 20);
-            inner.add(val);
-
-            if (singleColumn || col == 1 || i == compRows.length - 1) {
-                compRowY += 48;
-            }
-        }
-        y = compRowY + 8;
-
-        // Separator
-        JPanel sep = new JPanel();
-        sep.setBackground(CARD_BORDER_COLOR);
-        sep.setBounds(padX, y, contentW, 1);
-        inner.add(sep);
-        y += 18;
-
-        // Section: Contact Details (editable)
-        JLabel secContact = new JLabel("Contact Details");
-        secContact.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        secContact.setForeground(ACCENT_BLUE);
-        secContact.setBounds(padX, y, 145, 18);
-        inner.add(secContact);
-        JLabel secNote = new JLabel("Address and phone number are editable.");
-        secNote.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        secNote.setForeground(TEXT_MUTED);
-        if (singleColumn) {
-            secNote.setBounds(padX, y + 22, contentW, 16);
-            y += 48;
-        } else {
-            secNote.setBounds(padX + 156, y + 1, contentW - 156, 16);
-            y += 30;
-        }
-        inner.add(secNote);
-
-        JLabel lblAddr = new JLabel("Address");
-        lblAddr.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblAddr.setForeground(TEXT_MUTED);
-        lblAddr.setBounds(padX, y, contentW, 15);
-        inner.add(lblAddr);
-        y += 18;
-
-        final String originalAddress = safeColumn(emp, EmployeeModule.ADDRESS);
-        final String originalPhone = safeColumn(emp, EmployeeModule.PHONE);
-
-        JTextField fldAddress = new JTextField(originalAddress);
-        fldAddress.setBounds(padX, y, contentW, FIELD_HEIGHT);
-        styleInputField(fldAddress);
-        inner.add(fldAddress);
-        y += FIELD_HEIGHT + 14;
-
-        JLabel lblPhone = new JLabel("Phone Number");
-        lblPhone.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblPhone.setForeground(TEXT_MUTED);
-        lblPhone.setBounds(padX, y, halfW, 15);
-        inner.add(lblPhone);
-        y += 18;
-
-        JTextField fldPhone = new JTextField(originalPhone);
-        fldPhone.setBounds(padX, y, singleColumn ? contentW : halfW, FIELD_HEIGHT);
-        styleInputField(fldPhone);
-        inner.add(fldPhone);
-
-        JLabel lblPhoneWarning = new JLabel("Use numbers, and hyphens only.");
-        lblPhoneWarning.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblPhoneWarning.setForeground(new Color(180, 60, 40));
-        lblPhoneWarning.setBounds(padX, y + FIELD_HEIGHT + 4, singleColumn ? contentW : halfW, 16);
-        lblPhoneWarning.setVisible(false);
-        inner.add(lblPhoneWarning);
-        y += FIELD_HEIGHT + 24;
-
-        // Buttons
-        int btnW = 152;
-        boolean stackButtons = bounds.width < 420;
-        JButton btnSave = new JButton("Save Changes");
-        btnSave.setBounds(padX, y, btnW, BTN_HEIGHT);
-        guiStyleAccentButton(btnSave);
-        inner.add(btnSave);
-
-        JButton btnBack = new JButton("Back to Dashboard");
-        if (stackButtons) {
-            btnBack.setBounds(padX, y + BTN_HEIGHT + 10, btnW + 16, BTN_HEIGHT);
-            y += BTN_HEIGHT * 2 + 10 + 32;
-        } else {
-            btnBack.setBounds(padX + btnW + 12, y, btnW + 16, BTN_HEIGHT);
-            y += BTN_HEIGHT + 32;
-        }
-        styleStandardButton(btnBack);
-        btnBack.addActionListener(e -> showDashboard());
-        inner.add(btnBack);
-
-        fldAddress.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void refresh() {
-                String current = fldAddress.getText();
-                if (current.equals(originalAddress)) {
-                    fldAddress.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-                } else {
-                    fldAddress.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-                }
-            }
-
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-        });
-
-        fldPhone.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            private void refresh() {
-                String current = fldPhone.getText();
-                boolean valid = current.matches("^[0-9-]*$");
-                if (!valid) {
-                    fldPhone.setBorder(BorderFactory.createLineBorder(new Color(180, 60, 40), 2));
-                    lblPhoneWarning.setVisible(true);
-                } else {
-                    lblPhoneWarning.setVisible(false);
-                    if (current.equals(originalPhone)) {
-                        fldPhone.setBorder(BorderFactory.createLineBorder(CARD_BORDER_COLOR, 1));
-                    } else {
-                        fldPhone.setBorder(BorderFactory.createLineBorder(new Color(22, 130, 70), 2));
-                    }
-                }
-            }
-
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                refresh();
-            }
-        });
-
-        inner.setPreferredSize(new java.awt.Dimension(innerW, y));
-
-        btnSave.addActionListener(e -> {
-            String newAddr = fldAddress.getText().trim();
-            String newPhone = fldPhone.getText().trim();
-            List<String> errs = new ArrayList<>();
-            if (newAddr.isEmpty())
-                errs.add("Address cannot be empty.");
-            if (newPhone.isEmpty())
-                errs.add("Phone number cannot be empty.");
-            if (!newPhone.matches("^[0-9-]*$")) {
-                errs.add("Phone number may only contain digits and hyphens.");
-            }
-            if (!errs.isEmpty()) {
-                showBulletErrorDialog(frame, errs, "Validation Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            emp[EmployeeModule.ADDRESS] = newAddr;
-            emp[EmployeeModule.PHONE] = newPhone;
-            if (FileHandlerModule.updateEmployeeRecord(linkedId, emp)) {
-                showToast("Profile updated successfully.");
-            } else {
-                showToast("Failed to save changes.", new Color(180, 90, 40));
-            }
-        });
-
-        JScrollPane scroll = new JScrollPane(inner,
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.setBounds(0, 0, bounds.width, bounds.height);
-        scroll.setBorder(null);
-        scroll.getViewport().setBackground(PALETTE_WHITE);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-
-        card.add(scroll);
-        frame.add(card);
-        addStatusBar();
-        updateDisplay();
+        showEmployeeLookupUI();
     }
 
     /** True when the logged-in user is on the HR portal. */
     private static boolean isHrUser() {
-        return MotorPH_EmployeeApp.loggedInRole == MotorPH_EmployeeApp.UserRole.HR;
+        return true;
     }
 
-    /** True when the logged-in user is on the employee portal. */
+    /** Convenience helper retained for consistency with older call sites. */
     private static boolean isEmployeeUser() {
-        return MotorPH_EmployeeApp.loggedInRole == MotorPH_EmployeeApp.UserRole.EMPLOYEE;
+        return false;
     }
 
     private static String getRoleDisplayName() {
-        return isHrUser() ? "HR" : "Employee";
+        return "HR";
     }
 
     /**
